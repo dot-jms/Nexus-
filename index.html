@@ -927,8 +927,9 @@ function doSignup() {
 
 function signOut() {
   if(!confirm('Sign out?'))return;
-  lsSet('nx-session',null); S.user=null; S.servers=[]; S.messages={}; S.dms=[];
-  if(S.ws){try{S.ws.close();}catch(e){} S.ws=null;}
+  lsSet('nx-session',null); S.user=null; S.servers=[]; S.messages={}; S.dms=[]; S.dmMessages={};
+  S.wsConnecting=false; S.wsOk=false; curDM=null;
+  if(S.ws){try{S.ws.onclose=null;S.ws.close();}catch(e){} S.ws=null;}
   document.getElementById('app').classList.remove('vis');
   document.getElementById('auth-screen').style.display='flex';
   switchTab('login');
@@ -1001,25 +1002,36 @@ function saveProfile() {
 // WEBSOCKET
 // ══════════════════════════════════
 function connectWS() {
-  if(S.ws){try{S.ws.close();}catch(e){}}
+  // Prevent overlapping reconnect attempts
+  if (S.wsConnecting) return;
+  S.wsConnecting = true;
+  if (S.ws) { try { S.ws.onclose=null; S.ws.close(); } catch(e){} S.ws=null; }
   setWS('connecting'); setBanner('Connecting...');
-  try{ S.ws=new WebSocket(WS_URL); }
-  catch(e){ setWS('error'); setBanner('WebSocket not configured — add your Railway URL.'); return; }
-  S.ws.onopen=()=>{
-    S.wsOk=true; setWS('connected'); hideBanner();
+  let ws;
+  try { ws = new WebSocket(WS_URL); }
+  catch(e) { S.wsConnecting=false; setWS('error'); setBanner('WebSocket not configured — add your Deno URL.'); return; }
+  S.ws = ws;
+  ws.onopen = () => {
+    if (S.ws !== ws) { ws.close(); return; } // stale socket, discard
+    S.wsConnecting = false; S.wsOk = true; setWS('connected'); hideBanner();
     wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null});
-    // Re-announce public servers we own so the relay's list stays fresh after restarts
     const myPublic = S.servers.filter(sv => sv.isPublic && sv.ownerId === S.user.name);
     if (myPublic.length) {
       wsSend({type:'announce_servers', servers: myPublic.map(sv => ({
         id:sv.id, name:sv.name, desc:sv.desc||'', icon:sv.icon||null,
-        color:sv.color, memberCount:sv.memberCount||1, createdAt:sv.createdAt||Date.now()
+        color:sv.color, memberCount:sv.memberCount||1, createdAt:sv.createdAt||Date.now(),
+        channels:sv.channels||[], ownerId:sv.ownerId
       }))});
     }
   };
-  S.ws.onmessage=e=>{ try{handleIn(JSON.parse(e.data));}catch(err){} };
-  S.ws.onerror=()=>{ S.wsOk=false; setWS('error'); };
-  S.ws.onclose=()=>{ S.wsOk=false; setWS('disconnected'); setBanner('Disconnected — reconnecting in 5s...'); setTimeout(connectWS,5000); };
+  ws.onmessage = e => { try { handleIn(JSON.parse(e.data)); } catch(err) {} };
+  ws.onerror = () => { S.wsOk = false; setWS('error'); };
+  ws.onclose = () => {
+    if (S.ws !== ws) return; // stale socket, ignore
+    S.wsConnecting = false; S.wsOk = false; S.ws = null;
+    setWS('disconnected'); setBanner('Disconnected — reconnecting in 5s...');
+    setTimeout(connectWS, 5000);
+  };
 }
 function wsSend(o){ if(S.ws?.readyState===1){S.ws.send(JSON.stringify(o));return true;} return false; }
 
@@ -1032,7 +1044,22 @@ function handleIn(msg) {
       if(msg.author!==S.user.name&&S.curCh?.id===msg.channelId) showTyping(msg.author);
       break;
     case 'delete_message': delById(msg.messageId,msg.channelId); break;
-    case 'reaction': if(S.curCh?.id===msg.channelId) renderMsgs(msg.channelId); break;
+    case 'reaction': {
+      // Apply remote reaction to local message store
+      const rmsgs = S.messages[msg.channelId];
+      if (rmsgs) {
+        const rm = rmsgs.find(x => x.id === msg.messageId);
+        if (rm) {
+          if (!rm.reactions) rm.reactions = [];
+          let rr = rm.reactions.find(x => x.emoji === msg.emoji);
+          if (rr) { if (!rr.users?.includes(msg.user)) { rr.count++; rr.users = [...(rr.users||[]), msg.user]; } }
+          else { rm.reactions.push({ emoji: msg.emoji, count: 1, users: [msg.user] }); }
+          persist();
+        }
+      }
+      if (S.curCh?.id === msg.channelId) renderMsgs(msg.channelId);
+      break;
+    }
     case 'dm': recvDM(msg); break;
     case 'dm_request': recvDMRequest(msg); break;
     case 'dm_accept': recvDMAccept(msg); break;
@@ -1045,8 +1072,16 @@ function handleIn(msg) {
       if(S.curSv?.id===msg.serverId) renderMbs();
       break;
     case 'member_leave':
-      if(S.members[msg.serverId]) S.members[msg.serverId]=S.members[msg.serverId].filter(m=>m.name!==msg.user);
-      if(S.curSv?.id===msg.serverId) renderMbs();
+      if (msg.serverId === '__all__') {
+        // User disconnected — remove from all servers
+        Object.keys(S.members).forEach(sid => {
+          S.members[sid] = S.members[sid].filter(m => m.name !== msg.user);
+        });
+        if (S.curSv) renderMbs();
+      } else {
+        if(S.members[msg.serverId]) S.members[msg.serverId]=S.members[msg.serverId].filter(m=>m.name!==msg.user);
+        if(S.curSv?.id===msg.serverId) renderMbs();
+      }
       break;
     case 'member_list':
       S.members[msg.serverId]=msg.members||[];
@@ -1057,6 +1092,55 @@ function handleIn(msg) {
       S.discServers=msg.servers||[];
       renderDiscover();
       break;
+    case 'server_info': {
+      // Update local server with authoritative data (especially channels)
+      const sv = S.servers.find(s => s.id === msg.server?.id);
+      if (sv && msg.server) {
+        if (msg.server.channels?.length) sv.channels = msg.server.channels;
+        if (msg.server.ownerId) sv.ownerId = msg.server.ownerId;
+        persist();
+        if (S.curSv?.id === sv.id) renderChs();
+      }
+      break;
+    }
+    case 'server_delete': {
+      const wasCur = S.curSv?.id === msg.serverId;
+      const deletedSv = S.servers.find(s => s.id === msg.serverId);
+      // Delete all channel messages for this server
+      if (deletedSv) (deletedSv.channels||[]).forEach(ch => delete S.messages[ch.id]);
+      S.servers = S.servers.filter(s => s.id !== msg.serverId);
+      persist(); renderSvs();
+      if (wasCur) { S.curSv=null; S.curCh=null; showWelcome(); document.getElementById('sv-nm').textContent='—'; document.getElementById('ch-list').innerHTML=''; document.getElementById('members').innerHTML=''; }
+      toast('🗑 A server you were in was deleted');
+      break;
+    }
+    case 'kick_member':
+      if (msg.target === S.user.name) {
+        S.servers = S.servers.filter(s => s.id !== msg.serverId);
+        persist(); renderSvs();
+        if (S.curSv?.id === msg.serverId) { S.curSv=null; S.curCh=null; showWelcome(); document.getElementById('sv-nm').textContent='—'; document.getElementById('ch-list').innerHTML=''; document.getElementById('members').innerHTML=''; }
+        toast('⚡ You were kicked from a server');
+      }
+      break;
+    case 'server_update': {
+      const sv = S.servers.find(s => s.id === msg.serverId);
+      if (sv) {
+        if (msg.name) sv.name = msg.name;
+        if (msg.desc !== undefined) sv.desc = msg.desc;
+        if (msg.icon !== undefined) sv.icon = msg.icon;
+        if (msg.color) sv.color = msg.color;
+        if (msg.channels) sv.channels = msg.channels;
+        persist(); renderSvs();
+        if (S.curSv?.id === msg.serverId) { document.getElementById('sv-nm').textContent = sv.name; renderChs(); }
+      }
+      break;
+    }
+    case 'join_server': {
+      // Update member count for servers we know about
+      const sv = S.servers.find(s => s.id === msg.serverId);
+      if (sv) { sv.memberCount = (sv.memberCount||1)+1; persist(); }
+      break;
+    }
     default: console.log('ws:',msg);
   }
 }
@@ -1089,7 +1173,7 @@ function selectSv(id) {
   renderSvs(); renderChs(); renderMbs();
   // Request member list from server
   wsSend({type:'get_members',serverId:id});
-  const first=S.curSv.channels?.find(c=>c.type==='text');
+  const first=(S.curSv.channels||[]).find(c=>c.type==='text');
   first?selectCh(first.id):showWelcome();
 }
 
@@ -1109,7 +1193,7 @@ function createSv() {
   };
   S.servers.push(sv); persist(); closeM('csv'); renderSvs(); selectSv(sv.id);
   toast('🎉 "'+name+'" created');
-  wsSend({type:'server_create',serverId:sv.id,name,desc:sv.desc,icon:sv.icon,color:sv.color,isPublic:true,memberCount:1,createdAt:sv.createdAt||Date.now()});
+  wsSend({type:'server_create',serverId:sv.id,name,desc:sv.desc,icon:sv.icon,color:sv.color,isPublic:true,memberCount:1,createdAt:sv.createdAt||Date.now(),channels:sv.channels,ownerId:sv.ownerId});
   document.getElementById('sv-in').value=''; document.getElementById('sv-desc').value='';
   svIconData=null; document.getElementById('sv-icon-preview').innerHTML='🖼️';
 }
@@ -1203,18 +1287,20 @@ function discCard(sv) {
 
 function joinDiscoverSv(sv, btn) {
   if(S.servers.find(s=>s.id===sv.id)){ toast('Already in this server'); return; }
+  // Request full server info (including channels) from relay before joining
+  wsSend({type:'get_server_info', serverId:sv.id});
+  // Optimistically add with available data, channels will be synced via server_info response
   const newSv={...sv,
-    channels:sv.channels||[{id:uid(),name:'general',type:'text',desc:'General chat'},{id:uid(),name:'random',type:'text',desc:'Anything goes'}],
+    channels:sv.channels||[],
     memberCount:(sv.memberCount||0)+1,
     memberRoles: sv.memberRoles||{},
     roles: sv.roles||[],
     banned: sv.banned||[],
-    // ownerId stays as-is from the server's broadcast; don't claim ownership
   };
   S.servers.push(newSv); persist(); renderSvs();
   btn.textContent='Joined'; btn.classList.add('joined');
   toast('✅ Joined "'+sv.name+'"');
-  wsSend({type:'join_server',serverId:sv.id,user:S.user.name});
+  wsSend({type:'join_server',serverId:sv.id,user:S.user.name,userName:S.user.name,color:S.user.color,pfp:S.user.pfp||null});
   selectSv(sv.id);
 }
 
@@ -1224,8 +1310,10 @@ function joinDiscoverSv(sv, btn) {
 function renderChs() {
   const el=document.getElementById('ch-list'); el.innerHTML='';
   if(!S.curSv) return;
-  const txt=S.curSv.channels.filter(c=>c.type==='text');
-  const vox=S.curSv.channels.filter(c=>c.type==='voice');
+  const chs = S.curSv.channels || [];
+  if (!chs.length) { el.innerHTML='<div style="padding:16px;font-size:12px;color:var(--t3);text-align:center">No channels yet</div>'; return; }
+  const txt=chs.filter(c=>c.type==='text');
+  const vox=chs.filter(c=>c.type==='voice');
   if(txt.length){ el.innerHTML+=`<div class="ch-cat"><span>Text Channels</span><span class="cat-add" onclick="openM('ach')">+</span></div>`; txt.forEach(c=>el.innerHTML+=chHTML(c,'#')); }
   if(vox.length){ el.innerHTML+=`<div class="ch-cat"><span>Voice Channels</span><span class="cat-add" onclick="openM('ach')">+</span></div>`; vox.forEach(c=>el.innerHTML+=chHTML(c,'🔊')); }
   hlCh();
@@ -1250,6 +1338,8 @@ function addCh() {
   S.curSv.channels.push({id:uid(),name,type:S.chType,desc:''}); persist(); closeM('ach'); renderChs();
   selectCh(S.curSv.channels[S.curSv.channels.length-1].id);
   toast('✅ #'+name+' created'); document.getElementById('ch-in').value='';
+  // Broadcast updated channel list to all members
+  wsSend({type:'server_update', serverId:S.curSv.id, name:S.curSv.name, desc:S.curSv.desc, icon:S.curSv.icon||null, color:S.curSv.color, isPublic:S.curSv.isPublic, memberCount:S.curSv.memberCount||1, createdAt:S.curSv.createdAt||Date.now(), channels:S.curSv.channels, ownerId:S.curSv.ownerId});
 }
 function setCT(t){ S.chType=t; document.getElementById('ct-txt').classList.toggle('sel',t==='text'); document.getElementById('ct-vox').classList.toggle('sel',t==='voice'); }
 
@@ -1287,7 +1377,7 @@ function buildMsg(m,grp) {
     <div class="m-acts">
       <div class="ma" title="React" onclick="openReactPicker('${m.id}',event)">😊</div>
       <div class="ma" title="Reply" onclick="replyTo('${esc(m.author)}')">↩</div>
-      ${isMe?`<div class="ma" title="Delete" onclick="delMsg('${m.id}')">🗑</div>`:''}
+      ${isMe&&!curDM?`<div class="ma" title="Delete" onclick="delMsg('${m.id}')">🗑</div>`:''}
     </div>
   </div>`;
 }
@@ -1655,7 +1745,8 @@ function sendDMMsg() {
 function recvDM(msg) {
   const from = msg.from || msg.author;
   let dm = S.dms.find(d => d.name === from);
-  if (!dm) return; // ignore if no accepted convo
+  if (!dm) return; // ignore if no convo at all
+  if (dm.status === 'pending_sent' || dm.status === 'pending_received') return; // not accepted yet
   if (!S.dmMessages[from]) S.dmMessages[from] = [];
   S.dmMessages[from].push({ id: msg.id || uid(), author: from, authorColor: msg.authorColor, authorPfp: msg.authorPfp, text: msg.text, ts: msg.ts || Date.now(), reactions: [], attachments: msg.attachments || [] });
   dm.last = msg.text || '[attachment]';
@@ -1715,7 +1806,7 @@ document.getElementById('msg-in').addEventListener('keydown',e=>{if(e.key==='Ent
 document.addEventListener('click',e=>{
   if(!e.target.closest('#main-emoji-picker')&&!e.target.closest('#emoji-trigger')) document.getElementById('main-emoji-picker').classList.remove('open');
   if(!e.target.closest('#react-picker')&&!e.target.closest('.ma')) closeReactPicker();
-  if(!e.target.closest('#dm-panel')&&!e.target.closest('.ib')) document.getElementById('dm-panel').classList.remove('open');
+  if(!e.target.closest('#dm-panel')&&!e.target.closest('[onclick="toggleDM()"]')) document.getElementById('dm-panel').classList.remove('open');
   if(!e.target.closest('#sv-hd')) document.getElementById('sv-dropdown').classList.remove('open');
   if(!e.target.closest('#member-ctx')&&!e.target.closest('.mb-it')) document.getElementById('member-ctx').style.display='none';
 });
@@ -2087,8 +2178,8 @@ function deleteServer() {
   const sv = S.curSv; if (!sv) return;
   if (sv.ownerId !== S.user.name) { toast('Only the server owner can delete it'); return; }
   if (!confirm(`Permanently delete "${sv.name}"? This cannot be undone.`)) return;
+  (sv.channels||[]).forEach(ch => delete S.messages[ch.id]);
   S.servers = S.servers.filter(s=>s.id!==sv.id);
-  delete S.messages[sv.id];
   persist(); closeM('sv-settings');
   S.curSv = null; S.curCh = null;
   renderSvs();
