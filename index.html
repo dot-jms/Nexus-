@@ -101,6 +101,64 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
 .u-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;position:relative;overflow:hidden;cursor:pointer}
 .u-av img{width:100%;height:100%;object-fit:cover}
 .u-dot{position:absolute;bottom:0;right:0;width:9px;height:9px;background:var(--green);border:2px solid var(--bg);border-radius:50%}
+.u-dot.idle{background:var(--yellow)}
+.u-dot.dnd{background:var(--red)}
+.u-dot.invisible{background:var(--t3)}
+.status-menu{position:absolute;bottom:52px;left:8px;background:var(--s3);border:1px solid var(--border2);border-radius:10px;padding:4px;z-index:200;min-width:160px;box-shadow:0 8px 32px rgba(0,0,0,.5);display:none}
+.status-menu.open{display:block}
+.status-opt{padding:8px 10px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;cursor:pointer;border-radius:6px;transition:background .12s}
+.status-opt:hover{background:var(--s4)}
+.status-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+/* pinned messages */
+.pin-btn{opacity:0;transition:opacity .12s}
+.msg:hover .pin-btn{opacity:1}
+.pinned-bar{padding:6px 14px;background:rgba(251,191,36,.06);border-bottom:1px solid rgba(251,191,36,.15);font-size:11px;color:var(--yellow);display:none;align-items:center;gap:6px;cursor:pointer}
+.pinned-bar.show{display:flex}
+/* invite modal */
+.invite-box{background:var(--s3);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--t1);word-break:break-all;margin-bottom:10px}
+/* voice message */
+.vm-msg{background:var(--s3);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;max-width:240px;cursor:pointer}
+.vm-play{width:30px;height:30px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff}
+.vm-wave{flex:1;height:32px;opacity:.7}
+.vm-dur{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+/* friends */
+.friend-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.friend-row:last-child{border-bottom:none}
+.friend-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0;overflow:hidden;position:relative}
+.friend-av img{width:100%;height:100%;object-fit:cover}
+.friend-status{position:absolute;bottom:0;right:0;width:9px;height:9px;border-radius:50%;border:2px solid var(--bg)}
+.friend-name{font-size:14px;font-weight:600;flex:1}
+.friend-tag{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace}
+/* notifications */
+.notif-item{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;font-size:13px}
+.notif-item:hover{background:var(--s2)}
+.notif-item.unread{background:rgba(108,99,255,.06)}
+.notif-icon{font-size:18px;flex-shrink:0}
+/* notif badge */
+.notif-badge,.fr-badge{position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--red);border:2px solid var(--bg)}
+/* shorts feed */
+.short-card{width:100%;height:100vh;scroll-snap-align:start;position:relative;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.short-card iframe,.short-card video{width:100%;height:100%;object-fit:contain;border:none}
+.short-overlay{position:absolute;bottom:0;left:0;right:0;padding:20px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff}
+.short-actions{position:absolute;right:16px;bottom:80px;display:flex;flex-direction:column;gap:16px;align-items:center}
+.short-action-btn{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;color:#fff}
+.short-action-btn svg{filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+.short-action-count{font-size:12px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.short-caption{font-size:14px;font-weight:600;margin-bottom:4px;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.short-author{font-size:12px;opacity:.8}
+/* search results */
+.search-result{background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:background .12s}
+.search-result:hover{background:var(--s4)}
+.search-result-meta{font-size:11px;color:var(--t3);margin-bottom:4px}
+.search-result-text{font-size:13px;color:var(--t2)}
+.search-highlight{background:rgba(251,191,36,.3);color:var(--t1);border-radius:2px;padding:0 2px}
+/* custom emoji */
+.custom-em{width:32px;height:32px;border-radius:4px;cursor:pointer;object-fit:cover;border:1px solid var(--border)}
+.custom-em:hover{border-color:var(--accent)}
+/* fr-badge inline */
+#rail-friends{position:relative}
+#rail-notifs{position:relative}
 .u-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .u-tag{font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace}
 .u-acts{display:flex;gap:2px;margin-left:auto}
@@ -472,7 +530,15 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
     <div class="r-discover" id="rail-discover" onclick="showDiscover()" title="Discover Servers">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
     </div>
+    <div class="r-discover" id="rail-friends" onclick="showFriends()" title="Friends">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <div class="fr-badge" id="fr-badge" style="display:none"></div>
+    </div>
     <div class="sv-add" onclick="openM('csv')" title="Create Server">+</div>
+    <div class="r-discover" id="rail-notifs" onclick="toggleNotifPanel()" title="Notifications" style="position:relative">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <div class="notif-badge" id="notif-badge" style="display:none"></div>
+    </div>
   </div>
 
   <div id="sidebar">
@@ -482,13 +548,22 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
       <div class="sv-dropdown" id="sv-dropdown" onclick="event.stopPropagation()"></div>
     </div>
     <div class="ch-list" id="ch-list"></div>
-    <div class="u-panel">
-      <div class="u-av" id="u-av" onclick="openM('profile-modal')">?<div class="u-dot"></div></div>
+    <div class="u-panel" style="position:relative">
+      <div class="status-menu" id="status-menu">
+        <div class="status-opt" onclick="setStatus('online')"><div class="status-dot" style="background:var(--green)"></div>Online</div>
+        <div class="status-opt" onclick="setStatus('idle')"><div class="status-dot" style="background:var(--yellow)"></div>Idle</div>
+        <div class="status-opt" onclick="setStatus('dnd')"><div class="status-dot" style="background:var(--red)"></div>Do Not Disturb</div>
+        <div class="status-opt" onclick="setStatus('invisible')"><div class="status-dot" style="background:var(--t3)"></div>Invisible</div>
+      </div>
+      <div class="u-av" id="u-av" onclick="openM('profile-modal')">?<div class="u-dot" id="u-dot"></div></div>
       <div style="min-width:0;flex:1">
         <div class="u-name" id="u-nm">—</div>
         <div class="u-tag" id="u-tg">#0000</div>
       </div>
       <div class="u-acts">
+        <button class="ib" title="Set Status" onclick="toggleStatusMenu(event)">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+        </button>
         <button class="ib" title="Direct Messages" onclick="toggleDM()">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </button>
@@ -506,6 +581,9 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
       <div class="ch-div"></div>
       <div class="ch-hd-desc" id="ch-desc"></div>
       <div class="ch-hd-acts">
+        <button class="ib" title="Search messages" onclick="openSearch()">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
         <button class="ib" onclick="toggleMb()">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </button>
@@ -543,6 +621,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
 
     <!-- CHAT -->
     <div id="chat-wrap">
+      <div class="pinned-bar" id="pinned-bar" onclick="showPinnedMessages()">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17H19V14L17 9V3H7V9L5 14V17Z"/></svg>
+        <span id="pinned-bar-text">See pinned messages</span>
+      </div>
       <div id="msgs"></div>
       <div class="ty-bar" id="ty-bar"></div>
       <div class="inp-wrap">
@@ -552,6 +634,9 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
             <div class="in-l">
               <button class="in-act" onclick="document.getElementById('file-in').click()" title="Attach file">
                 <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              </button>
+              <button class="in-act" id="vm-btn" title="Hold to record voice message" onmousedown="startVoiceRec()" onmouseup="stopVoiceRec()" ontouchstart="startVoiceRec()" ontouchend="stopVoiceRec()">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
               </button>
               <div style="position:relative">
                 <button class="in-act" id="emoji-trigger" onclick="toggleMainEmoji()" title="Emoji">
@@ -716,6 +801,126 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
 
 <div id="toasts"></div>
 
+<!-- VOICE RECORDING INDICATOR -->
+<div id="vm-recording" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--red);color:#fff;padding:8px 18px;border-radius:999px;font-size:13px;font-weight:700;z-index:999;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(248,113,113,.4)">
+  <div style="width:8px;height:8px;background:#fff;border-radius:50%;animation:blink 1s infinite"></div>
+  <span id="vm-rec-time">0:00</span> · Release to send
+</div>
+
+<!-- NOTIFICATIONS PANEL -->
+<div id="notif-panel" style="display:none;position:fixed;left:68px;top:0;bottom:0;width:280px;background:var(--s1);border-right:1px solid var(--border);z-index:100;flex-direction:column">
+  <div style="padding:14px 14px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+    <span style="font-size:14px;font-weight:800">Notifications</span>
+    <button class="ib" onclick="toggleNotifPanel()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  </div>
+  <div id="notif-list" style="flex:1;overflow-y:auto;padding:8px 0"></div>
+  <div style="padding:8px"><button class="btn-g" style="width:100%;font-size:12px" onclick="clearNotifs()">Clear All</button></div>
+</div>
+
+<!-- FRIENDS VIEW (in main area) -->
+<div id="friends-view" style="display:none;flex:1;overflow-y:auto;padding:24px;flex-direction:column">
+  <div style="max-width:600px;margin:0 auto">
+    <div style="font-size:20px;font-weight:800;margin-bottom:4px">Friends</div>
+    <div style="font-size:13px;color:var(--t3);margin-bottom:20px">Manage your friends and requests</div>
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <input class="m-inp" id="friend-search-in" placeholder="Add friend by username" maxlength="24" style="flex:1">
+      <button class="btn-p" onclick="sendFriendReq()">Add Friend</button>
+    </div>
+    <div id="friend-reqs-section" style="display:none;margin-bottom:20px">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:8px">Pending Requests</div>
+      <div id="friend-reqs-list"></div>
+    </div>
+    <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Online — <span id="friend-online-count">0</span></div>
+    <div id="friends-online-list"></div>
+    <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:16px;margin-bottom:8px">All Friends</div>
+    <div id="friends-all-list"></div>
+  </div>
+</div>
+
+<!-- SEARCH MODAL -->
+<div class="overlay" id="search-modal">
+  <div class="modal" style="width:520px;max-height:80vh;overflow:hidden;display:flex;flex-direction:column">
+    <div class="modal-t">Search Messages</div>
+    <input class="m-inp" id="search-in" placeholder="Search in this channel..." oninput="runSearch()" style="margin-bottom:12px">
+    <div id="search-results" style="overflow-y:auto;max-height:400px;display:flex;flex-direction:column;gap:6px"></div>
+    <div class="m-row" style="margin-top:12px">
+      <button class="btn-g" onclick="closeM('search-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHORTS VIEW -->
+<div id="shorts-view" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:150;overflow:hidden">
+  <div style="position:absolute;top:12px;left:12px;z-index:11;display:flex;align-items:center;gap:10px">
+    <button class="ib" onclick="closeShorts()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <span style="font-weight:800;font-size:15px" id="shorts-sv-name">Shorts</span>
+  </div>
+  <div id="shorts-feed" style="height:100%;overflow-y:scroll;scroll-snap-type:y mandatory"></div>
+  <div style="position:absolute;bottom:20px;right:16px;z-index:11">
+    <button class="btn-p" style="font-size:12px" onclick="openM('add-short-modal')">+ Post</button>
+  </div>
+</div>
+
+<!-- ADD SHORT MODAL -->
+<div class="overlay" id="add-short-modal">
+  <div class="modal">
+    <div class="modal-t">🎬 Post a Short</div>
+    <div class="modal-s">Paste a YouTube or TikTok link. It will appear in the feed.</div>
+    <div class="m-lbl">Video URL</div>
+    <input class="m-inp" id="short-url-in" placeholder="https://youtube.com/... or https://tiktok.com/...">
+    <div class="m-lbl">Caption (optional)</div>
+    <input class="m-inp" id="short-caption-in" placeholder="Add a caption..." maxlength="120">
+    <div class="m-row">
+      <button class="btn-g" onclick="closeM('add-short-modal')">Cancel</button>
+      <button class="btn-p" onclick="postShort()">Post →</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOM EMOJI MODAL -->
+<div class="overlay" id="custom-emoji-modal">
+  <div class="modal">
+    <div class="modal-t">Server Emojis</div>
+    <div class="modal-s">Upload small images as custom emojis. Use :name: to send them.</div>
+    <div id="custom-emoji-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;min-height:40px"></div>
+    <div class="m-lbl">Upload New Emoji</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <input class="m-inp" id="custom-emoji-name" placeholder="emoji-name" maxlength="20" style="flex:1">
+      <button class="btn-g" onclick="document.getElementById('emoji-img-in').click()">Pick Image</button>
+    </div>
+    <input type="file" id="emoji-img-in" accept="image/*" style="display:none" onchange="onCustomEmojiImg(event)">
+    <div id="emoji-upload-preview" style="margin-bottom:8px"></div>
+    <div class="m-row">
+      <button class="btn-g" onclick="closeM('custom-emoji-modal')">Close</button>
+      <button class="btn-p" onclick="saveCustomEmoji()">Add Emoji</button>
+    </div>
+  </div>
+</div>
+
+<!-- INVITE MODAL -->
+<div class="overlay" id="invite-modal">
+  <div class="modal">
+    <div class="modal-t">Invite People</div>
+    <div class="modal-s">Share this link to invite friends to <strong id="invite-sv-name"></strong>.</div>
+    <div class="invite-box" id="invite-link-box"></div>
+    <div class="m-row">
+      <button class="btn-g" onclick="closeM('invite-modal')">Close</button>
+      <button class="btn-p" onclick="copyInviteLink()">📋 Copy Link</button>
+    </div>
+  </div>
+</div>
+
+<!-- PINNED MESSAGES MODAL -->
+<div class="overlay" id="pins-modal">
+  <div class="modal" style="max-height:80vh;overflow-y:auto">
+    <div class="modal-t">📌 Pinned Messages</div>
+    <div id="pins-list" style="margin-top:10px;display:flex;flex-direction:column;gap:8px"></div>
+    <div class="m-row" style="margin-top:16px">
+      <button class="btn-g" onclick="closeM('pins-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <!-- SERVER SETTINGS MODAL -->
 <div class="overlay" id="sv-settings">
   <div class="modal" style="width:500px;max-height:85vh;overflow-y:auto">
@@ -814,6 +1019,7 @@ const WS_URL = 'wss://nexus.dot-jms.deno.net';
 const S = {
   user: null, servers: [], curSv: null, curCh: null,
   messages: {}, dms: [], dmMessages: {}, files: [], members: {},
+  friends: [], friendReqs: [],
   ws: null, wsOk: false, mbOpen: true, chType: 'text',
   tyTimer: null, tySent: false,
   discFilter: 'all', discServers: [],
@@ -928,6 +1134,7 @@ function doSignup() {
 function signOut() {
   if(!confirm('Sign out?'))return;
   lsSet('nx-session',null); S.user=null; S.servers=[]; S.messages={}; S.dms=[]; S.dmMessages={};
+  S.friends=[]; S.friendReqs=[]; S.members={}; S.curSv=null; S.curCh=null;
   S.wsConnecting=false; S.wsOk=false; curDM=null;
   if(S.ws){try{S.ws.onclose=null;S.ws.close();}catch(e){} S.ws=null;}
   document.getElementById('app').classList.remove('vis');
@@ -939,7 +1146,14 @@ function signOut() {
 }
 
 function hashPw(pw){ let h=5381; for(let i=0;i<pw.length;i++){h=((h<<5)+h)+pw.charCodeAt(i);h|=0;} return h.toString(36); }
-function loadUserData(){ const d=lsGet('nx-data-'+S.user.name.toLowerCase())||{}; S.servers=d.servers||[]; S.messages=d.messages||{}; S.dms=d.dms||[]; S.dmMessages=d.dmMessages||{}; }
+function loadUserData(){
+  // Full state reset before loading new user data
+  S.servers=[]; S.messages={}; S.dms=[]; S.dmMessages={}; S.members={};
+  S.curSv=null; S.curCh=null; S.discServers=[];
+  const d=lsGet('nx-data-'+S.user.name.toLowerCase())||{};
+  S.servers=d.servers||[]; S.messages=d.messages||{}; S.dms=d.dms||[]; S.dmMessages=d.dmMessages||{};
+  S.friends=d.friends||[]; S.friendReqs=d.friendReqs||[];
+}
 
 function bootApp() {
   document.getElementById('auth-screen').style.display='none';
@@ -948,6 +1162,10 @@ function bootApp() {
   updateUser(); renderSvs(); buildFullEmoji(); buildReactPicker(); renderDMs();
   buildProfileModal();
   connectWS();
+  checkInviteHash();
+  reqNotifPermission();
+  // Update friend request badge
+  setTimeout(()=>{ const inReqs=S.friendReqs.filter(r=>r.direction==='in'); document.getElementById('fr-badge').style.display=inReqs.length?'':'none'; }, 100);
   if(S.servers.length) selectSv(S.servers[0].id);
 }
 
@@ -1038,7 +1256,15 @@ function wsSend(o){ if(S.ws?.readyState===1){S.ws.send(JSON.stringify(o));return
 function handleIn(msg) {
   switch(msg.type) {
     case 'message':
-      if(msg.author!==S.user.name){ addMsg(msg); if(S.curCh?.id===msg.channelId) renderMsgs(msg.channelId); else markUnread(msg.channelId); }
+      if(msg.author!==S.user.name){
+        addMsg(msg);
+        if(S.curCh?.id===msg.channelId) renderMsgs(msg.channelId); else markUnread(msg.channelId);
+        // Notification for @mentions
+        if(msg.text?.includes('@'+S.user.name)){
+          const sv=S.servers.find(s=>s.channels?.some(c=>c.id===msg.channelId));
+          addNotif('🔔',msg.author+' mentioned you in '+(sv?.name||'a server'),()=>{if(sv)selectSv(sv.id);});
+        }
+      }
       break;
     case 'typing':
       if(msg.author!==S.user.name&&S.curCh?.id===msg.channelId) showTyping(msg.author);
@@ -1065,12 +1291,13 @@ function handleIn(msg) {
     case 'dm_accept': recvDMAccept(msg); break;
     case 'dm_decline': recvDMDecline(msg); break;
     // Real member presence — server sends these
-    case 'member_join':
+    case 'member_join': {
       if(!S.members[msg.serverId]) S.members[msg.serverId]=[];
-      const existing=S.members[msg.serverId].find(m=>m.name===msg.user);
-      if(!existing) S.members[msg.serverId].push({name:msg.user,color:msg.color||COLORS[hash(msg.user)%COLORS.length],pfp:msg.pfp||null,status:'on'});
+      const existingMb=S.members[msg.serverId].find(m=>m.name===msg.user);
+      if(!existingMb) S.members[msg.serverId].push({name:msg.user,color:msg.color||COLORS[hash(msg.user)%COLORS.length],pfp:msg.pfp||null,status:'on'});
       if(S.curSv?.id===msg.serverId) renderMbs();
       break;
+    }
     case 'member_leave':
       if (msg.serverId === '__all__') {
         // User disconnected — remove from all servers
@@ -1092,6 +1319,26 @@ function handleIn(msg) {
       S.discServers=msg.servers||[];
       renderDiscover();
       break;
+    case 'history': {
+      // Merge missed messages into local store
+      const incoming = msg.messages || [];
+      if (!incoming.length) break;
+      if (!S.messages[msg.channelId]) S.messages[msg.channelId] = [];
+      const existing = new Set(S.messages[msg.channelId].map(m => m.id));
+      let added = 0;
+      incoming.forEach(m => {
+        if (!existing.has(m.id) && m.author !== S.user.name) {
+          S.messages[msg.channelId].push(m);
+          added++;
+        }
+      });
+      if (added) {
+        S.messages[msg.channelId].sort((a,b) => a.ts - b.ts);
+        persist();
+        if (S.curCh?.id === msg.channelId) renderMsgs(msg.channelId);
+      }
+      break;
+    }
     case 'server_info': {
       // Update local server with authoritative data (especially channels)
       const sv = S.servers.find(s => s.id === msg.server?.id);
@@ -1141,6 +1388,56 @@ function handleIn(msg) {
       if (sv) { sv.memberCount = (sv.memberCount||1)+1; persist(); }
       break;
     }
+    case 'pin_message': {
+      const sv = S.servers.find(s => s.id === msg.serverId);
+      if (sv) {
+        if (!sv.pins) sv.pins = {};
+        if (!sv.pins[msg.channelId]) sv.pins[msg.channelId] = [];
+        if (!sv.pins[msg.channelId].find(p => p.id === msg.msgId)) {
+          sv.pins[msg.channelId].push({ id: msg.msgId, text: msg.text, author: msg.author, ts: msg.ts });
+          persist();
+        }
+        if (S.curCh?.id === msg.channelId) updatePinnedBar();
+      }
+      break;
+    }
+    case 'friend_request': recvFriendReq(msg); break;
+    case 'friend_accept': recvFriendAccept(msg); break;
+    case 'friend_decline':
+      S.friendReqs = S.friendReqs.filter(r => r.name !== msg.from);
+      persist(); renderFriends(); toast(msg.from + ' declined your friend request');
+      break;
+    case 'short_post': {
+      const sv = S.servers.find(s => s.id === msg.serverId);
+      if (sv) { if (!sv.shorts) sv.shorts=[]; sv.shorts.push(msg.short); persist(); if (curShortsServerId===msg.serverId) renderShorts(); }
+      break;
+    }
+    case 'short_like': {
+      const sv = S.servers.find(s => s.id === msg.serverId);
+      if (sv) { const s=(sv.shorts||[]).find(x=>x.id===msg.shortId); if(s){if(!s.likes)s.likes=[];const i=s.likes.indexOf(msg.user);if(msg.liked&&i<0)s.likes.push(msg.user);else if(!msg.liked&&i>=0)s.likes.splice(i,1);persist();if(curShortsServerId===msg.serverId)renderShorts();} }
+      break;
+    }
+    case 'short_comment': {
+      const sv = S.servers.find(s => s.id === msg.serverId);
+      if (sv) { const s=(sv.shorts||[]).find(x=>x.id===msg.shortId); if(s){if(!s.comments)s.comments=[];s.comments.push(msg.comment);persist();if(curShortsServerId===msg.serverId)renderShorts();} }
+      break;
+    }
+    case 'custom_emoji_add': {
+      const sv = S.servers.find(s => s.id === msg.serverId);
+      if (sv) { if(!sv.customEmojis)sv.customEmojis=[]; if(!sv.customEmojis.find(e=>e.name===msg.name)){sv.customEmojis.push({name:msg.name,data:msg.data});persist();} }
+      break;
+    }
+    case 'status_update': {
+      // Update member status dot in member list
+      if (S.members) {
+        Object.values(S.members).forEach(list => {
+          const m = list.find(x => x.name === msg.user);
+          if (m) m.status = msg.status;
+        });
+      }
+      if (S.curSv) renderMbs();
+      break;
+    }
     default: console.log('ws:',msg);
   }
 }
@@ -1162,6 +1459,7 @@ function renderSvs() {
     if(sv.icon){ d.innerHTML=`<div class="sv-pip"></div><img src="${sv.icon}" alt="">`; }
     else { d.innerHTML=`<div class="sv-pip"></div>${svInit(sv.name)}`; }
     d.onclick=()=>selectSv(sv.id);
+    d.oncontextmenu=(e)=>{ e.preventDefault(); showRailCtx(sv, e); };
     el.appendChild(d);
   });
 }
@@ -1199,6 +1497,73 @@ function createSv() {
 }
 
 function svInit(n){ return n.split(' ').map(w=>w[0]).join('').slice(0,3).toUpperCase(); }
+
+// ── Rail server right-click context menu ──
+function showRailCtx(sv, e) {
+  // Remove any existing rail ctx
+  document.getElementById('rail-ctx')?.remove();
+  const isOwner = sv.ownerId === S.user.name;
+  const ctx = document.createElement('div');
+  ctx.id = 'rail-ctx';
+  ctx.style.cssText = `position:fixed;background:var(--s3);border:1px solid var(--border2);border-radius:10px;padding:4px;z-index:300;min-width:180px;box-shadow:0 8px 32px rgba(0,0,0,.6)`;
+  const x = Math.min(e.clientX + 8, window.innerWidth - 200);
+  const y = Math.min(e.clientY, window.innerHeight - 160);
+  ctx.style.left = x + 'px'; ctx.style.top = y + 'px';
+
+  const ctxItem = (label, fn, danger=false) => {
+    const d = document.createElement('div');
+    d.className = 'sv-dd-item' + (danger ? ' danger' : '');
+    d.textContent = label;
+    d.onclick = () => { ctx.remove(); fn(); };
+    ctx.appendChild(d);
+  };
+  const ctxSep = () => { const d=document.createElement('div'); d.className='sv-dd-sep'; ctx.appendChild(d); };
+
+  // Server name label
+  const lbl = document.createElement('div');
+  lbl.style.cssText = 'padding:6px 10px 4px;font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px';
+  lbl.textContent = sv.name;
+  ctx.appendChild(lbl);
+  ctxSep();
+
+  ctxItem('🏠 Go to Server', () => selectSv(sv.id));
+  if (isOwner) {
+    ctxItem('⚙️ Server Settings', () => { selectSv(sv.id); openSvSettings('overview'); });
+    ctxSep();
+    ctxItem('🗑 Delete Server', () => {
+      if (!confirm(`Permanently delete "${sv.name}"? This cannot be undone.`)) return;
+      const wasCur = S.curSv?.id === sv.id;
+      (sv.channels||[]).forEach(ch => delete S.messages[ch.id]);
+      S.servers = S.servers.filter(s=>s.id!==sv.id);
+      persist(); S.curSv=null; S.curCh=null; renderSvs();
+      document.getElementById('sv-nm').textContent='—';
+      document.getElementById('ch-list').innerHTML='';
+      document.getElementById('members').innerHTML='';
+      showWelcome();
+      toast('🗑 Server deleted');
+      wsSend({type:'server_delete', serverId:sv.id});
+    }, true);
+  } else {
+    ctxSep();
+    ctxItem('👋 Leave Server', () => {
+      if (!confirm(`Leave "${sv.name}"?`)) return;
+      S.servers = S.servers.filter(s=>s.id!==sv.id);
+      persist(); S.curSv=null; S.curCh=null; renderSvs();
+      document.getElementById('sv-nm').textContent='—';
+      document.getElementById('ch-list').innerHTML='';
+      document.getElementById('members').innerHTML='';
+      showWelcome();
+      toast('👋 Left server');
+      wsSend({type:'leave_server', serverId:sv.id, user:S.user.name});
+    }, true);
+  }
+
+  document.body.appendChild(ctx);
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', () => ctx.remove(), { once: true });
+  }, 0);
+}
 
 // ══════════════════════════════════
 // DISCOVER
@@ -1321,7 +1686,7 @@ function renderChs() {
 function chHTML(c,ico){ return `<div class="ch-it" data-id="${c.id}" onclick="selectCh('${c.id}')"><span class="ico">${ico}</span><span>${esc(c.name)}</span><span class="un-dot"></span></div>`; }
 function hlCh(){ document.querySelectorAll('.ch-it').forEach(el=>{ el.classList.toggle('act',el.dataset.id===S.curCh?.id); if(el.dataset.id===S.curCh?.id) el.classList.remove('unread'); }); }
 function selectCh(id) {
-  const ch=S.curSv?.channels.find(c=>c.id===id); if(!ch) return;
+  const ch=(S.curSv?.channels||[]).find(c=>c.id===id); if(!ch) return;
   S.curCh=ch;
   document.getElementById('ch-nm').textContent=ch.name;
   document.getElementById('ch-desc').textContent=ch.desc||'';
@@ -1330,6 +1695,11 @@ function selectCh(id) {
   document.getElementById('ch-hd').style.display='flex';
   showChat(); hlCh(); renderMsgs(ch.id); scrollBot();
   wsSend({type:'join_channel',channelId:id,serverId:S.curSv?.id});
+  // Request missed messages since our last known message in this channel
+  const msgs = S.messages[id]||[];
+  const lastTs = msgs.length ? msgs[msgs.length-1].ts : 0;
+  wsSend({type:'get_history', channelId:id, since:lastTs});
+  updatePinnedBar();
 }
 function markUnread(chId){ document.querySelector(`.ch-it[data-id="${chId}"]`)?.classList.add('unread'); }
 function addCh() {
@@ -1372,11 +1742,12 @@ function buildMsg(m,grp) {
     <div class="m-av" style="background:${m.authorPfp?'transparent':ac}">${avInner}</div>
     <div class="m-body">
       ${!grp?`<div class="m-head"><span class="m-auth">${esc(m.author)}${isMe?'<span class="m-you">you</span>':''}</span><span class="m-time">${fmtTime(m.ts)}</span></div>`:''}
-      <div class="m-txt">${fmtTxt(m.text)}</div>${atts}${reacts}
+      ${m.voiceMsg ? buildVoiceMsg(m) : `<div class="m-txt">${fmtTxt(m.text)}</div>`}${atts}${reacts}
     </div>
     <div class="m-acts">
       <div class="ma" title="React" onclick="openReactPicker('${m.id}',event)">😊</div>
       <div class="ma" title="Reply" onclick="replyTo('${esc(m.author)}')">↩</div>
+      ${!curDM?`<div class="ma pin-btn" title="Pin" onclick="pinMsg('${m.id}')">📌</div>`:''}
       ${isMe&&!curDM?`<div class="ma" title="Delete" onclick="delMsg('${m.id}')">🗑</div>`:''}
     </div>
   </div>`;
@@ -1433,8 +1804,9 @@ function filterEmoji() {
   const q=document.getElementById('ep-search').value.trim().toLowerCase();
   const el=document.getElementById('ep-grid-wrap'); el.innerHTML='';
   if(!q){ renderEmojiGrid(document.querySelector('.ep-cat-btn.active')?.title||Object.keys(EMOJI_DATA)[0]); return; }
-  const results=Object.values(EMOJI_DATA).flat();
-  const title=document.createElement('div'); title.className='ep-section-title'; title.textContent='Search results'; el.appendChild(title);
+  const all=Object.values(EMOJI_DATA).flat();
+  const results=all.filter(em=>em.includes(q)||q.split('').every(c=>em.includes(c)));
+  const title=document.createElement('div'); title.className='ep-section-title'; title.textContent=`Search results (${results.length})`; el.appendChild(title);
   const grid=document.createElement('div'); grid.className='ep-grid';
   results.forEach(em=>{ const d=document.createElement('div'); d.className='ep-em'; d.textContent=em; d.onclick=()=>insertEmoji(em); grid.appendChild(d); });
   el.appendChild(grid);
@@ -1534,7 +1906,7 @@ function renderMbs() {
       const myRole=getMyRole(sv);
       const canCtx=(myRole==='owner'||myRole==='mod')&&m.name!==S.user.name;
       el.innerHTML+=`<div class="mb-it" ${canCtx?`oncontextmenu="openMemberCtx('${esc(m.name)}',event)" onclick="openMemberCtx('${esc(m.name)}',event)"`:''}  title="${canCtx?'Right-click for options':''}">
-        <div class="mb-av" style="background:${avBg}">${avContent}<div class="mb-st on"></div></div>
+        <div class="mb-av" style="background:${avBg}">${avContent}<div class="mb-st on" style="background:${m.status==='idle'?'var(--yellow)':m.status==='dnd'?'var(--red)':m.status==='invisible'?'var(--t3)':'var(--green)'}"></div></div>
         <div style="flex:1;min-width:0"><div class="mb-nm">${esc(m.name)}</div></div>
         <div class="mb-role">${badge}</div>
       </div>`;
@@ -1753,13 +2125,120 @@ function recvDM(msg) {
   if (curDM !== from) dm.unread = true;
   persist(); renderDMs();
   if (curDM === from) renderDMMessages(from);
-  else toast('💬 DM from ' + from);
+  else { toast('💬 DM from ' + from); addNotif('💬', 'DM from ' + from, () => { renderDMs(); openDMChat(from); }); }
 }
 
 function onDMType() {
   const inp = document.getElementById('dm-msg-in');
   inp.style.height = 'auto';
   inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
+}
+
+// ══════════════════════════════════
+// STATUS
+// ══════════════════════════════════
+function toggleStatusMenu(e) {
+  e.stopPropagation();
+  document.getElementById('status-menu').classList.toggle('open');
+}
+function setStatus(s) {
+  S.user.status = s;
+  const dot = document.getElementById('u-dot');
+  dot.className = 'u-dot' + (s === 'online' ? '' : ' ' + s);
+  document.getElementById('status-menu').classList.remove('open');
+  wsSend({ type: 'status_update', user: S.user.name, status: s });
+  toast('Status set to ' + s);
+  // Update status dots in member lists
+  if (S.curSv) renderMbs();
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#status-menu') && !e.target.closest('[title="Set Status"]'))
+    document.getElementById('status-menu')?.classList.remove('open');
+});
+
+// ══════════════════════════════════
+// PINNED MESSAGES
+// ══════════════════════════════════
+function pinMsg(msgId) {
+  if (!S.curCh || !S.curSv) return;
+  if (!S.curSv.pins) S.curSv.pins = {};
+  if (!S.curSv.pins[S.curCh.id]) S.curSv.pins[S.curCh.id] = [];
+  const msgs = S.messages[S.curCh.id] || [];
+  const m = msgs.find(x => x.id === msgId);
+  if (!m) return;
+  const already = S.curSv.pins[S.curCh.id].find(p => p.id === msgId);
+  if (already) { toast('Already pinned'); return; }
+  S.curSv.pins[S.curCh.id].push({ id: m.id, text: m.text, author: m.author, ts: m.ts });
+  persist(); updatePinnedBar(); toast('📌 Message pinned');
+  wsSend({ type: 'pin_message', serverId: S.curSv.id, channelId: S.curCh.id, msgId, author: m.author, text: m.text, ts: m.ts });
+}
+
+function updatePinnedBar() {
+  if (!S.curSv || !S.curCh) { document.getElementById('pinned-bar').classList.remove('show'); return; }
+  const pins = (S.curSv.pins || {})[S.curCh.id] || [];
+  const bar = document.getElementById('pinned-bar');
+  if (pins.length) {
+    bar.classList.add('show');
+    document.getElementById('pinned-bar-text').textContent = `${pins.length} pinned message${pins.length > 1 ? 's' : ''}`;
+  } else {
+    bar.classList.remove('show');
+  }
+}
+
+function showPinnedMessages() {
+  if (!S.curSv || !S.curCh) return;
+  const pins = (S.curSv.pins || {})[S.curCh.id] || [];
+  const el = document.getElementById('pins-list');
+  if (!pins.length) { el.innerHTML = '<div style="color:var(--t3);font-size:13px;text-align:center;padding:20px">No pinned messages</div>'; }
+  else {
+    el.innerHTML = pins.map(p => `
+      <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+        <div style="font-size:11px;color:var(--t3);margin-bottom:4px">${esc(p.author)} · ${fmtTime(p.ts)}</div>
+        <div style="font-size:13px;color:var(--t2)">${fmtTxt(p.text)}</div>
+        <div style="margin-top:6px"><button class="btn-g" style="font-size:11px;padding:3px 8px" onclick="unpinMsg('${p.id}')">Unpin</button></div>
+      </div>`).join('');
+  }
+  openM('pins-modal');
+}
+
+function unpinMsg(msgId) {
+  if (!S.curSv || !S.curCh) return;
+  if (!S.curSv.pins) return;
+  if (!S.curSv.pins[S.curCh.id]) return;
+  S.curSv.pins[S.curCh.id] = S.curSv.pins[S.curCh.id].filter(p => p.id !== msgId);
+  persist(); updatePinnedBar(); closeM('pins-modal'); showPinnedMessages(); toast('📌 Unpinned');
+}
+
+// ══════════════════════════════════
+// INVITE LINKS
+// ══════════════════════════════════
+function showInviteModal() {
+  if (!S.curSv) return;
+  document.getElementById('invite-sv-name').textContent = S.curSv.name;
+  // Encode server info into a URL hash invite link
+  const inviteData = btoa(JSON.stringify({ id: S.curSv.id, name: S.curSv.name }));
+  const link = window.location.href.split('#')[0] + '#invite=' + inviteData;
+  document.getElementById('invite-link-box').textContent = link;
+  openM('invite-modal');
+}
+
+function copyInviteLink() {
+  const txt = document.getElementById('invite-link-box').textContent;
+  navigator.clipboard.writeText(txt).then(() => toast('📋 Copied!')).catch(() => toast('Select and copy manually'));
+}
+
+function checkInviteHash() {
+  const hash = window.location.hash;
+  if (!hash.startsWith('#invite=')) return;
+  try {
+    const data = JSON.parse(atob(hash.slice(8)));
+    window.location.hash = '';
+    if (!data.id || !data.name) return;
+    if (S.servers.find(s => s.id === data.id)) { toast('Already in ' + data.name); return; }
+    // Queue a join after login
+    S._pendingInvite = data;
+    toast('🔗 Invite link detected for "' + data.name + '"! Join from Discover.');
+  } catch(e) {}
 }
 
 // ── UI ──
@@ -1769,6 +2248,7 @@ function hideAll(){
   document.getElementById('chat-wrap').classList.remove('show');
   document.getElementById('ch-hd').style.display='none';
   document.getElementById('dm-chat').classList.remove('show');
+  document.getElementById('friends-view').style.display='none';
 }
 function showWelcome(){ hideAll(); document.getElementById('welcome').style.display=''; }
 function showChat(){ hideAll(); document.getElementById('chat-wrap').classList.add('show'); document.getElementById('ch-hd').style.display='flex'; }
@@ -1779,15 +2259,15 @@ function closeM(id){document.getElementById(id).classList.remove('open');}
 function updateUser(){
   if(!S.user) return;
   const av=document.getElementById('u-av');
-  if(S.user.pfp){ av.innerHTML=`<img src="${S.user.pfp}" alt="pfp"><div class="u-dot"></div>`; av.style.background='transparent'; }
-  else{ av.style.background=S.user.color; av.innerHTML=S.user.name[0].toUpperCase()+'<div class="u-dot"></div>'; }
+  if(S.user.pfp){ av.innerHTML=`<img src="${S.user.pfp}" alt="pfp"><div class="u-dot" id="u-dot"></div>`; av.style.background='transparent'; }
+  else{ av.style.background=S.user.color; av.innerHTML=S.user.name[0].toUpperCase()+'<div class="u-dot" id="u-dot"></div>'; }
   document.getElementById('u-nm').textContent=S.user.name;
   document.getElementById('u-tg').textContent='#'+S.user.tag;
 }
 function toast(msg){const c=document.getElementById('toasts'),t=document.createElement('div');t.className='toast';t.textContent=msg;c.appendChild(t);setTimeout(()=>t.remove(),3200);}
 
 // ── FORMATTERS ──
-function fmtTxt(t){if(!t)return'';return esc(t).replace(/@(\w+)/g,'<span class="mention">@$1</span>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>');}
+function fmtTxt(t){if(!t)return'';return fmtCustomEmoji(esc(t).replace(/@(\w+)/g,'<span class="mention">@$1</span>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>'));}
 function fmtDate(ts){const d=new Date(ts),n=new Date();if(d.toDateString()===n.toDateString())return'Today';const y=new Date(n);y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'Yesterday';return d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});}
 function fmtTime(ts){return new Date(ts).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});}
 function fmtB(b){return b<1024?b+'B':b<1048576?(b/1024).toFixed(1)+'KB':(b/1048576).toFixed(1)+'MB';}
@@ -1796,7 +2276,7 @@ function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36
 function hash(s){let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}return Math.abs(h);}
 
 // ── PERSIST ──
-function persist(){if(!S.user)return;lsSet('nx-data-'+S.user.name.toLowerCase(),{servers:S.servers,messages:S.messages,dms:S.dms,dmMessages:S.dmMessages});}
+function persist(){if(!S.user)return;lsSet('nx-data-'+S.user.name.toLowerCase(),{servers:S.servers,messages:S.messages,dms:S.dms,dmMessages:S.dmMessages,friends:S.friends,friendReqs:S.friendReqs});}
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k));}catch{return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 
@@ -1920,6 +2400,9 @@ function buildSvDropdown() {
     sep(); sec('Owner');
     item(`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`, 'Server Settings', ()=>openSvSettings('overview'));
     item(`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`, 'Manage Roles', ()=>openSvSettings('roles'));
+    item(`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`, 'Invite Link', ()=>showInviteModal());
+    item(`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`, 'Shorts Feed', ()=>openShorts(sv.id));
+    item(`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>`, 'Custom Emojis', ()=>openCustomEmojis());
     sep();
     item(`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`, 'Delete Server', ()=>deleteServer(), true);
   }
@@ -2203,6 +2686,508 @@ function leaveServer() {
   showWelcome();
   toast('👋 Left server');
   wsSend({type:'leave_server', serverId:sv.id, user:S.user.name});
+}
+
+// ══════════════════════════════════════════════
+// VOICE MESSAGES
+// ══════════════════════════════════════════════
+let vmStream = null, vmRecorder = null, vmChunks = [], vmTimer = null, vmSeconds = 0;
+
+function startVoiceRec() {
+  if (vmRecorder) return;
+  if (!S.curCh) { toast('Select a channel first'); return; }
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    vmStream = stream;
+    vmChunks = []; vmSeconds = 0;
+    vmRecorder = new MediaRecorder(stream);
+    vmRecorder.ondataavailable = e => vmChunks.push(e.data);
+    vmRecorder.onstop = () => {
+      const blob = new Blob(vmChunks, { type: 'audio/webm' });
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const dur = vmSeconds;
+        const msg = { id: uid(), channelId: S.curCh.id, serverId: S.curSv?.id,
+          author: S.user.name, authorTag: S.user.tag, authorColor: S.user.color, authorPfp: S.user.pfp||null,
+          text: '', voiceMsg: ev.target.result, voiceDur: dur,
+          attachments: [], ts: Date.now(), reactions: [] };
+        // Check size — base64 audio should be small but guard against huge recordings
+        if (ev.target.result.length > 3_000_000) {
+          toast('⚠️ Voice message too large — keep it under ~30 seconds'); return;
+        }
+        addMsg(msg); renderMsgs(msg.channelId); wsSend({type:'message',...msg});
+      };
+      reader.readAsDataURL(blob);
+      stream.getTracks().forEach(t => t.stop()); vmStream = null;
+      clearInterval(vmTimer); vmTimer = null;
+      document.getElementById('vm-recording').style.display = 'none';
+      vmRecorder = null;
+    };
+    vmRecorder.start();
+    document.getElementById('vm-recording').style.display = 'flex';
+    vmTimer = setInterval(() => {
+      vmSeconds++;
+      const m = Math.floor(vmSeconds/60), s = vmSeconds%60;
+      document.getElementById('vm-rec-time').textContent = m+':'+(s<10?'0':'')+s;
+      if (vmSeconds >= 120) stopVoiceRec(); // 2 min max
+    }, 1000);
+    toast('🎙️ Recording... release to send');
+  }).catch(() => toast('Microphone access denied'));
+}
+
+function stopVoiceRec() {
+  if (vmRecorder && vmRecorder.state !== 'inactive') vmRecorder.stop();
+}
+
+function buildVoiceMsg(m) {
+  const dur = m.voiceDur || 0;
+  const mm = Math.floor(dur/60), ss = dur%60;
+  return `<div class="vm-msg" onclick="playVoiceMsg('${m.id}')">
+    <div class="vm-play">▶</div>
+    <div style="flex:1">
+      <div style="font-size:11px;color:var(--t3);margin-bottom:2px">Voice message</div>
+      <div style="background:var(--border2);height:3px;border-radius:3px;overflow:hidden"><div id="vmp-${m.id}" style="height:100%;background:var(--accent);width:0%;transition:width .1s"></div></div>
+    </div>
+    <div class="vm-dur">${mm}:${ss<10?'0':''}${ss}</div>
+  </div>`;
+}
+
+const vmAudios = {};
+function playVoiceMsg(msgId) {
+  const msgs = S.messages[S.curCh?.id] || Object.values(S.messages).flat();
+  const m = msgs.find(x => x.id === msgId); if (!m || !m.voiceMsg) return;
+  if (vmAudios[msgId]) { vmAudios[msgId].pause(); delete vmAudios[msgId]; return; }
+  const audio = new Audio(m.voiceMsg);
+  vmAudios[msgId] = audio;
+  const bar = document.getElementById('vmp-'+msgId);
+  audio.ontimeupdate = () => { if (bar) bar.style.width = (audio.currentTime/audio.duration*100)+'%'; };
+  audio.onended = () => { delete vmAudios[msgId]; if (bar) bar.style.width='0%'; };
+  audio.play();
+}
+
+// ══════════════════════════════════════════════
+// NOTIFICATIONS
+// ══════════════════════════════════════════════
+const notifications = [];
+let notifPanelOpen = false;
+
+function addNotif(icon, text, onClick) {
+  notifications.unshift({ id: uid(), icon, text, ts: Date.now(), read: false, onClick });
+  if (notifications.length > 50) notifications.pop();
+  updateNotifBadge();
+  renderNotifPanel();
+  // Browser notification
+  if (Notification.permission === 'granted' && document.hidden) {
+    new Notification('Nexus', { body: text, icon: '/favicon.ico' });
+  }
+}
+
+function updateNotifBadge() {
+  const unread = notifications.filter(n => !n.read).length;
+  const badge = document.getElementById('notif-badge');
+  badge.style.display = unread ? '' : 'none';
+}
+
+function toggleNotifPanel() {
+  notifPanelOpen = !notifPanelOpen;
+  const panel = document.getElementById('notif-panel');
+  panel.style.display = notifPanelOpen ? 'flex' : 'none';
+  document.getElementById('rail-notifs').classList.toggle('act', notifPanelOpen);
+  if (notifPanelOpen) {
+    notifications.forEach(n => n.read = true);
+    updateNotifBadge();
+    renderNotifPanel();
+  }
+}
+
+function renderNotifPanel() {
+  const el = document.getElementById('notif-list');
+  if (!notifications.length) { el.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--t3)">No notifications yet</div>'; return; }
+  el.innerHTML = notifications.map(n => `<div class="notif-item${n.read?'':' unread'}" onclick="notifClick('${n.id}')">
+    <div style="display:flex;align-items:flex-start;gap:10px">
+      <div class="notif-icon">${n.icon}</div>
+      <div><div style="font-size:13px;color:var(--t1)">${esc(n.text)}</div><div style="font-size:11px;color:var(--t3);margin-top:2px">${fmtTime(n.ts)}</div></div>
+    </div>
+  </div>`).join('');
+}
+
+function notifClick(id) {
+  const n = notifications.find(x => x.id === id);
+  if (n?.onClick) n.onClick();
+  toggleNotifPanel();
+}
+
+function clearNotifs() { notifications.length = 0; updateNotifBadge(); renderNotifPanel(); }
+
+function reqNotifPermission() {
+  if (Notification.permission === 'default') Notification.requestPermission();
+}
+
+// ══════════════════════════════════════════════
+// FRIENDS SYSTEM
+// ══════════════════════════════════════════════
+function showFriends() {
+  // Hide server view, show friends view in main
+  document.getElementById('sv-nm').textContent = 'Friends';
+  document.querySelectorAll('.sv-ic').forEach(el => el.classList.remove('act'));
+  document.getElementById('rail-discover').classList.remove('act');
+  document.getElementById('rail-friends').classList.add('act');
+  hideAll();
+  document.getElementById('friends-view').style.display = 'flex';
+  S.curSv = null; S.curCh = null;
+  renderFriends();
+}
+
+function renderFriends() {
+  const onlineFriends = S.friends.filter(f => isOnline(f.name));
+  const allFriends = S.friends;
+  const reqs = S.friendReqs.filter(r => r.direction === 'in');
+
+  document.getElementById('friend-online-count').textContent = onlineFriends.length;
+  document.getElementById('friend-reqs-section').style.display = reqs.length ? '' : 'none';
+
+  document.getElementById('friend-reqs-list').innerHTML = reqs.map(r => `
+    <div class="friend-row">
+      ${friendAvHTML(r.name, r.pfp, r.color)}
+      <div style="flex:1"><div class="friend-name">${esc(r.name)}</div><div class="friend-tag">Sent you a friend request</div></div>
+      <button class="btn-p" style="font-size:11px;padding:4px 10px;margin-right:4px" onclick="acceptFriend('${r.name}')">Accept</button>
+      <button class="btn-g" style="font-size:11px;padding:4px 10px" onclick="declineFriend('${r.name}')">Decline</button>
+    </div>`).join('') || '<div style="font-size:12px;color:var(--t3)">No pending requests</div>';
+
+  document.getElementById('friends-online-list').innerHTML = onlineFriends.length ?
+    onlineFriends.map(f => friendRowHTML(f)).join('') :
+    '<div style="font-size:12px;color:var(--t3);padding:8px 0">No friends online</div>';
+
+  document.getElementById('friends-all-list').innerHTML = allFriends.length ?
+    allFriends.map(f => friendRowHTML(f)).join('') :
+    '<div style="font-size:12px;color:var(--t3);padding:8px 0">No friends yet. Add some!</div>';
+}
+
+function friendAvHTML(name, pfp, color) {
+  const bg = pfp ? 'transparent' : (color || COLORS[hash(name)%COLORS.length]);
+  const av = pfp ? `<img src="${pfp}">` : name[0].toUpperCase();
+  const statusColor = isOnline(name) ? 'var(--green)' : 'var(--t3)';
+  return `<div class="friend-av" style="background:${bg}">${av}<div class="friend-status" style="background:${statusColor}"></div></div>`;
+}
+
+function friendRowHTML(f) {
+  const online = isOnline(f.name);
+  return `<div class="friend-row">
+    ${friendAvHTML(f.name, f.pfp, f.color)}
+    <div style="flex:1"><div class="friend-name">${esc(f.name)}</div><div class="friend-tag">${online?'Online':'Offline'}</div></div>
+    <button class="btn-g" style="font-size:11px;padding:4px 10px;margin-right:4px" onclick="dmFriend('${f.name}')">💬 DM</button>
+    <button class="btn-g" style="font-size:11px;padding:4px 10px;color:var(--red)" onclick="removeFriend('${f.name}')">✕</button>
+  </div>`;
+}
+
+function isOnline(name) {
+  // Check against WS member lists — if they appear in any server's member list they're online
+  return Object.values(S.members).some(list => list.some(m => m.name === name));
+}
+
+function sendFriendReq() {
+  const name = document.getElementById('friend-search-in').value.trim();
+  if (!name) return;
+  if (name === S.user.name) { toast("You can't add yourself"); return; }
+  if (S.friends.find(f => f.name === name)) { toast('Already friends with ' + name); return; }
+  if (!S.wsOk) { toast('Not connected'); return; }
+  wsSend({ type: 'friend_request', to: name, from: S.user.name, fromPfp: S.user.pfp||null, fromColor: S.user.color });
+  // Add as outgoing pending
+  if (!S.friendReqs.find(r => r.name === name)) {
+    S.friendReqs.push({ name, direction: 'out', pfp: null });
+    persist();
+  }
+  document.getElementById('friend-search-in').value = '';
+  toast('👥 Friend request sent to ' + name);
+}
+
+function recvFriendReq(msg) {
+  if (S.friends.find(f => f.name === msg.from)) return; // already friends
+  if (!S.friendReqs.find(r => r.name === msg.from)) {
+    S.friendReqs.push({ name: msg.from, direction: 'in', pfp: msg.fromPfp||null, color: msg.fromColor||null });
+    persist(); if(document.getElementById('friends-view').style.display!=='none') renderFriends();
+    addNotif('👥', msg.from + ' sent you a friend request', () => showFriends());
+    const badge = document.getElementById('fr-badge');
+    badge.style.display = '';
+  }
+}
+
+function acceptFriend(name) {
+  const req = S.friendReqs.find(r => r.name === name && r.direction === 'in');
+  if (!req) return;
+  S.friends.push({ name, pfp: req.pfp||null, color: req.color||null });
+  S.friendReqs = S.friendReqs.filter(r => r.name !== name);
+  persist(); renderFriends();
+  wsSend({ type: 'friend_accept', to: name, from: S.user.name, fromPfp: S.user.pfp||null });
+  document.getElementById('fr-badge').style.display = S.friendReqs.filter(r=>r.direction==='in').length ? '' : 'none';
+  toast('✅ Now friends with ' + name);
+}
+
+function declineFriend(name) {
+  S.friendReqs = S.friendReqs.filter(r => r.name !== name);
+  persist(); renderFriends();
+  document.getElementById('fr-badge').style.display = S.friendReqs.filter(r=>r.direction==='in').length ? '' : 'none';
+  wsSend({ type: 'friend_decline', to: name, from: S.user.name });
+  toast('❌ Friend request declined');
+}
+
+function recvFriendAccept(msg) {
+  if (!S.friends.find(f => f.name === msg.from)) {
+    S.friends.push({ name: msg.from, pfp: msg.fromPfp||null });
+    S.friendReqs = S.friendReqs.filter(r => r.name !== msg.from);
+    persist(); if(document.getElementById('friends-view').style.display!=='none') renderFriends();
+    addNotif('✅', msg.from + ' accepted your friend request!', () => showFriends());
+    toast('✅ ' + msg.from + ' accepted your friend request!');
+  }
+}
+
+function removeFriend(name) {
+  if (!confirm('Remove ' + name + ' from friends?')) return;
+  S.friends = S.friends.filter(f => f.name !== name);
+  persist(); renderFriends(); toast('Removed ' + name);
+}
+
+function dmFriend(name) {
+  // Open or create DM with this friend
+  if (!S.dms.find(d => d.name === name)) {
+    S.dms.push({ id: uid(), name, last: '', status: 'accepted', pfp: S.friends.find(f=>f.name===name)?.pfp||null });
+    persist();
+  }
+  renderDMs();
+  openDMChat(name);
+  document.getElementById('friends-view').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════
+// MESSAGE SEARCH
+// ══════════════════════════════════════════════
+function openSearch() {
+  if (!S.curCh) { toast('Select a channel first'); return; }
+  document.getElementById('search-in').value = '';
+  document.getElementById('search-results').innerHTML = '';
+  openM('search-modal');
+  setTimeout(() => document.getElementById('search-in').focus(), 100);
+}
+
+function runSearch() {
+  const q = document.getElementById('search-in').value.trim().toLowerCase();
+  const el = document.getElementById('search-results');
+  if (!q) { el.innerHTML = ''; return; }
+  const msgs = S.messages[S.curCh?.id] || [];
+  const results = msgs.filter(m => m.text?.toLowerCase().includes(q)).slice(-30).reverse();
+  if (!results.length) { el.innerHTML = '<div style="text-align:center;padding:20px;font-size:12px;color:var(--t3)">No messages found</div>'; return; }
+  el.innerHTML = results.map(m => {
+    const hi = esc(m.text).replace(new RegExp(esc(q),'gi'), s => `<span class="search-highlight">${s}</span>`);
+    return `<div class="search-result" onclick="jumpToMsg('${m.id}')">
+      <div class="search-result-meta">${esc(m.author)} · ${fmtTime(m.ts)}</div>
+      <div class="search-result-text">${hi}</div>
+    </div>`;
+  }).join('');
+}
+
+function jumpToMsg(id) {
+  closeM('search-modal');
+  const el = document.querySelector(`.msg[data-id="${id}"]`);
+  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.background='rgba(108,99,255,.15)'; setTimeout(()=>el.style.background='',1500); }
+}
+
+// ══════════════════════════════════════════════
+// CUSTOM SERVER EMOJIS
+// ══════════════════════════════════════════════
+let pendingEmojiImg = null;
+
+function openCustomEmojis() {
+  if (!S.curSv) return;
+  if (!S.curSv.customEmojis) S.curSv.customEmojis = [];
+  renderCustomEmojiList();
+  pendingEmojiImg = null;
+  document.getElementById('emoji-upload-preview').innerHTML = '';
+  document.getElementById('custom-emoji-name').value = '';
+  openM('custom-emoji-modal');
+}
+
+function renderCustomEmojiList() {
+  const el = document.getElementById('custom-emoji-list');
+  const emojis = S.curSv?.customEmojis || [];
+  if (!emojis.length) { el.innerHTML = '<div style="font-size:12px;color:var(--t3)">No custom emojis yet</div>'; return; }
+  el.innerHTML = emojis.map(e => `<div title=":${e.name}:" style="display:flex;flex-direction:column;align-items:center;gap:3px">
+    <img src="${e.data}" class="custom-em" title=":${e.name}:">
+    <div style="font-size:10px;color:var(--t3)">:${esc(e.name)}:</div>
+  </div>`).join('');
+}
+
+function onCustomEmojiImg(ev) {
+  const f = ev.target.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    pendingEmojiImg = e.target.result;
+    document.getElementById('emoji-upload-preview').innerHTML = `<img src="${pendingEmojiImg}" style="width:48px;height:48px;border-radius:6px;object-fit:cover">`;
+  };
+  reader.readAsDataURL(f);
+  ev.target.value = '';
+}
+
+function saveCustomEmoji() {
+  if (!pendingEmojiImg) { toast('Pick an image first'); return; }
+  const name = document.getElementById('custom-emoji-name').value.trim().toLowerCase().replace(/[^a-z0-9_]/g,'');
+  if (!name) { toast('Enter an emoji name'); return; }
+  if (!S.curSv.customEmojis) S.curSv.customEmojis = [];
+  if (S.curSv.customEmojis.find(e => e.name === name)) { toast('Name already taken'); return; }
+  S.curSv.customEmojis.push({ name, data: pendingEmojiImg });
+  persist(); renderCustomEmojiList();
+  wsSend({ type: 'custom_emoji_add', serverId: S.curSv.id, name, data: pendingEmojiImg });
+  pendingEmojiImg = null;
+  document.getElementById('emoji-upload-preview').innerHTML = '';
+  document.getElementById('custom-emoji-name').value = '';
+  toast('✅ :' + name + ': added!');
+}
+
+// Render custom emojis in messages
+function fmtCustomEmoji(text) {
+  const emojis = S.curSv?.customEmojis || [];
+  return text.replace(/:([a-z0-9_]+):/g, (match, name) => {
+    const e = emojis.find(x => x.name === name);
+    return e ? `<img src="${e.data}" style="width:20px;height:20px;vertical-align:middle;border-radius:3px" title=":${name}:">` : match;
+  });
+}
+
+// ══════════════════════════════════════════════
+// SHORTS FEED
+// ══════════════════════════════════════════════
+let curShortsServerId = null;
+
+function openShorts(serverId) {
+  curShortsServerId = serverId;
+  const sv = S.servers.find(s => s.id === serverId);
+  document.getElementById('shorts-sv-name').textContent = (sv?.name || 'Server') + ' · Shorts';
+  document.getElementById('shorts-view').style.display = 'block';
+  renderShorts();
+}
+
+function closeShorts() {
+  document.getElementById('shorts-view').style.display = 'none';
+  // Pause any playing iframes
+  document.querySelectorAll('.short-card iframe').forEach(f => { f.src = f.src; });
+}
+
+function renderShorts() {
+  const sv = S.servers.find(s => s.id === curShortsServerId);
+  const shorts = (sv?.shorts || []).slice().reverse();
+  const feed = document.getElementById('shorts-feed');
+  if (!shorts.length) {
+    feed.innerHTML = `<div class="short-card"><div style="text-align:center;color:var(--t2)"><div style="font-size:48px;margin-bottom:16px">🎬</div><div style="font-size:18px;font-weight:700;margin-bottom:8px">No Shorts Yet</div><div style="font-size:14px;opacity:.7">Be the first to post one!</div></div></div>`;
+    return;
+  }
+  feed.innerHTML = shorts.map((s, i) => buildShortCard(s, i)).join('');
+}
+
+function buildShortCard(s, i) {
+  const embedUrl = getEmbedUrl(s.url);
+  const mediaHTML = embedUrl
+    ? `<iframe src="${embedUrl}" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe>`
+    : `<div style="color:var(--t2);text-align:center"><div style="font-size:32px">🔗</div><div style="font-size:13px;margin-top:8px">Unsupported URL</div><a href="${esc(s.url)}" target="_blank" style="color:var(--accent);font-size:12px">Open link</a></div>`;
+  const likes = (s.likes||[]).length;
+  const liked = (s.likes||[]).includes(S.user?.name);
+  const comments = (s.comments||[]).length;
+  return `<div class="short-card" data-short="${s.id}">
+    ${mediaHTML}
+    <div class="short-overlay">
+      <div class="short-caption">${esc(s.caption||'')}</div>
+      <div class="short-author">@${esc(s.author)}</div>
+    </div>
+    <div class="short-actions">
+      <div class="short-action-btn" onclick="toggleShortLike('${s.id}')">
+        <svg width="28" height="28" fill="${liked?'#ef4444':'none'}" stroke="${liked?'#ef4444':'#fff'}" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        <div class="short-action-count">${likes}</div>
+      </div>
+      <div class="short-action-btn" onclick="openShortComments('${s.id}')">
+        <svg width="28" height="28" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <div class="short-action-count">${comments}</div>
+      </div>
+      <div class="short-action-btn" onclick="shareShort('${s.id}')">
+        <svg width="28" height="28" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        <div class="short-action-count">Share</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function getEmbedUrl(url) {
+  try {
+    const u = new URL(url);
+    // YouTube
+    const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=0`;
+    // YouTube Shorts
+    const ytShort = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/);
+    if (ytShort) return `https://www.youtube.com/embed/${ytShort[1]}`;
+    // Direct mp4
+    if (url.endsWith('.mp4') || url.includes('.mp4?')) return null; // handle as video tag
+    return null;
+  } catch { return null; }
+}
+
+function postShort() {
+  const url = document.getElementById('short-url-in').value.trim();
+  const caption = document.getElementById('short-caption-in').value.trim();
+  if (!url) { toast('Enter a video URL'); return; }
+  const sv = S.servers.find(s => s.id === curShortsServerId);
+  if (!sv) return;
+  if (!sv.shorts) sv.shorts = [];
+  const s = { id: uid(), url, caption, author: S.user.name, ts: Date.now(), likes: [], comments: [] };
+  sv.shorts.push(s);
+  persist(); closeM('add-short-modal'); renderShorts();
+  document.getElementById('short-url-in').value = '';
+  document.getElementById('short-caption-in').value = '';
+  wsSend({ type: 'short_post', serverId: sv.id, short: s });
+  toast('🎬 Short posted!');
+}
+
+function toggleShortLike(shortId) {
+  const sv = S.servers.find(s => s.id === curShortsServerId); if (!sv) return;
+  const s = (sv.shorts||[]).find(x => x.id === shortId); if (!s) return;
+  if (!s.likes) s.likes = [];
+  const idx = s.likes.indexOf(S.user.name);
+  if (idx >= 0) s.likes.splice(idx,1); else s.likes.push(S.user.name);
+  persist(); renderShorts();
+  wsSend({ type: 'short_like', serverId: sv.id, shortId, user: S.user.name, liked: idx < 0 });
+}
+
+function openShortComments(shortId) {
+  const sv = S.servers.find(s => s.id === curShortsServerId); if (!sv) return;
+  const s = (sv.shorts||[]).find(x => x.id === shortId); if (!s) return;
+  const comments = s.comments || [];
+  const html = `<div style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;display:flex;align-items:flex-end" onclick="if(event.target===this)this.remove()">
+    <div style="width:100%;background:var(--s2);border-radius:20px 20px 0 0;padding:20px;max-height:60vh;overflow-y:auto">
+      <div style="font-weight:700;font-size:15px;margin-bottom:14px">Comments (${comments.length})</div>
+      <div id="short-comments-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
+        ${comments.length ? comments.map(c => `<div><span style="font-weight:700;font-size:13px">${esc(c.author)}</span> <span style="font-size:13px;color:var(--t2)">${esc(c.text)}</span></div>`).join('') : '<div style="font-size:13px;color:var(--t3)">No comments yet</div>'}
+      </div>
+      <div style="display:flex;gap:8px">
+        <input class="m-inp" id="short-comment-in" placeholder="Add a comment..." style="flex:1" onkeydown="if(event.key==='Enter'){addShortComment('${shortId}',this.closest('[onclick]'));event.preventDefault();}">
+        <button class="btn-p" onclick="addShortComment('${shortId}',this.closest('[onclick]'))">Post</button>
+      </div>
+    </div>
+  </div>`;
+  const div = document.createElement('div'); div.innerHTML = html;
+  document.body.appendChild(div.firstElementChild);
+}
+
+function addShortComment(shortId, container) {
+  const inp = document.getElementById('short-comment-in'); if (!inp) return;
+  const text = inp.value.trim(); if (!text) return;
+  const sv = S.servers.find(s => s.id === curShortsServerId); if (!sv) return;
+  const s = (sv.shorts||[]).find(x => x.id === shortId); if (!s) return;
+  if (!s.comments) s.comments = [];
+  const c = { id: uid(), author: S.user.name, text, ts: Date.now() };
+  s.comments.push(c); persist(); renderShorts();
+  wsSend({ type: 'short_comment', serverId: sv.id, shortId, comment: c });
+  container?.remove();
+}
+
+function shareShort(shortId) {
+  const sv = S.servers.find(s => s.id === curShortsServerId); if (!sv) return;
+  const s = (sv.shorts||[]).find(x => x.id === shortId); if (!s) return;
+  navigator.clipboard.writeText(s.url).then(() => toast('🔗 Link copied!')).catch(() => toast('Could not copy'));
 }
 
 // ── Boot: ensure every server has roles fields ──
