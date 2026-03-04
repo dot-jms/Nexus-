@@ -345,6 +345,21 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
 .dm-it:hover{background:var(--s3)}
 .dm-nm{font-size:13px;font-weight:600;color:var(--t2)}
 .dm-pv{font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dm-it.active{background:var(--s4)}
+.dm-it .dm-unread{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-left:auto;flex-shrink:0;display:none}
+.dm-it.unread .dm-unread{display:block}
+.dm-req-badge{background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;margin-left:auto}
+/* DM Chat view inside main panel */
+#dm-chat{flex:1;display:none;flex-direction:column;min-height:0}
+#dm-chat.show{display:flex}
+.dm-chat-hd{height:50px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;padding:0 14px;gap:9px;background:var(--s1)}
+.dm-chat-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden}
+.dm-chat-av img{width:100%;height:100%;object-fit:cover}
+.dm-chat-name{font-size:14px;font-weight:700}
+.dm-pending{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:10px;color:var(--t3);text-align:center;padding:30px}
+.dm-pending-icon{font-size:36px;opacity:.5}
+.dm-pending-title{font-size:15px;font-weight:700;color:var(--t2)}
+.dm-pending-sub{font-size:12px;line-height:1.7;max-width:260px}
 
 /* MODALS */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .18s}
@@ -559,6 +574,36 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
       </div>
       <input type="file" id="file-in" multiple accept="image/*,video/*,.pdf,.txt,.doc,.docx,.zip,.json,.csv" onchange="onFiles(event)">
     </div>
+
+    <!-- DM CHAT VIEW -->
+    <div id="dm-chat">
+      <div class="dm-chat-hd">
+        <div class="dm-chat-av" id="dm-chat-av"></div>
+        <div class="dm-chat-name" id="dm-chat-name"></div>
+        <div style="margin-left:auto;display:flex;gap:3px">
+          <button class="ib" title="Back to servers" onclick="closeDMChat()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="dm-msgs" style="flex:1;overflow-y:auto;padding:16px 12px;display:flex;flex-direction:column;gap:1px"></div>
+      <div id="dm-pending-banner" class="dm-pending" style="display:none">
+        <div class="dm-pending-icon">💬</div>
+        <div class="dm-pending-title" id="dm-pending-title"></div>
+        <div class="dm-pending-sub" id="dm-pending-sub"></div>
+      </div>
+      <div class="ty-bar" id="dm-ty-bar"></div>
+      <div class="inp-wrap" id="dm-inp-wrap">
+        <div class="inp-box">
+          <div class="inp-row">
+            <textarea id="dm-msg-in" placeholder="Message" rows="1" oninput="onDMType()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendDMMsg();}"></textarea>
+            <button class="snd" onclick="sendDMMsg()">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="members"></div>
@@ -569,7 +614,8 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
 
 <!-- DM PANEL -->
 <div id="dm-panel">
-  <div class="dm-hd"><span class="dm-hd-t">Direct Messages</span>
+  <div class="dm-hd">
+    <span class="dm-hd-t">Direct Messages</span>
     <button class="ib" onclick="toggleDM()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
   </div>
   <div class="dm-list" id="dm-list"></div>
@@ -643,13 +689,27 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
 <!-- NEW DM -->
 <div class="overlay" id="ndm">
   <div class="modal">
-    <div class="modal-t">New Direct Message</div>
-    <div class="modal-s">Start a private conversation.</div>
+    <div class="modal-t">Send DM Request</div>
+    <div class="modal-s">Enter the exact username of the person you want to message.</div>
     <div class="m-lbl">Username</div>
-    <input class="m-inp" id="dm-in" placeholder="username">
+    <input class="m-inp" id="dm-in" placeholder="username" maxlength="24">
+    <div id="dm-req-err" style="font-size:12px;color:var(--red);display:none;margin-top:4px"></div>
     <div class="m-row">
       <button class="btn-g" onclick="closeM('ndm')">Cancel</button>
-      <button class="btn-p" onclick="startDM()">Open DM →</button>
+      <button class="btn-p" onclick="sendDMRequest()">Send Request →</button>
+    </div>
+  </div>
+</div>
+
+<!-- DM REQUEST INCOMING -->
+<div class="overlay" id="dm-req-modal">
+  <div class="modal" style="text-align:center">
+    <div style="font-size:32px;margin-bottom:8px">💬</div>
+    <div class="modal-t" id="dm-req-title">DM Request</div>
+    <div class="modal-s" id="dm-req-body">wants to start a conversation with you.</div>
+    <div class="m-row" style="justify-content:center;margin-top:18px">
+      <button class="btn-g" onclick="declineDMRequest()">Decline</button>
+      <button class="btn-p" onclick="acceptDMRequest()">Accept →</button>
     </div>
   </div>
 </div>
@@ -753,7 +813,7 @@ const WS_URL = 'wss://nexus.dot-jms.deno.net';
 // ── STATE ──
 const S = {
   user: null, servers: [], curSv: null, curCh: null,
-  messages: {}, dms: [], files: [], members: {},
+  messages: {}, dms: [], dmMessages: {}, files: [], members: {},
   ws: null, wsOk: false, mbOpen: true, chType: 'text',
   tyTimer: null, tySent: false,
   discFilter: 'all', discServers: [],
@@ -878,7 +938,7 @@ function signOut() {
 }
 
 function hashPw(pw){ let h=5381; for(let i=0;i<pw.length;i++){h=((h<<5)+h)+pw.charCodeAt(i);h|=0;} return h.toString(36); }
-function loadUserData(){ const d=lsGet('nx-data-'+S.user.name.toLowerCase())||{}; S.servers=d.servers||[]; S.messages=d.messages||{}; S.dms=d.dms||[]; }
+function loadUserData(){ const d=lsGet('nx-data-'+S.user.name.toLowerCase())||{}; S.servers=d.servers||[]; S.messages=d.messages||{}; S.dms=d.dms||[]; S.dmMessages=d.dmMessages||{}; }
 
 function bootApp() {
   document.getElementById('auth-screen').style.display='none';
@@ -966,6 +1026,9 @@ function handleIn(msg) {
     case 'delete_message': delById(msg.messageId,msg.channelId); break;
     case 'reaction': if(S.curCh?.id===msg.channelId) renderMsgs(msg.channelId); break;
     case 'dm': recvDM(msg); break;
+    case 'dm_request': recvDMRequest(msg); break;
+    case 'dm_accept': recvDMAccept(msg); break;
+    case 'dm_decline': recvDMDecline(msg); break;
     // Real member presence — server sends these
     case 'member_join':
       if(!S.members[msg.serverId]) S.members[msg.serverId]=[];
@@ -1386,15 +1449,219 @@ function renderMbs() {
 }
 function toggleMb(){S.mbOpen=!S.mbOpen;document.getElementById('members').style.display=S.mbOpen?'':'none';}
 
-// ── DMs ──
-function toggleDM(){document.getElementById('dm-panel').classList.toggle('open');}
-function renderDMs(){
-  const el=document.getElementById('dm-list');
-  if(!S.dms.length){el.innerHTML=`<div style="padding:16px;font-size:12px;color:var(--t3);text-align:center">No DMs yet</div>`;return;}
-  el.innerHTML=S.dms.map(dm=>`<div class="dm-it"><div class="mb-av" style="background:${dm.pfp?'transparent':COLORS[hash(dm.name)%COLORS.length]};width:30px;height:30px">${dm.pfp?`<img src="${dm.pfp}">`:`${dm.name[0].toUpperCase()}`}</div><div style="min-width:0"><div class="dm-nm">${esc(dm.name)}</div><div class="dm-pv">${esc(dm.last||'No messages yet')}</div></div></div>`).join('');
+// ══════════════════════════════════
+// DMs — Request / Accept / Chat
+// ══════════════════════════════════
+let curDM = null;        // currently open DM convo
+let pendingDMReq = null; // incoming request waiting for accept/decline
+
+function toggleDM() { document.getElementById('dm-panel').classList.toggle('open'); }
+
+function renderDMs() {
+  const el = document.getElementById('dm-list');
+  // Pending requests at top
+  const pending = S.dms.filter(d => d.status === 'pending_received');
+  const active  = S.dms.filter(d => d.status === 'accepted');
+  const sent    = S.dms.filter(d => d.status === 'pending_sent');
+
+  let html = '';
+  if (pending.length) {
+    html += `<div style="padding:8px 12px 4px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)">Requests (${pending.length})</div>`;
+    pending.forEach(dm => {
+      const bg = dm.pfp ? 'transparent' : COLORS[hash(dm.name) % COLORS.length];
+      const av = dm.pfp ? `<img src="${dm.pfp}">` : dm.name[0].toUpperCase();
+      html += `<div class="dm-it" onclick="openDMRequest('${dm.name}')">
+        <div class="mb-av" style="background:${bg};width:30px;height:30px">${av}</div>
+        <div style="min-width:0;flex:1"><div class="dm-nm">${esc(dm.name)}</div><div class="dm-pv">Wants to message you</div></div>
+        <div class="dm-req-badge">!</div>
+      </div>`;
+    });
+  }
+  if (active.length) {
+    html += `<div style="padding:8px 12px 4px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">Messages</div>`;
+    active.forEach(dm => {
+      const bg = dm.pfp ? 'transparent' : COLORS[hash(dm.name) % COLORS.length];
+      const av = dm.pfp ? `<img src="${dm.pfp}">` : dm.name[0].toUpperCase();
+      const isActive = curDM === dm.name;
+      html += `<div class="dm-it${isActive?' active':''}${dm.unread?' unread':''}" onclick="openDMChat('${dm.name}')">
+        <div class="mb-av" style="background:${bg};width:30px;height:30px">${av}</div>
+        <div style="min-width:0;flex:1"><div class="dm-nm">${esc(dm.name)}</div><div class="dm-pv">${esc(dm.last||'No messages yet')}</div></div>
+        <div class="dm-unread"></div>
+      </div>`;
+    });
+  }
+  if (sent.length) {
+    html += `<div style="padding:8px 12px 4px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">Sent Requests</div>`;
+    sent.forEach(dm => {
+      const bg = COLORS[hash(dm.name) % COLORS.length];
+      html += `<div class="dm-it" style="opacity:.6">
+        <div class="mb-av" style="background:${bg};width:30px;height:30px">${dm.name[0].toUpperCase()}</div>
+        <div style="min-width:0;flex:1"><div class="dm-nm">${esc(dm.name)}</div><div class="dm-pv">Request pending...</div></div>
+      </div>`;
+    });
+  }
+  if (!html) html = `<div style="padding:24px 16px;font-size:12px;color:var(--t3);text-align:center">No messages yet.<br>Send someone a DM request!</div>`;
+  el.innerHTML = html;
 }
-function recvDM(msg){let dm=S.dms.find(d=>d.name===msg.from);if(!dm){dm={id:uid(),name:msg.from,last:''};S.dms.push(dm);}dm.last=msg.text||'[attachment]';persist();renderDMs();toast('💬 DM from '+msg.from);}
-function startDM(){const name=document.getElementById('dm-in').value.trim().split('#')[0];if(!name)return;if(!S.dms.find(d=>d.name===name)){S.dms.push({id:uid(),name,last:''});persist();renderDMs();}closeM('ndm');toast('💬 DM opened with '+name);document.getElementById('dm-in').value='';}
+
+// ── Sending a DM request ──
+function sendDMRequest() {
+  const name = document.getElementById('dm-in').value.trim().split('#')[0];
+  const errEl = document.getElementById('dm-req-err');
+  errEl.style.display = 'none';
+  if (!name) { errEl.textContent = 'Enter a username.'; errEl.style.display = 'block'; return; }
+  if (name === S.user.name) { errEl.textContent = "You can't DM yourself."; errEl.style.display = 'block'; return; }
+  if (S.dms.find(d => d.name === name)) { errEl.textContent = 'You already have a conversation with this person.'; errEl.style.display = 'block'; return; }
+  if (!S.wsOk) { errEl.textContent = 'Not connected — check your internet.'; errEl.style.display = 'block'; return; }
+  // Add as sent pending
+  S.dms.push({ id: uid(), name, last: '', status: 'pending_sent', pfp: null });
+  persist(); renderDMs();
+  wsSend({ type: 'dm_request', to: name, from: S.user.name, fromColor: S.user.color, fromPfp: S.user.pfp || null });
+  closeM('ndm');
+  document.getElementById('dm-in').value = '';
+  toast('📨 DM request sent to ' + name);
+}
+
+// ── Receiving a DM request ──
+function recvDMRequest(msg) {
+  // Don't show if we already have an active convo
+  if (S.dms.find(d => d.name === msg.from && d.status === 'accepted')) return;
+  // Add to pending
+  if (!S.dms.find(d => d.name === msg.from)) {
+    S.dms.push({ id: uid(), name: msg.from, last: '', status: 'pending_received', pfp: msg.fromPfp || null, color: msg.fromColor || null });
+    persist(); renderDMs();
+  }
+  // Show modal
+  pendingDMReq = msg.from;
+  document.getElementById('dm-req-title').textContent = msg.from + ' sent you a DM request';
+  document.getElementById('dm-req-body').textContent = 'Do you want to accept their message request?';
+  document.getElementById('dm-panel').classList.add('open');
+  openM('dm-req-modal');
+}
+
+function openDMRequest(name) {
+  pendingDMReq = name;
+  document.getElementById('dm-req-title').textContent = name + ' sent you a DM request';
+  document.getElementById('dm-req-body').textContent = 'Do you want to accept their message request?';
+  openM('dm-req-modal');
+}
+
+function acceptDMRequest() {
+  if (!pendingDMReq) return;
+  const dm = S.dms.find(d => d.name === pendingDMReq);
+  if (dm) dm.status = 'accepted';
+  persist(); renderDMs(); closeM('dm-req-modal');
+  wsSend({ type: 'dm_accept', to: pendingDMReq, from: S.user.name, fromPfp: S.user.pfp || null });
+  openDMChat(pendingDMReq);
+  pendingDMReq = null;
+}
+
+function declineDMRequest() {
+  if (!pendingDMReq) return;
+  S.dms = S.dms.filter(d => d.name !== pendingDMReq);
+  persist(); renderDMs(); closeM('dm-req-modal');
+  wsSend({ type: 'dm_decline', to: pendingDMReq, from: S.user.name });
+  toast('❌ DM request from ' + pendingDMReq + ' declined');
+  pendingDMReq = null;
+}
+
+// ── Request accepted / declined notifications ──
+function recvDMAccept(msg) {
+  const dm = S.dms.find(d => d.name === msg.from);
+  if (dm) { dm.status = 'accepted'; dm.pfp = msg.fromPfp || null; }
+  else S.dms.push({ id: uid(), name: msg.from, last: '', status: 'accepted', pfp: msg.fromPfp || null });
+  persist(); renderDMs();
+  toast('✅ ' + msg.from + ' accepted your DM request!');
+}
+
+function recvDMDecline(msg) {
+  S.dms = S.dms.filter(d => !(d.name === msg.from && d.status === 'pending_sent'));
+  persist(); renderDMs();
+  toast('❌ ' + msg.from + ' declined your DM request.');
+}
+
+// ── Opening a DM conversation ──
+function openDMChat(name) {
+  const dm = S.dms.find(d => d.name === name); if (!dm) return;
+  curDM = name;
+  dm.unread = false;
+  // Switch main view
+  hideAll();
+  document.getElementById('dm-chat').classList.add('show');
+  document.getElementById('ch-hd').style.display = 'none';
+  // Set header
+  const bg = dm.pfp ? 'transparent' : COLORS[hash(name) % COLORS.length];
+  const av = dm.pfp ? `<img src="${dm.pfp}" style="width:100%;height:100%;object-fit:cover">` : name[0].toUpperCase();
+  document.getElementById('dm-chat-av').style.background = bg;
+  document.getElementById('dm-chat-av').innerHTML = av;
+  document.getElementById('dm-chat-name').textContent = name;
+  // Show messages or pending banner
+  const accepted = dm.status === 'accepted';
+  document.getElementById('dm-inp-wrap').style.display = accepted ? '' : 'none';
+  document.getElementById('dm-pending-banner').style.display = accepted ? 'none' : 'flex';
+  if (!accepted) {
+    document.getElementById('dm-pending-title').textContent = 'Waiting for ' + name + '...';
+    document.getElementById('dm-pending-sub').textContent = name + " hasn't accepted your request yet. You'll be able to chat once they do.";
+  }
+  renderDMMessages(name);
+  renderDMs();
+  document.getElementById('dm-panel').classList.remove('open');
+}
+
+function closeDMChat() {
+  curDM = null;
+  document.getElementById('dm-chat').classList.remove('show');
+  showWelcome();
+}
+
+// ── DM messages ──
+function renderDMMessages(name) {
+  const el = document.getElementById('dm-msgs'); el.innerHTML = '';
+  const msgs = S.dmMessages[name] || [];
+  if (!msgs.length) {
+    el.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--t3)"><div style="font-size:28px;margin-bottom:8px">👋</div><div style="font-weight:700;color:var(--t2);font-size:13px">This is the beginning of your DM with ${esc(name)}</div></div>`;
+    return;
+  }
+  let la = '', lt = 0;
+  msgs.forEach(m => {
+    const grp = m.author === la && (m.ts - lt) < 300000;
+    el.innerHTML += buildMsg(m, grp);
+    la = m.author; lt = m.ts;
+  });
+  el.scrollTop = el.scrollHeight;
+}
+
+function sendDMMsg() {
+  const inp = document.getElementById('dm-msg-in');
+  const text = inp.value.trim(); if (!text || !curDM) return;
+  const dm = S.dms.find(d => d.name === curDM); if (!dm || dm.status !== 'accepted') return;
+  const msg = { id: uid(), author: S.user.name, authorColor: S.user.color, authorPfp: S.user.pfp || null, text, ts: Date.now(), reactions: [], attachments: [] };
+  if (!S.dmMessages[curDM]) S.dmMessages[curDM] = [];
+  S.dmMessages[curDM].push(msg);
+  dm.last = text; persist();
+  renderDMMessages(curDM); renderDMs();
+  wsSend({ type: 'dm', to: curDM, from: S.user.name, ...msg });
+  inp.value = ''; inp.style.height = 'auto';
+}
+
+function recvDM(msg) {
+  const from = msg.from || msg.author;
+  let dm = S.dms.find(d => d.name === from);
+  if (!dm) return; // ignore if no accepted convo
+  if (!S.dmMessages[from]) S.dmMessages[from] = [];
+  S.dmMessages[from].push({ id: msg.id || uid(), author: from, authorColor: msg.authorColor, authorPfp: msg.authorPfp, text: msg.text, ts: msg.ts || Date.now(), reactions: [], attachments: msg.attachments || [] });
+  dm.last = msg.text || '[attachment]';
+  if (curDM !== from) dm.unread = true;
+  persist(); renderDMs();
+  if (curDM === from) renderDMMessages(from);
+  else toast('💬 DM from ' + from);
+}
+
+function onDMType() {
+  const inp = document.getElementById('dm-msg-in');
+  inp.style.height = 'auto';
+  inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
+}
 
 // ── UI ──
 function hideAll(){
@@ -1402,6 +1669,7 @@ function hideAll(){
   document.getElementById('discover').classList.remove('show');
   document.getElementById('chat-wrap').classList.remove('show');
   document.getElementById('ch-hd').style.display='none';
+  document.getElementById('dm-chat').classList.remove('show');
 }
 function showWelcome(){ hideAll(); document.getElementById('welcome').style.display=''; }
 function showChat(){ hideAll(); document.getElementById('chat-wrap').classList.add('show'); document.getElementById('ch-hd').style.display='flex'; }
@@ -1429,7 +1697,7 @@ function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36
 function hash(s){let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}return Math.abs(h);}
 
 // ── PERSIST ──
-function persist(){if(!S.user)return;lsSet('nx-data-'+S.user.name.toLowerCase(),{servers:S.servers,messages:S.messages,dms:S.dms});}
+function persist(){if(!S.user)return;lsSet('nx-data-'+S.user.name.toLowerCase(),{servers:S.servers,messages:S.messages,dms:S.dms,dmMessages:S.dmMessages});}
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k));}catch{return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 
