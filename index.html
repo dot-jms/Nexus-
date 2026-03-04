@@ -1008,6 +1008,14 @@ function connectWS() {
   S.ws.onopen=()=>{
     S.wsOk=true; setWS('connected'); hideBanner();
     wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null});
+    // Re-announce public servers we own so the relay's list stays fresh after restarts
+    const myPublic = S.servers.filter(sv => sv.isPublic && sv.ownerId === S.user.name);
+    if (myPublic.length) {
+      wsSend({type:'announce_servers', servers: myPublic.map(sv => ({
+        id:sv.id, name:sv.name, desc:sv.desc||'', icon:sv.icon||null,
+        color:sv.color, memberCount:sv.memberCount||1, createdAt:sv.createdAt||Date.now()
+      }))});
+    }
   };
   S.ws.onmessage=e=>{ try{handleIn(JSON.parse(e.data));}catch(err){} };
   S.ws.onerror=()=>{ S.wsOk=false; setWS('error'); };
@@ -1101,7 +1109,7 @@ function createSv() {
   };
   S.servers.push(sv); persist(); closeM('csv'); renderSvs(); selectSv(sv.id);
   toast('🎉 "'+name+'" created');
-  wsSend({type:'server_create',serverId:sv.id,name,desc:sv.desc,icon:sv.icon,color:sv.color});
+  wsSend({type:'server_create',serverId:sv.id,name,desc:sv.desc,icon:sv.icon,color:sv.color,isPublic:true,memberCount:1,createdAt:sv.createdAt||Date.now()});
   document.getElementById('sv-in').value=''; document.getElementById('sv-desc').value='';
   svIconData=null; document.getElementById('sv-icon-preview').innerHTML='🖼️';
 }
@@ -1878,7 +1886,7 @@ function saveSvOverview() {
   if (stgIconData) sv.icon = stgIconData;
   persist(); renderSvs(); document.getElementById('sv-nm').textContent = sv.name;
   toast('✅ Server updated');
-  wsSend({type:'server_update', serverId:sv.id, name:sv.name, desc:sv.desc, icon:sv.icon});
+  wsSend({type:'server_update', serverId:sv.id, name:sv.name, desc:sv.desc, icon:sv.icon||null, color:sv.color, isPublic:sv.isPublic, memberCount:sv.memberCount||1, createdAt:sv.createdAt||Date.now()});
 }
 
 // ── ROLES PANE ──
