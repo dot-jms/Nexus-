@@ -59,39 +59,62 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
 .auth-hint a:hover{text-decoration:underline}
 
 
-/* ── PROFILE PAGE ── */
-#profile-page{position:fixed;inset:0;z-index:160;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .18s}
-#profile-page.open{opacity:1;pointer-events:all}
-.pp-card{width:420px;max-width:94vw;background:var(--s2);border:1px solid var(--border2);border-radius:20px;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.7)}
-.pp-banner{height:90px;background:linear-gradient(135deg,var(--accent),#a855f7);position:relative;flex-shrink:0}
-.pp-av{width:72px;height:72px;border-radius:50%;border:4px solid var(--s2);position:absolute;bottom:-36px;left:20px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0}
+/* ── PROFILE PAGE — full centered modal overlay ── */
+#profile-page{position:fixed;inset:0;z-index:170;background:rgba(0,0,0,.72);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center}
+#profile-page.open{display:flex}
+.profile-page-card{width:500px;max-width:96vw;max-height:90vh;background:var(--s1);border:1px solid var(--border2);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 40px 100px rgba(0,0,0,.7)}
+.pp-banner{height:140px;position:relative;flex-shrink:0}
+.pp-banner-grad{position:absolute;inset:0}
+.pp-close{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;background:rgba(0,0,0,.5);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:background .13s;z-index:2}
+.pp-close:hover{background:rgba(0,0,0,.8)}
+.pp-av-wrap{position:relative;padding:0 24px;margin-top:-48px;margin-bottom:6px;display:flex;align-items:flex-end;justify-content:space-between;flex-shrink:0}
+.pp-av{width:90px;height:90px;border-radius:50%;border:5px solid var(--s1);background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0}
 .pp-av img{width:100%;height:100%;object-fit:cover}
-.pp-body{padding:44px 22px 22px}
-.pp-name{font-size:18px;font-weight:800;letter-spacing:-.3px}
-.pp-tag{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-bottom:4px}
-.pp-badges{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
-.pp-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;letter-spacing:.05em}
-.pp-bio{font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:14px;white-space:pre-wrap;word-break:break-word}
-.pp-socials{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
-.pp-social{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t3);background:var(--s3);padding:5px 10px;border-radius:6px;text-decoration:none;transition:all .12s;border:1px solid var(--border)}
+.pp-body{padding:0 24px 20px;overflow-y:auto;flex:1}
+.pp-name{font-size:22px;font-weight:800;letter-spacing:-.4px;line-height:1.2}
+.pp-tag{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-bottom:10px}
+.pp-badges{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
+.pp-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;letter-spacing:.05em}
+.pp-section{margin-bottom:16px}
+.pp-section-title{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.pp-bio{font-size:13px;color:var(--t2);line-height:1.65;white-space:pre-wrap;word-break:break-word;background:var(--s2);border-radius:8px;padding:10px 12px}
+.pp-socials{display:flex;flex-direction:column;gap:5px}
+.pp-social{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2);background:var(--s2);padding:8px 12px;border-radius:8px;text-decoration:none;transition:all .12s;border:1px solid var(--border)}
 .pp-social:hover{border-color:var(--accent);color:var(--accent)}
-.pp-actions{display:flex;gap:8px}
+.pp-actions{display:flex;gap:8px;padding:16px 24px 22px;border-top:1px solid var(--border);flex-shrink:0}
+.pp-sep{height:1px;background:var(--border);margin:4px 0 16px}
+/* ── USER HOVER POPUP ── */
+.user-hover-popup{position:fixed;z-index:500;width:260px;background:var(--s1);border:1px solid var(--border2);border-radius:14px;box-shadow:0 16px 60px rgba(0,0,0,.7);overflow:hidden;pointer-events:none;opacity:0;transform:translateY(6px);transition:opacity .14s,transform .14s}
+.user-hover-popup.show{opacity:1;transform:translateY(0);pointer-events:auto}
+.uhp-banner{height:60px;position:relative;flex-shrink:0}
+.uhp-av{width:52px;height:52px;border-radius:50%;border:3px solid var(--s1);position:absolute;bottom:-26px;left:14px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;overflow:hidden}
+.uhp-av img{width:100%;height:100%;object-fit:cover}
+.uhp-body{padding:32px 14px 12px}
+.uhp-name{font-size:15px;font-weight:800;letter-spacing:-.3px}
+.uhp-tag{font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-bottom:6px}
+.uhp-badges{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px}
+.uhp-bio{font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:10px;max-height:50px;overflow:hidden}
+.uhp-view-btn{width:100%;background:var(--s3);border:1px solid var(--border2);border-radius:6px;padding:6px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;color:var(--t2);cursor:pointer;transition:all .12s}
+.uhp-view-btn:hover{background:var(--accent);color:#fff;border-color:transparent}
 /* DM textarea fix */
 #dm-msg-in{flex:1;background:transparent;border:none;outline:none;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13.5px;resize:none;max-height:120px;line-height:1.5;padding:5px 0}
 #dm-msg-in::placeholder{color:var(--t3)}
 #dm-inp-wrap .inp-box{background:var(--s3);border:1px solid var(--border2);border-radius:var(--r);transition:border-color .15s,box-shadow .15s}
 #dm-inp-wrap .inp-box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
 #dm-inp-wrap .inp-row{display:flex;align-items:flex-end;gap:6px;padding:7px 10px}
-/* Voice call modal */
-.vcall-grid{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:16px 0}
-.vcall-tile{width:80px;display:flex;flex-direction:column;align-items:center;gap:5px}
-.vcall-av{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;position:relative;border:2px solid transparent;transition:border-color .2s}
-.vcall-av.speaking{border-color:var(--green);box-shadow:0 0 12px rgba(52,211,153,.4)}
-.vcall-av.muted::after{content:'🔇';position:absolute;bottom:-2px;right:-2px;font-size:11px;background:var(--s2);border-radius:50%;padding:1px}
-.vcall-nm{font-size:11px;font-weight:600;color:var(--t2);text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.vcall-controls{display:flex;gap:10px;justify-content:center;padding:16px 0;border-top:1px solid var(--border)}
-.vcall-btn{width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .15s}
-.vcall-btn:hover{transform:scale(1.08)}
+/* Voice call bar (persistent, like voice channel bar) */
+#vcall-bar{display:none;padding:8px 14px;background:rgba(108,99,255,.08);border-bottom:1px solid rgba(108,99,255,.2);flex-shrink:0;width:100%}
+#vcall-bar.active{display:block}
+.vcall-bar-row{display:flex;align-items:center;gap:8px}
+.vcall-bar-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:blink 1.5s infinite;flex-shrink:0}
+.vcall-bar-label{font-size:11px;font-weight:700;color:var(--accent)}
+.vcall-bar-timer{font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-left:4px}
+.vcall-bar-members{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.vcall-member-pip{display:flex;align-items:center;gap:4px;background:var(--s3);border:1px solid var(--border);border-radius:99px;padding:3px 8px 3px 4px}
+.vcall-pip-av{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden}
+.vcall-pip-av img{width:100%;height:100%;object-fit:cover}
+.vcall-pip-nm{font-size:11px;font-weight:600;color:var(--t2)}
+.vcall-pip-muted{font-size:10px;opacity:.7}
 
 /* ══ APP ══ */
 #app{display:flex;height:100vh;width:100%;opacity:0;transition:opacity .35s}
@@ -594,7 +617,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
         <div class="status-opt" onclick="setStatus('dnd')"><div class="status-dot" style="background:var(--red)"></div>Do Not Disturb</div>
         <div class="status-opt" onclick="setStatus('invisible')"><div class="status-dot" style="background:var(--t3)"></div>Invisible</div>
       </div>
-      <div class="u-av" id="u-av" onclick="openM('profile-modal')">?<div class="u-dot" id="u-dot"></div></div>
+      <div class="u-av" id="u-av" onclick="openProfilePage(S.user?.name)">?<div class="u-dot" id="u-dot"></div></div>
       <div style="min-width:0;flex:1">
         <div class="u-name" id="u-nm">—</div>
         <div class="u-tag" id="u-tg">#0000</div>
@@ -619,6 +642,19 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
 
   <div id="main">
     <div id="banner"></div>
+    <!-- VOICE CALL BAR — persistent during P2P calls, survives navigation -->
+    <div id="vcall-bar">
+      <div class="vcall-bar-row">
+        <div class="vcall-bar-dot"></div>
+        <span class="vcall-bar-label" id="vcall-status">Calling...</span>
+        <span class="vcall-bar-timer" id="vcall-timer"></span>
+        <div style="flex:1"></div>
+        <button class="ib" id="vcall-mute-btn" onclick="toggleVoiceCallMute()" title="Mute" style="color:var(--accent);font-size:15px">&#127897;&#65039;</button>
+        <button class="ib" onclick="document.getElementById('vcall-invite-widget').style.display=document.getElementById('vcall-invite-widget').style.display==='none'?'block':'none'" title="Invite" style="font-size:13px">&#10133;</button>
+        <button class="ib" onclick="endVoiceCall()" title="End call" style="color:var(--red);font-size:15px">&#128245;</button>
+      </div>
+      <div class="vcall-bar-members" id="vcall-bar-members"></div>
+    </div>
     <div class="ch-hd" id="ch-hd" style="display:none">
       <div class="ch-hd-nm"><span class="hash" id="ch-ico">#</span><span id="ch-nm">general</span></div>
       <div class="ch-div"></div>
@@ -783,31 +819,47 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
     </div>
   </div>
 </div>
-<!-- PROFILE VIEW PAGE (other users) -->
+<!-- PROFILE PAGE — centered modal overlay -->
 <div id="profile-page" onclick="if(event.target===this)closeProfilePage()">
-  <div class="pp-card">
-    <div class="pp-banner" id="pp-banner"></div>
+  <div class="profile-page-card">
+    <div class="pp-banner" id="pp-banner">
+      <div class="pp-banner-grad" id="pp-banner-grad"></div>
+      <button class="pp-close" onclick="closeProfilePage()">✕</button>
+    </div>
+    <div class="pp-av-wrap">
+      <div class="pp-av" id="pp-av"></div>
+      <div id="pp-edit-btn"></div>
+    </div>
     <div class="pp-body">
-      <div style="position:relative;height:40px">
-        <div class="pp-av" id="pp-av"></div>
-      </div>
       <div class="pp-name" id="pp-name"></div>
       <div class="pp-tag" id="pp-tag"></div>
       <div class="pp-badges" id="pp-badges"></div>
-      <div class="pp-bio" id="pp-bio" style="display:none"></div>
-      <div class="pp-socials" id="pp-socials"></div>
-      <div class="pp-actions" id="pp-actions"></div>
+      <div class="pp-sep"></div>
+      <div id="pp-bio-section" class="pp-section" style="display:none">
+        <div class="pp-section-title">About Me</div>
+        <div class="pp-bio" id="pp-bio"></div>
+      </div>
+      <div id="pp-socials-section" class="pp-section" style="display:none">
+        <div class="pp-section-title">Links</div>
+        <div class="pp-socials" id="pp-socials"></div>
+      </div>
+      <div class="pp-section">
+        <div class="pp-section-title">Member Since</div>
+        <div style="font-size:13px;color:var(--t2);background:var(--s2);border-radius:8px;padding:10px 12px" id="pp-joined">—</div>
+      </div>
     </div>
+    <div class="pp-actions" id="pp-actions"></div>
   </div>
 </div>
 
 <!-- PROFILE EDIT MODAL -->
 <div class="overlay" id="profile-edit-modal" style="z-index:161">
   <div class="modal" style="text-align:center;max-height:88vh;overflow-y:auto">
-    <div class="profile-modal-av" id="profile-modal-av" onclick="document.getElementById('pfp-file-in').click()">
-      <div class="av-overlay">Change</div>
+    <div class="profile-modal-av" id="profile-modal-av" id="profile-modal-av-wrap">
+      <div class="av-overlay" id="pfp-edit-overlay">Change</div>
     </div>
     <input type="file" id="pfp-file-in" accept="image/*" style="display:none" onchange="onPfpChange(event)">
+    <div id="pfp-lock-notice" style="display:none;font-size:11px;color:var(--t3);margin-bottom:8px;background:var(--s3);border-radius:6px;padding:6px 10px">🔒 Only Puck can change profile pictures</div>
     <div class="modal-t" id="profile-modal-name" style="margin-bottom:4px"></div>
     <div style="font-size:12px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-bottom:16px" id="profile-modal-tag"></div>
     <div style="text-align:left">
@@ -836,27 +888,13 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
 </div>
 
 <!-- VOICE CALL MODAL -->
-<div class="overlay" id="vcall-modal" style="z-index:170">
-  <div class="modal" style="text-align:center;max-width:400px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-      <div class="modal-t" style="margin-bottom:0">🔊 Voice Call</div>
-      <div id="vcall-timer" style="font-size:12px;color:var(--t3);font-family:'JetBrains Mono',monospace"></div>
-    </div>
-    <div class="modal-s" id="vcall-status">Calling...</div>
-    <div class="vcall-grid" id="vcall-grid"></div>
-    <div id="vcall-invite-row" style="margin-bottom:12px;display:none">
-      <div class="m-lbl">Invite someone (max 5 total)</div>
-      <div style="display:flex;gap:8px">
-        <input class="m-inp" id="vcall-invite-in" placeholder="Username..." maxlength="24" style="margin-bottom:0;flex:1">
-        <button class="btn-p" style="font-size:12px;white-space:nowrap" onclick="vcallInvite()">Invite</button>
-      </div>
-    </div>
-    <div class="vcall-controls">
-      <button class="vcall-btn" id="vcall-mute-btn" onclick="toggleVoiceMute()" title="Mute" style="background:var(--s3);color:var(--t1)">🎙️</button>
-      <button class="vcall-btn" onclick="endVoiceCall()" title="End call" style="background:var(--red);color:#fff">📵</button>
-      <button class="vcall-btn" onclick="document.getElementById('vcall-invite-row').style.display=document.getElementById('vcall-invite-row').style.display==='none'?'':'none'" title="Invite" style="background:var(--s3);color:var(--t1)">➕</button>
-    </div>
+<div id="vcall-invite-widget" style="display:none;position:fixed;bottom:80px;right:20px;background:var(--s2);border:1px solid var(--border2);border-radius:12px;padding:14px;z-index:180;box-shadow:0 8px 40px rgba(0,0,0,.7);width:240px">
+  <div class="m-lbl" style="margin-bottom:8px">Invite to call (max 5)</div>
+  <div style="display:flex;gap:6px">
+    <input class="m-inp" id="vcall-invite-in" placeholder="Username..." maxlength="24" style="margin-bottom:0;flex:1;font-size:12px;padding:7px 10px" onkeydown="if(event.key==='Enter')vcallInvite()">
+    <button class="btn-p" style="font-size:12px;padding:7px 12px" onclick="vcallInvite()">Go</button>
   </div>
+  <button class="btn-g" style="width:100%;font-size:11px;margin-top:8px;padding:5px" onclick="document.getElementById('vcall-invite-widget').style.display='none'">Close</button>
 </div>
 
 <!-- CREATE SERVER -->
@@ -902,32 +940,18 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
 <!-- NEW DM -->
 <div class="overlay" id="ndm">
   <div class="modal">
-    <div class="modal-t">Send DM Request</div>
+    <div class="modal-t">New Message</div>
     <div class="modal-s">Enter the exact username of the person you want to message.</div>
     <div class="m-lbl">Username</div>
     <input class="m-inp" id="dm-in" placeholder="username" maxlength="24">
     <div id="dm-req-err" style="font-size:12px;color:var(--red);display:none;margin-top:4px"></div>
     <div class="m-row">
       <button class="btn-g" onclick="closeM('ndm')">Cancel</button>
-      <button class="btn-p" onclick="sendDMRequest()">Send Request →</button>
+      <button class="btn-p" onclick="sendDMRequest()">Open Chat →</button>
     </div>
   </div>
 </div>
 
-<!-- DM REQUEST INCOMING -->
-<div class="overlay" id="dm-req-modal">
-  <div class="modal" style="text-align:center">
-    <div style="font-size:32px;margin-bottom:8px">💬</div>
-    <div class="modal-t" id="dm-req-title">DM Request</div>
-    <div class="modal-s" id="dm-req-body">wants to start a conversation with you.</div>
-    <div class="m-row" style="justify-content:center;margin-top:18px">
-      <button class="btn-g" onclick="declineDMRequest()">Decline</button>
-      <button class="btn-p" onclick="acceptDMRequest()">Accept →</button>
-    </div>
-  </div>
-</div>
-
-<div id="toasts"></div>
 
 <!-- VOICE RECORDING INDICATOR -->
 <div id="vm-recording" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--red);color:#fff;padding:8px 18px;border-radius:999px;font-size:13px;font-weight:700;z-index:999;align-items:center;gap:8px;box-shadow:0 4px 20px rgba(248,113,113,.4)">
@@ -1297,38 +1321,39 @@ function signOut() {
   suPfpData = null;
 }
 
-// Change password (from profile)
-async function changePassword() {
+// Change password — sent over main authenticated WS
+function changePassword() {
   const oldPw = document.getElementById('chpw-old').value;
   const newPw = document.getElementById('chpw-new').value;
   const newPw2 = document.getElementById('chpw-new2').value;
   const errEl = document.getElementById('chpw-err');
-  errEl.style.display = 'none';
+  errEl.style.display = 'none'; errEl.style.color = 'var(--red)';
   if (!oldPw || !newPw) { errEl.textContent = 'Fill in all fields.'; errEl.style.display = 'block'; return; }
   if (newPw.length < 4) { errEl.textContent = 'New password must be at least 4 characters.'; errEl.style.display = 'block'; return; }
   if (newPw !== newPw2) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block'; return; }
-  try {
-    const resp = await authRequest({ type: 'auth_change_password', username: S.user.name, oldPassword: oldPw, newPassword: newPw, token: S.token });
-    if (resp.type === 'auth_ok' || resp.type === 'success') {
-      document.getElementById('chpw-old').value = '';
-      document.getElementById('chpw-new').value = '';
-      document.getElementById('chpw-new2').value = '';
-      toast('✅ Password changed!');
-      closeM('profile-modal');
-    } else {
-      errEl.textContent = resp.message || 'Failed.'; errEl.style.display = 'block';
-    }
-  } catch(e) { errEl.textContent = 'Server error.'; errEl.style.display = 'block'; }
+  if (!S.ws || S.ws.readyState !== WebSocket.OPEN) { errEl.textContent = 'Not connected — check your internet.'; errEl.style.display = 'block'; return; }
+  // Send directly on the live socket (already carries token from identify handshake)
+  S.ws.send(JSON.stringify({ type: 'auth_change_password', oldPassword: oldPw, newPassword: newPw, token: S.token }));
+  errEl.textContent = 'Saving...'; errEl.style.color = 'var(--t3)'; errEl.style.display = 'block';
 }
 
 
+let _pfpCropTarget = 'profile'; // 'profile' | 'signup' | 'admin_target'
+let _adminPfpTarget = null; // username when admin is setting someone else's pfp
+
 function onSuPfp(e) {
-  const f=e.target.files[0]; if(!f) return;
-  const reader=new FileReader();
-  reader.onload=ev=>{
-    suPfpData=ev.target.result;
-    const p=document.getElementById('su-pfp-preview');
-    p.innerHTML=`<img src="${suPfpData}" alt="pfp">`;
+  const f = e.target.files[0]; if (!f) return;
+  e.target.value = '';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    _pfpCropTarget = 'signup';
+    pfpCropState = { x:0, y:0, zoom:1, src:ev.target.result, dragging:false };
+    const img = document.getElementById('pfp-crop-img');
+    img.src = ev.target.result;
+    document.getElementById('pfp-crop-zoom').value = 1;
+    img.onload = () => { pfpCropApply(); };
+    openM('pfp-crop-modal');
+    setTimeout(initCropEvents, 50);
   };
   reader.readAsDataURL(f);
 }
@@ -1387,22 +1412,33 @@ function buildProfileModal() {
 }
 
 function openProfileEdit() {
-  const av=document.getElementById('profile-modal-av');
-  av.style.background=S.user.color;
-  if(S.user.pfp) av.innerHTML=`<img src="${S.user.pfp}" alt="pfp"><div class="av-overlay">Change</div>`;
-  else { av.innerHTML=`${S.user.name[0].toUpperCase()}<div class="av-overlay">Change</div>`; }
-  document.getElementById('profile-modal-name').textContent=S.user.name;
-  document.getElementById('profile-modal-tag').textContent='#'+S.user.tag;
-  if(document.getElementById('profile-bio-in')) document.getElementById('profile-bio-in').value=S.user.bio||'';
-  if(document.getElementById('profile-website-in')) document.getElementById('profile-website-in').value=S.user.socials?.website||'';
-  if(document.getElementById('profile-twitter-in')) document.getElementById('profile-twitter-in').value=S.user.socials?.twitter||'';
-  const grid=document.getElementById('profile-av-grid'); grid.innerHTML='';
-  COLORS.forEach(col=>{
-    const d=document.createElement('div');
-    d.className='av-opt'+(col===S.user.color?' sel':'');
-    d.style.background=col; d.dataset.c=col;
-    d.textContent=S.user.name[0].toUpperCase();
-    d.onclick=()=>{ document.querySelectorAll('#profile-av-grid .av-opt').forEach(x=>x.classList.remove('sel')); d.classList.add('sel'); };
+  const isAdmin = S.user.systemRole === 'admin';
+  const av = document.getElementById('profile-modal-av');
+  av.style.background = S.user.color;
+  if (S.user.pfp) av.innerHTML = `<img src="${S.user.pfp}" alt="pfp"><div class="av-overlay">Change</div>`;
+  else { av.innerHTML = `${S.user.name[0].toUpperCase()}<div class="av-overlay">Change</div>`; }
+  // Only Puck (admin) can change profile pictures
+  if (isAdmin) {
+    av.style.cursor = 'pointer';
+    av.onclick = () => document.getElementById('pfp-file-in').click();
+    document.getElementById('pfp-lock-notice').style.display = 'none';
+  } else {
+    av.style.cursor = 'default';
+    av.onclick = null;
+    document.getElementById('pfp-lock-notice').style.display = 'block';
+  }
+  document.getElementById('profile-modal-name').textContent = S.user.name;
+  document.getElementById('profile-modal-tag').textContent = '#' + S.user.tag;
+  if (document.getElementById('profile-bio-in')) document.getElementById('profile-bio-in').value = S.user.bio||'';
+  if (document.getElementById('profile-website-in')) document.getElementById('profile-website-in').value = S.user.socials?.website||'';
+  if (document.getElementById('profile-twitter-in')) document.getElementById('profile-twitter-in').value = S.user.socials?.twitter||'';
+  const grid = document.getElementById('profile-av-grid'); grid.innerHTML = '';
+  COLORS.forEach(col => {
+    const d = document.createElement('div');
+    d.className = 'av-opt' + (col === S.user.color ? ' sel' : '');
+    d.style.background = col; d.dataset.c = col;
+    d.textContent = S.user.name[0].toUpperCase();
+    d.onclick = () => { document.querySelectorAll('#profile-av-grid .av-opt').forEach(x => x.classList.remove('sel')); d.classList.add('sel'); };
     grid.appendChild(d);
   });
   openM('profile-edit-modal');
@@ -1415,6 +1451,7 @@ function onPfpChange(e) {
   e.target.value = '';
   const reader = new FileReader();
   reader.onload = ev => {
+    _pfpCropTarget = 'profile';
     pfpCropState = { x:0, y:0, zoom:1, src:ev.target.result, dragging:false };
     const img = document.getElementById('pfp-crop-img');
     img.src = ev.target.result;
@@ -1481,44 +1518,49 @@ function commitPfpCrop() {
   const wrap = document.getElementById('pfp-crop-wrap');
   const ww = wrap.offsetWidth, wh = wrap.offsetHeight;
   const z = pfpCropState.zoom;
-  // Scale factor from crop display to natural image
-  const scaleX = img.naturalWidth / (img.naturalWidth * z);
-  const scaleY = img.naturalHeight / (img.naturalHeight * z);
-  const srcX = (-pfpCropState.x) / z * scaleX * (img.naturalWidth / img.naturalWidth);
-  const srcY = (-pfpCropState.y) / z * scaleY * (img.naturalHeight / img.naturalHeight);
-  const srcW = (ww / z) * scaleX * (img.naturalWidth / img.naturalWidth);
-  const srcH = (wh / z) * scaleY * (img.naturalHeight / img.naturalHeight);
   // Correct: pixels in natural image covered by the 300px circle at this zoom
   const natW = img.naturalWidth, natH = img.naturalHeight;
-  const dispW = natW * z, dispH = natH * z;
   const clipX = Math.max(0, -pfpCropState.x / z);
   const clipY = Math.max(0, -pfpCropState.y / z);
   const clipW = Math.min(natW - clipX, ww / z);
   const clipH = Math.min(natH - clipY, wh / z);
   ctx.drawImage(img, clipX, clipY, clipW, clipH, 0, 0, size, size);
   const data = canvas.toDataURL('image/jpeg', 0.88);
-  const av = document.getElementById('profile-modal-av');
-  av.innerHTML = `<img src="${data}" alt="pfp"><div class="av-overlay">Change</div>`;
-  av._pendingPfp = data;
+
+  if (_pfpCropTarget === 'signup') {
+    suPfpData = data;
+    const p = document.getElementById('su-pfp-preview');
+    p.innerHTML = `<img src="${suPfpData}" alt="pfp">`;
+  } else if (_pfpCropTarget === 'admin_target' && _adminPfpTarget) {
+    wsSend({ type: 'admin_set_pfp', target: _adminPfpTarget, pfp: data });
+    document.getElementById('admin-users-result').textContent = `✅ PFP updated for ${_adminPfpTarget}`;
+    _adminPfpTarget = null;
+  } else {
+    // 'profile' — set pending pfp on edit modal
+    const av = document.getElementById('profile-modal-av');
+    av.innerHTML = `<img src="${data}" alt="pfp"><div class="av-overlay">Change</div>`;
+    av._pendingPfp = data;
+  }
   closeM('pfp-crop-modal');
 }
 
 function saveProfile() {
-  const selColor=document.querySelector('#profile-av-grid .av-opt.sel')?.dataset.c||S.user.color;
-  const av=document.getElementById('profile-modal-av');
-  const newPfp=av._pendingPfp||S.user.pfp;
+  const selColor = document.querySelector('#profile-av-grid .av-opt.sel')?.dataset.c || S.user.color;
+  const av = document.getElementById('profile-modal-av');
+  // Only Puck (admin) can change their PFP
+  const newPfp = (S.user.systemRole === 'admin' && av._pendingPfp) ? av._pendingPfp : S.user.pfp;
   const bio = (document.getElementById('profile-bio-in')?.value||'').slice(0,160);
   const website = document.getElementById('profile-website-in')?.value.trim()||'';
   const twitter = document.getElementById('profile-twitter-in')?.value.trim().replace('@','')||'';
-  S.user.color=selColor; S.user.pfp=newPfp||null;
-  S.user.bio=bio; S.user.socials={website,twitter};
-  lsSet('nx-session',{token:S.token,user:S.user}); persist();
+  S.user.color = selColor; S.user.pfp = newPfp||null;
+  S.user.bio = bio; S.user.socials = {website, twitter};
+  lsSet('nx-session', {token:S.token, user:S.user}); persist();
   updateUser(); closeM('profile-edit-modal'); toast('✅ Profile updated');
   Object.values(S.messages).forEach(arr => {
     arr.forEach(m => { if(m.author===S.user.name){m.authorColor=S.user.color;m.authorPfp=S.user.pfp||null;} });
   });
   if (S.curCh) renderMsgs(S.curCh.id);
-  wsSend({type:'profile_update',user:S.user.name,color:S.user.color,pfp:S.user.pfp||null,bio,socials:{website,twitter}});
+  wsSend({type:'profile_update', user:S.user.name, color:S.user.color, pfp:S.user.pfp||null, bio, socials:{website,twitter}});
 }
 
 // ══════════════════════════════════
@@ -1619,6 +1661,7 @@ function handleIn(msg) {
       break;
     }
     case 'dm': recvDM(msg); break;
+    case 'dm_history': recvDMHistory(msg); break;
     case 'dm_request': recvDMRequest(msg); break;
     case 'dm_accept': recvDMAccept(msg); break;
     case 'dm_decline': recvDMDecline(msg); break;
@@ -1876,12 +1919,58 @@ function handleIn(msg) {
     }
     case 'error':
       toast('⚠️ ' + (msg.message || 'Server error'));
+      // Password change error — show in form
+      if (msg.context === 'change_password') {
+        const errEl = document.getElementById('chpw-err');
+        if (errEl) { errEl.textContent = msg.message || 'Failed.'; errEl.style.color = 'var(--red)'; errEl.style.display = 'block'; }
+      }
       break;
     case 'success':
       toast('✅ ' + (msg.message || 'Done'));
-      document.getElementById('admin-users-result').textContent = msg.message || '';
-      document.getElementById('admin-ban-result').textContent = msg.message || '';
+      // Password change success
+      if (msg.message?.toLowerCase().includes('password')) {
+        const errEl = document.getElementById('chpw-err');
+        if (errEl) { errEl.textContent = '✅ Password changed!'; errEl.style.color = 'var(--green)'; errEl.style.display = 'block'; }
+        ['chpw-old','chpw-new','chpw-new2'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+        setTimeout(() => closeM('profile-edit-modal'), 1200);
+      }
+      const ares = document.getElementById('admin-users-result');
+      const bres = document.getElementById('admin-ban-result');
+      if(ares) ares.textContent = msg.message || '';
+      if(bres) bres.textContent = msg.message || '';
       break;
+    case 'platform_alert': {
+      // Show a prominent banner to all users
+      const existing = document.getElementById('platform-alert-banner');
+      if (existing) existing.remove();
+      const banner = document.createElement('div');
+      banner.id = 'platform-alert-banner';
+      banner.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;background:linear-gradient(135deg,var(--s2),var(--s3));border:1px solid rgba(168,85,247,.4);border-radius:14px;padding:16px 20px;max-width:460px;width:90vw;box-shadow:0 8px 40px rgba(0,0,0,.6)';
+      banner.innerHTML = `
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="font-size:22px;flex-shrink:0">📢</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:800;color:var(--t1);margin-bottom:4px">${esc(msg.title||'Platform Alert')}</div>
+            <div style="font-size:13px;color:var(--t2);line-height:1.5">${esc(msg.body||'')}</div>
+            <div style="font-size:10px;color:var(--t3);margin-top:6px">From ${esc(msg.from||'Puck')} · Platform Admin</div>
+          </div>
+          <button onclick="this.closest('#platform-alert-banner').remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:16px;padding:0;flex-shrink:0">✕</button>
+        </div>`;
+      document.body.appendChild(banner);
+      setTimeout(() => { if (banner.parentNode) banner.remove(); }, 14000);
+      addNotif('📢', `${msg.title}: ${msg.body}`, null);
+      break;
+    }
+    case 'admin_rename_ok': {
+      // Server confirmed rename — update local state if it's us
+      if (msg.oldName === S.user?.name) {
+        S.user.name = msg.newName;
+        lsSet('nx-session', { token: S.token, user: S.user });
+        updateUser();
+      }
+      toast(`✅ ${msg.oldName} renamed to ${msg.newName}`);
+      break;
+    }
     case 'info':
       toast('ℹ️ ' + (msg.message || ''));
       document.getElementById('admin-dm-result').textContent = msg.message || '';
@@ -2228,9 +2317,9 @@ function buildMsg(m,grp) {
   let reacts='';
   if((m.reactions||[]).length){ reacts='<div class="m-reacts">'+m.reactions.map(r=>`<div class="react${r.users?.includes(S.user?.name)?' me':''}" onclick="toggleReact('${m.id}','${r.emoji}')">${r.emoji}<span>${r.count}</span></div>`).join('')+'</div>'; }
   return `<div class="msg${grp?' grouped':''}" data-id="${m.id}">
-    <div class="m-av" style="background:${m.authorPfp?'transparent':ac}">${avInner}</div>
+    <div class="m-av" style="background:${m.authorPfp?'transparent':ac};cursor:pointer" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${avInner}</div>
     <div class="m-body">
-      ${!grp?`<div class="m-head"><span class="m-auth" onclick="openProfilePage('${esc(m.author)}')">${esc(m.author)}${isMe?'<span class="m-you">you</span>':''}</span><span class="m-time">${fmtTime(m.ts)}</span></div>`:''}
+      ${!grp?`<div class="m-head"><span class="m-auth" style="cursor:pointer" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${esc(m.author)}${isMe?'<span class="m-you">you</span>':''}</span><span class="m-time">${fmtTime(m.ts)}</span></div>`:''}
       ${m.voiceMsg ? buildVoiceMsg(m) : `<div class="m-txt">${fmtTxt(m.text)}${m.edited?'<span class="m-edited">(edited)</span>':''}</div>`}${atts}${reacts}
     </div>
     <div class="m-acts">
@@ -2475,7 +2564,7 @@ function renderMbs() {
       const badge=roleLabel(sv,m.name);
       const myRole=getMyRole(sv);
       const canCtx=(myRole==='owner'||myRole==='mod')&&m.name!==S.user.name;
-      el.innerHTML+=`<div class="mb-it" onclick="openProfilePage('${esc(m.name)}')" oncontextmenu="${canCtx?`openMemberCtx('${esc(m.name)}',event)`:''}" title="Click for profile${canCtx?' · Right-click for options':''}">
+      el.innerHTML+=`<div class="mb-it" onclick="openProfilePage('${esc(m.name)}')" oncontextmenu="${canCtx?`openMemberCtx('${esc(m.name)}',event)`:''}" onmouseenter="showUserHover('${esc(m.name)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" title="Click for profile${canCtx?' · Right-click for options':''}">
         <div class="mb-av" style="background:${avBg}">${avContent}<div class="mb-st on" style="background:${m.status==='idle'?'var(--yellow)':m.status==='dnd'?'var(--red)':m.status==='invisible'?'var(--t3)':'var(--green)'}"></div></div>
         <div style="flex:1;min-width:0"><div class="mb-nm">${esc(m.name)}</div></div>
         <div class="mb-role">${badge}</div>
@@ -2499,126 +2588,65 @@ function toggleDM() { document.getElementById('dm-panel').classList.toggle('open
 
 function renderDMs() {
   const el = document.getElementById('dm-list');
-  // Pending requests at top
-  const pending = S.dms.filter(d => d.status === 'pending_received');
-  const active  = S.dms.filter(d => d.status === 'accepted');
-  const sent    = S.dms.filter(d => d.status === 'pending_sent');
-
+  // Sort by most recent message
+  const convos = [...S.dms].sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0));
   let html = '';
-  if (pending.length) {
-    html += `<div style="padding:8px 12px 4px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)">Requests (${pending.length})</div>`;
-    pending.forEach(dm => {
-      const bg = dm.pfp ? 'transparent' : COLORS[hash(dm.name) % COLORS.length];
-      const av = dm.pfp ? `<img src="${dm.pfp}">` : dm.name[0].toUpperCase();
-      html += `<div class="dm-it" onclick="openDMRequest('${dm.name}')">
-        <div class="mb-av" style="background:${bg};width:30px;height:30px">${av}</div>
-        <div style="min-width:0;flex:1"><div class="dm-nm">${esc(dm.name)}</div><div class="dm-pv">Wants to message you</div></div>
-        <div class="dm-req-badge">!</div>
-      </div>`;
-    });
-  }
-  if (active.length) {
-    html += `<div style="padding:8px 12px 4px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">Messages</div>`;
-    active.forEach(dm => {
-      const bg = dm.pfp ? 'transparent' : COLORS[hash(dm.name) % COLORS.length];
-      const av = dm.pfp ? `<img src="${dm.pfp}">` : dm.name[0].toUpperCase();
-      const isActive = curDM === dm.name;
-      html += `<div class="dm-it${isActive?' active':''}${dm.unread?' unread':''}" onclick="openDMChat('${dm.name}')">
-        <div class="mb-av" style="background:${bg};width:30px;height:30px">${av}</div>
-        <div style="min-width:0;flex:1"><div class="dm-nm">${esc(dm.name)}</div><div class="dm-pv">${esc(dm.last||'No messages yet')}</div></div>
-        <div class="dm-unread"></div>
-      </div>`;
-    });
-  }
-  if (sent.length) {
-    html += `<div style="padding:8px 12px 4px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)">Sent Requests</div>`;
-    sent.forEach(dm => {
-      const bg = COLORS[hash(dm.name) % COLORS.length];
-      html += `<div class="dm-it" style="opacity:.6">
-        <div class="mb-av" style="background:${bg};width:30px;height:30px">${dm.name[0].toUpperCase()}</div>
-        <div style="min-width:0;flex:1"><div class="dm-nm">${esc(dm.name)}</div><div class="dm-pv">Request pending...</div></div>
-      </div>`;
-    });
-  }
-  if (!html) html = `<div style="padding:24px 16px;font-size:12px;color:var(--t3);text-align:center">No messages yet.<br>Send someone a DM request!</div>`;
+  convos.forEach(dm => {
+    const bg = dm.pfp ? 'transparent' : COLORS[hash(dm.name) % COLORS.length];
+    const av = dm.pfp ? `<img src="${dm.pfp}">` : dm.name[0].toUpperCase();
+    const isActive = curDM === dm.name;
+    html += `<div class="dm-it${isActive?' active':''}${dm.unread?' unread':''}" onclick="openDMChat('${dm.name}')">
+      <div class="mb-av" style="background:${bg};width:30px;height:30px">${av}</div>
+      <div style="min-width:0;flex:1">
+        <div class="dm-nm">${esc(dm.name)}</div>
+        <div class="dm-pv">${esc(dm.last || 'No messages yet')}</div>
+      </div>
+      <div class="dm-unread"></div>
+    </div>`;
+  });
+  if (!html) html = `<div style="padding:24px 16px;font-size:12px;color:var(--t3);text-align:center">No conversations yet.<br>Click someone's profile to message them!</div>`;
   el.innerHTML = html;
 }
 
-// ── Sending a DM request ──
+// ── Open or create a DM conversation (no request needed) ──
 function sendDMRequest() {
+  // "New DM" modal — just open the conversation directly
   const name = document.getElementById('dm-in').value.trim().split('#')[0];
   const errEl = document.getElementById('dm-req-err');
   errEl.style.display = 'none';
   if (!name) { errEl.textContent = 'Enter a username.'; errEl.style.display = 'block'; return; }
   if (name === S.user.name) { errEl.textContent = "You can't DM yourself."; errEl.style.display = 'block'; return; }
-  if (S.dms.find(d => d.name === name)) { errEl.textContent = 'You already have a conversation with this person.'; errEl.style.display = 'block'; return; }
-  if (!S.wsOk) { errEl.textContent = 'Not connected — check your internet.'; errEl.style.display = 'block'; return; }
-  // Add as sent pending
-  S.dms.push({ id: uid(), name, last: '', status: 'pending_sent', pfp: null });
-  persist(); renderDMs();
-  wsSend({ type: 'dm_request', to: name, from: S.user.name, fromColor: S.user.color, fromPfp: S.user.pfp || null });
   closeM('ndm');
   document.getElementById('dm-in').value = '';
-  toast('📨 DM request sent to ' + name);
+  openOrCreateDM(name, null);
 }
 
-// ── Receiving a DM request ──
-function recvDMRequest(msg) {
-  // Don't show if we already have an active convo
-  if (S.dms.find(d => d.name === msg.from && d.status === 'accepted')) return;
-  // Add to pending
-  if (!S.dms.find(d => d.name === msg.from)) {
-    S.dms.push({ id: uid(), name: msg.from, last: '', status: 'pending_received', pfp: msg.fromPfp || null, color: msg.fromColor || null });
-    persist(); renderDMs();
+function openOrCreateDM(name, pfp) {
+  if (!S.dms.find(d => d.name === name)) {
+    S.dms.push({ id: uid(), name, last: '', status: 'accepted', pfp: pfp || null, lastTs: 0 });
+    persist();
+  } else {
+    const dm = S.dms.find(d => d.name === name);
+    dm.status = 'accepted'; // upgrade any old pending entry
+    if (pfp) dm.pfp = pfp;
   }
-  // Show modal
-  pendingDMReq = msg.from;
-  document.getElementById('dm-req-title').textContent = msg.from + ' sent you a DM request';
-  document.getElementById('dm-req-body').textContent = 'Do you want to accept their message request?';
+  renderDMs();
+  openDMChat(name);
   document.getElementById('dm-panel').classList.add('open');
-  openM('dm-req-modal');
 }
 
-function openDMRequest(name) {
-  pendingDMReq = name;
-  document.getElementById('dm-req-title').textContent = name + ' sent you a DM request';
-  document.getElementById('dm-req-body').textContent = 'Do you want to accept their message request?';
-  openM('dm-req-modal');
+// Kept for WS handler compatibility — now just silently accepted
+function recvDMRequest(msg) {
+  openOrCreateDM(msg.from, msg.fromPfp || null);
 }
-
-function acceptDMRequest() {
-  if (!pendingDMReq) return;
-  const dm = S.dms.find(d => d.name === pendingDMReq);
-  if (dm) dm.status = 'accepted';
-  persist(); renderDMs(); closeM('dm-req-modal');
-  wsSend({ type: 'dm_accept', to: pendingDMReq, from: S.user.name, fromPfp: S.user.pfp || null });
-  openDMChat(pendingDMReq);
-  pendingDMReq = null;
-}
-
-function declineDMRequest() {
-  if (!pendingDMReq) return;
-  S.dms = S.dms.filter(d => d.name !== pendingDMReq);
-  persist(); renderDMs(); closeM('dm-req-modal');
-  wsSend({ type: 'dm_decline', to: pendingDMReq, from: S.user.name });
-  toast('❌ DM request from ' + pendingDMReq + ' declined');
-  pendingDMReq = null;
-}
-
-// ── Request accepted / declined notifications ──
+function openDMRequest(name) { openDMChat(name); }
+function acceptDMRequest() { closeM('dm-req-modal'); }
+function declineDMRequest() { closeM('dm-req-modal'); }
 function recvDMAccept(msg) {
   const dm = S.dms.find(d => d.name === msg.from);
-  if (dm) { dm.status = 'accepted'; dm.pfp = msg.fromPfp || null; }
-  else S.dms.push({ id: uid(), name: msg.from, last: '', status: 'accepted', pfp: msg.fromPfp || null });
-  persist(); renderDMs();
-  toast('✅ ' + msg.from + ' accepted your DM request!');
+  if (dm) { dm.status = 'accepted'; dm.pfp = msg.fromPfp || null; persist(); renderDMs(); }
 }
-
-function recvDMDecline(msg) {
-  S.dms = S.dms.filter(d => !(d.name === msg.from && d.status === 'pending_sent'));
-  persist(); renderDMs();
-  toast('❌ ' + msg.from + ' declined your DM request.');
-}
+function recvDMDecline(msg) { /* no-op — requests gone */ }
 
 // ── Opening a DM conversation ──
 function openDMChat(name) {
@@ -2635,17 +2663,14 @@ function openDMChat(name) {
   document.getElementById('dm-chat-av').style.background = bg;
   document.getElementById('dm-chat-av').innerHTML = av;
   document.getElementById('dm-chat-name').textContent = name;
-  // Show messages or pending banner
-  const accepted = dm.status === 'accepted';
-  document.getElementById('dm-inp-wrap').style.display = accepted ? '' : 'none';
-  document.getElementById('dm-pending-banner').style.display = accepted ? 'none' : 'flex';
-  if (!accepted) {
-    document.getElementById('dm-pending-title').textContent = 'Waiting for ' + name + '...';
-    document.getElementById('dm-pending-sub').textContent = name + " hasn't accepted your request yet. You'll be able to chat once they do.";
-  }
+  // Always show input — no request system
+  document.getElementById('dm-inp-wrap').style.display = '';
+  document.getElementById('dm-pending-banner').style.display = 'none';
   renderDMMessages(name);
   renderDMs();
   document.getElementById('dm-panel').classList.remove('open');
+  // Fetch server history in background (syncs messages across devices + gets offline msgs)
+  wsSend({ type: 'fetch_dm_history', with: name });
 }
 
 function closeDMChat() {
@@ -2674,11 +2699,11 @@ function renderDMMessages(name) {
 function sendDMMsg() {
   const inp = document.getElementById('dm-msg-in');
   const text = inp.value.trim(); if (!text || !curDM) return;
-  const dm = S.dms.find(d => d.name === curDM); if (!dm || dm.status !== 'accepted') return;
+  let dm = S.dms.find(d => d.name === curDM); if (!dm) { dm = {id:uid(),name:curDM,last:'',status:'accepted',pfp:null,lastTs:0}; S.dms.push(dm); }
   const msg = { id: uid(), author: S.user.name, authorColor: S.user.color, authorPfp: S.user.pfp || null, text, ts: Date.now(), reactions: [], attachments: [] };
   if (!S.dmMessages[curDM]) S.dmMessages[curDM] = [];
   S.dmMessages[curDM].push(msg);
-  dm.last = text; persist();
+  dm.last = text; dm.lastTs = Date.now(); persist();
   renderDMMessages(curDM); renderDMs();
   wsSend({ type: 'dm', to: curDM, from: S.user.name, ...msg });
   inp.value = ''; inp.style.height = 'auto';
@@ -2686,16 +2711,45 @@ function sendDMMsg() {
 
 function recvDM(msg) {
   const from = msg.from || msg.author;
+  if (!from) return;
   let dm = S.dms.find(d => d.name === from);
-  if (!dm) return; // ignore if no convo at all
-  if (dm.status === 'pending_sent' || dm.status === 'pending_received') return; // not accepted yet
+  if (!dm) {
+    // Auto-create conversation — no request needed
+    dm = { id: uid(), name: from, last: '', status: 'accepted', pfp: msg.authorPfp || null, lastTs: 0 };
+    S.dms.push(dm);
+  }
+  dm.status = 'accepted'; // upgrade any legacy pending entry
   if (!S.dmMessages[from]) S.dmMessages[from] = [];
   S.dmMessages[from].push({ id: msg.id || uid(), author: from, authorColor: msg.authorColor, authorPfp: msg.authorPfp, text: msg.text, ts: msg.ts || Date.now(), reactions: [], attachments: msg.attachments || [] });
   dm.last = msg.text || '[attachment]';
+  dm.lastTs = msg.ts || Date.now();
   if (curDM !== from) dm.unread = true;
   persist(); renderDMs();
   if (curDM === from) renderDMMessages(from);
   else { toast('💬 DM from ' + from); addNotif('💬', 'DM from ' + from, () => { renderDMs(); openDMChat(from); }); }
+}
+
+function recvDMHistory(msg) {
+  // Merge server DM history into local — dedupe by id
+  const name = msg.with;
+  if (!name || !msg.messages?.length) return;
+  const local = S.dmMessages[name] || [];
+  const ids = new Set(local.map(m => m.id));
+  const merged = [...local];
+  (msg.messages || []).forEach(m => {
+    if (!ids.has(m.id)) { merged.push(m); ids.add(m.id); }
+  });
+  merged.sort((a, b) => a.ts - b.ts);
+  S.dmMessages[name] = merged;
+  // Update last message preview
+  const dm = S.dms.find(d => d.name === name);
+  if (dm && merged.length) {
+    dm.last = merged[merged.length - 1].text || '[attachment]';
+    dm.lastTs = merged[merged.length - 1].ts;
+  }
+  persist();
+  if (curDM === name) renderDMMessages(name);
+  renderDMs();
 }
 
 function onDMType() {
@@ -2961,7 +3015,7 @@ function openAdminPanel() {
 
 function adminTab(tab) {
   document.querySelectorAll('#admin-panel-modal .sv-stg-tab').forEach((el, i) => {
-    const tabs = ['users','bans','dms'];
+    const tabs = ['users','bans','dms','alert'];
     el.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('#admin-panel-modal .sv-stg-pane').forEach(el => el.classList.remove('active'));
@@ -3662,13 +3716,7 @@ function removeFriend(name) {
 }
 
 function dmFriend(name) {
-  // Open or create DM with this friend
-  if (!S.dms.find(d => d.name === name)) {
-    S.dms.push({ id: uid(), name, last: '', status: 'accepted', pfp: S.friends.find(f=>f.name===name)?.pfp||null });
-    persist();
-  }
-  renderDMs();
-  openDMChat(name);
+  openOrCreateDM(name, S.friends.find(f=>f.name===name)?.pfp||null);
   document.getElementById('friends-view').style.display = 'none';
 }
 
@@ -4092,11 +4140,9 @@ async function handleVoiceSignal(msg) {
 const profileCache = {}; // username → profile data
 
 function openProfilePage(username) {
-  const page = document.getElementById('profile-page');
-  // Use cached data or build from what we know
   const data = profileCache[username] || buildLocalProfile(username);
   renderProfilePage(data);
-  page.classList.add('open');
+  document.getElementById('profile-panel').classList.add('open');
 }
 
 function buildLocalProfile(username) {
@@ -4116,68 +4162,192 @@ function buildLocalProfile(username) {
 
 function renderProfilePage(u) {
   const isSelf = u.name === S.user?.name;
-  // Banner color based on user color
-  document.getElementById('pp-banner').style.background = `linear-gradient(135deg,${u.color||'var(--accent)'},${u.color||'#a855f7'}88)`;
+  const isPuck = S.user?.systemRole === 'admin';
+  // Banner gradient from user color
+  const bannerGrad = document.getElementById('pp-banner-grad');
+  bannerGrad.style.background = `linear-gradient(160deg, ${u.color||'#6c63ff'}cc 0%, ${u.color||'#6c63ff'}22 100%)`;
+  document.getElementById('pp-banner').style.background = `${u.color||'#6c63ff'}33`;
   // Avatar
   const avEl = document.getElementById('pp-av');
   avEl.style.background = u.pfp ? 'transparent' : (u.color||COLORS[0]);
   avEl.innerHTML = u.pfp ? `<img src="${u.pfp}" style="width:100%;height:100%;object-fit:cover">` : esc(u.name[0]?.toUpperCase()||'?');
+  // Edit/admin button area
+  const editBtn = document.getElementById('pp-edit-btn');
+  if (isSelf) {
+    editBtn.innerHTML = `<button class="btn-g" style="font-size:12px;padding:7px 14px" onclick="closeProfilePage();openProfileEdit()">✏️ Edit Profile</button>`;
+  } else if (isPuck) {
+    // Puck can edit anyone's username and PFP from their profile
+    editBtn.innerHTML = `
+      <div style="display:flex;gap:6px">
+        <button class="btn-g" style="font-size:11px;padding:6px 10px" onclick="puckEditUsername('${esc(u.name)}')">✏️ Username</button>
+        <button class="btn-g" style="font-size:11px;padding:6px 10px" onclick="puckEditPfp('${esc(u.name)}')">🖼 PFP</button>
+      </div>`;
+  } else {
+    editBtn.innerHTML = '';
+  }
   // Name / tag
   document.getElementById('pp-name').textContent = u.name;
   document.getElementById('pp-tag').textContent = '#' + (u.tag||'????');
   // Badges
-  const badges = document.getElementById('pp-badges');
   let badgeHtml = '';
   if (u.systemRole==='admin') badgeHtml += `<span class="pp-badge" style="background:rgba(108,99,255,.2);color:var(--accent);border:1px solid rgba(108,99,255,.3)">⚡ Admin</span>`;
   if (u.coAdmin) badgeHtml += `<span class="pp-badge" style="background:rgba(168,85,247,.2);color:#c084fc;border:1px solid rgba(168,85,247,.3)">⭐ Co-Admin</span>`;
   if (isSelf) badgeHtml += `<span class="pp-badge" style="background:rgba(52,211,153,.12);color:var(--green);border:1px solid rgba(52,211,153,.2)">You</span>`;
-  badges.innerHTML = badgeHtml;
-  // Bio
-  const bioEl = document.getElementById('pp-bio');
-  if (u.bio) { bioEl.textContent = u.bio; bioEl.style.display = ''; }
-  else bioEl.style.display = 'none';
-  // Socials
-  const socialsEl = document.getElementById('pp-socials');
+  document.getElementById('pp-badges').innerHTML = badgeHtml;
+  // Bio section
+  const bioSection = document.getElementById('pp-bio-section');
+  if (u.bio) { document.getElementById('pp-bio').textContent = u.bio; bioSection.style.display = ''; }
+  else bioSection.style.display = 'none';
+  // Socials section
+  const socSection = document.getElementById('pp-socials-section');
   let soc = '';
-  if (u.socials?.website) soc += `<a class="pp-social" href="${esc(u.socials.website)}" target="_blank" rel="noopener">🌐 Website</a>`;
+  if (u.socials?.website) soc += `<a class="pp-social" href="${esc(u.socials.website)}" target="_blank" rel="noopener">🌐 ${esc(u.socials.website.replace(/^https?:\/\//,''))}</a>`;
   if (u.socials?.twitter) soc += `<a class="pp-social" href="https://twitter.com/${esc(u.socials.twitter)}" target="_blank" rel="noopener">𝕏 @${esc(u.socials.twitter)}</a>`;
-  socialsEl.innerHTML = soc;
-  // Actions
+  if (soc) { document.getElementById('pp-socials').innerHTML = soc; socSection.style.display = ''; }
+  else socSection.style.display = 'none';
+  // Member since
+  const joined = document.getElementById('pp-joined');
+  if (joined) joined.textContent = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-US',{month:'long',year:'numeric'}) : 'Nexus Member';
+  // Action buttons
   const actEl = document.getElementById('pp-actions');
   if (isSelf) {
-    actEl.innerHTML = `<button class="btn-p" style="flex:1" onclick="closeProfilePage();openProfileEdit()">✏️ Edit Profile</button>`;
+    actEl.innerHTML = '';
+    actEl.style.display = 'none';
   } else {
-    const isDM = S.dms.find(d=>d.name===u.name && d.status==='accepted');
+    actEl.style.display = 'flex';
     const isFriend = S.friends.find(f=>f.name===u.name);
     actEl.innerHTML = `
       <button class="btn-p" style="flex:1" onclick="closeProfilePage();ppDM('${esc(u.name)}')">💬 Message</button>
-      ${!isFriend ? `<button class="btn-g" onclick="closeProfilePage();ppAddFriend('${esc(u.name)}')">+ Friend</button>` : ''}
+      ${!isFriend ? `<button class="btn-g" onclick="closeProfilePage();ppAddFriend('${esc(u.name)}')">+ Friend</button>` : `<button class="btn-g" style="color:var(--green);cursor:default">✓ Friends</button>`}
       <button class="btn-g" style="color:var(--accent)" onclick="closeProfilePage();ppCall('${esc(u.name)}')">📞 Call</button>
     `;
   }
 }
 
 function closeProfilePage() {
-  document.getElementById('profile-page').classList.remove('open');
+  document.getElementById('profile-panel').classList.remove('open');
 }
 
-function ppDM(name) {
-  if (!S.dms.find(d=>d.name===name)) {
-    S.dms.push({id:uid(),name,last:'',status:'pending_sent',pfp:profileCache[name]?.pfp||null});
-    persist();
-    wsSend({type:'dm_request',to:name,from:S.user.name,fromColor:S.user.color,fromPfp:S.user.pfp||null});
-    toast('📨 DM request sent to '+name);
+// Admin-only: Puck can rename any user
+function puckEditUsername(targetName) {
+  closeProfilePage();
+  const newName = prompt(`New username for ${targetName}:`, targetName);
+  if (!newName || newName === targetName) return;
+  if (!/^[a-zA-Z0-9_.\-]{2,24}$/.test(newName)) { toast('⚠️ Invalid username format'); return; }
+  wsSend({ type: 'admin_rename_user', target: targetName, newName });
+  toast('⏳ Renaming...');
+}
+
+// Admin-only: Puck can set PFP for any user
+function puckEditPfp(targetName) {
+  closeProfilePage();
+  _pfpCropTarget = 'admin_target';
+  _adminPfpTarget = targetName;
+  document.getElementById('admin-pfp-file').click();
+}
+
+function onAdminPfpChange(e) {
+  const f = e.target.files[0]; if (!f) return;
+  e.target.value = '';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    pfpCropState = { x:0, y:0, zoom:1, src:ev.target.result, dragging:false };
+    const img = document.getElementById('pfp-crop-img');
+    img.src = ev.target.result;
+    document.getElementById('pfp-crop-zoom').value = 1;
+    img.onload = () => { pfpCropApply(); };
+    openM('pfp-crop-modal');
+    setTimeout(initCropEvents, 50);
+  };
+  reader.readAsDataURL(f);
+}
+
+// Admin panel: rename via input field
+function adminRenameUser() {
+  const target = document.getElementById('admin-rename-user').value.trim();
+  if (!target) { document.getElementById('admin-users-result').textContent = 'Enter a username.'; return; }
+  const newName = prompt(`New username for ${target}:`);
+  if (!newName || newName === target) return;
+  if (!/^[a-zA-Z0-9_.\-]{2,24}$/.test(newName)) { document.getElementById('admin-users-result').textContent = '⚠️ Invalid username format.'; return; }
+  wsSend({ type: 'admin_rename_user', target, newName });
+  document.getElementById('admin-users-result').textContent = '⏳ Sending rename request...';
+}
+
+// Admin panel: set PFP via input field
+function adminSetPfp() {
+  const target = document.getElementById('admin-rename-user').value.trim();
+  if (!target) { document.getElementById('admin-users-result').textContent = 'Enter a username first.'; return; }
+  _pfpCropTarget = 'admin_target';
+  _adminPfpTarget = target;
+  document.getElementById('admin-pfp-file').click();
+}
+
+// ── HOVER USER POPUPS ──
+let _hoverTimer = null;
+let _hoverPopup = null;
+
+function showUserHover(username, anchorEl) {
+  clearTimeout(_hoverTimer);
+  _hoverTimer = setTimeout(() => {
+    const u = profileCache[username] || buildLocalProfile(username);
+    if (_hoverPopup) _hoverPopup.remove();
+    const popup = document.createElement('div');
+    popup.className = 'user-hover-popup';
+    popup.id = 'user-hover-popup';
+    const color = u.color || COLORS[hash(username)%COLORS.length];
+    const avContent = u.pfp ? `<img src="${u.pfp}">` : esc((username[0]||'?').toUpperCase());
+    const avBg = u.pfp ? 'transparent' : color;
+    let badgesHtml = '';
+    if (u.systemRole==='admin') badgesHtml += `<span class="pp-badge" style="font-size:9px;background:rgba(108,99,255,.2);color:var(--accent);border:1px solid rgba(108,99,255,.3)">⚡ Admin</span>`;
+    if (u.coAdmin) badgesHtml += `<span class="pp-badge" style="font-size:9px;background:rgba(168,85,247,.2);color:#c084fc;border:1px solid rgba(168,85,247,.3)">⭐ Co-Admin</span>`;
+    popup.innerHTML = `
+      <div class="uhp-banner" style="background:linear-gradient(135deg,${color}cc,${color}33)">
+        <div class="uhp-av" style="background:${avBg}">${avContent}</div>
+      </div>
+      <div class="uhp-body">
+        <div class="uhp-name">${esc(username)}</div>
+        <div class="uhp-tag">#${esc(u.tag||'????')}</div>
+        ${badgesHtml ? `<div class="uhp-badges">${badgesHtml}</div>` : ''}
+        ${u.bio ? `<div class="uhp-bio">${esc(u.bio)}</div>` : ''}
+        <button class="uhp-view-btn" onclick="hideUserHover();openProfilePage('${esc(username)}')">View Profile →</button>
+      </div>`;
+    document.body.appendChild(popup);
+    _hoverPopup = popup;
+    // Position near anchor
+    const rect = anchorEl.getBoundingClientRect();
+    let top = rect.bottom + 6;
+    let left = rect.left;
+    if (left + 260 > window.innerWidth - 10) left = window.innerWidth - 270;
+    if (top + 220 > window.innerHeight - 10) top = rect.top - 226;
+    popup.style.top = top + 'px';
+    popup.style.left = left + 'px';
+    requestAnimationFrame(() => popup.classList.add('show'));
+    popup.addEventListener('mouseleave', hideUserHover);
+  }, 500);
+}
+
+function hideUserHover() {
+  clearTimeout(_hoverTimer);
+  if (_hoverPopup) {
+    _hoverPopup.classList.remove('show');
+    const p = _hoverPopup;
+    setTimeout(() => { if(p.parentNode) p.remove(); }, 160);
+    _hoverPopup = null;
   }
-  renderDMs(); openDMChat(name);
-  document.getElementById('dm-panel').classList.add('open');
 }
 
-function ppAddFriend(name) {
-  sendFriendReqTo(name);
-}
-
-function ppCall(name) {
-  startVoiceCall(name);
+// ── Admin broadcast alert ──
+function adminSendAlert() {
+  if (S.user?.systemRole !== 'admin') return;
+  const title = document.getElementById('admin-alert-title').value.trim();
+  const body = document.getElementById('admin-alert-body').value.trim();
+  const resEl = document.getElementById('admin-alert-result');
+  if (!title) { resEl.textContent = '⚠️ Add a title.'; return; }
+  if (!body) { resEl.textContent = '⚠️ Add a message body.'; return; }
+  wsSend({ type: 'platform_alert', title, body });
+  resEl.textContent = '✅ Alert sent to everyone!';
+  document.getElementById('admin-alert-title').value = '';
+  document.getElementById('admin-alert-body').value = '';
 }
 
 // Store profile data when we receive profile_update broadcasts
@@ -4187,64 +4357,75 @@ function cacheProfile(data) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// VOICE CALLS — invite up to 5 people, P2P WebRTC
+// VOICE CALLS — persistent bar, P2P WebRTC, max 5 people
 // ══════════════════════════════════════════════════════════════════
-let vcallId = null;          // unique call session ID
-let vcallParticipants = {};  // name → { stream, muted, pc }
-let vcallTimer = null;
+let vcallId = null;
+let vcallParticipants = {};  // name → { pc, muted }
+let vcallTimerInterval = null;
 let vcallSeconds = 0;
 let vcallLocalStream = null;
 let vcallMuted = false;
 
+function showVcallBar(status) {
+  const bar = document.getElementById('vcall-bar');
+  bar.classList.add('active');
+  document.getElementById('vcall-status').textContent = status || 'In call';
+}
+
+function hideVcallBar() {
+  document.getElementById('vcall-bar').classList.remove('active');
+  document.getElementById('vcall-invite-widget').style.display = 'none';
+}
+
+function renderVcallBar() {
+  const members = document.getElementById('vcall-bar-members');
+  const all = [S.user.name, ...Object.keys(vcallParticipants)];
+  members.innerHTML = all.map(name => {
+    const isSelf = name === S.user.name;
+    const color = isSelf ? S.user.color : (profileCache[name]?.color || COLORS[hash(name) % COLORS.length]);
+    const pfp = isSelf ? S.user.pfp : profileCache[name]?.pfp;
+    const muted = isSelf ? vcallMuted : vcallParticipants[name]?.muted;
+    const avContent = pfp ? `<img src="${pfp}">` : esc(name[0]?.toUpperCase() || '?');
+    return `<div class="vcall-member-pip">
+      <div class="vcall-pip-av" style="background:${pfp ? 'transparent' : color}">${avContent}</div>
+      <span class="vcall-pip-nm">${esc(name)}${isSelf ? ' (you)' : ''}</span>
+      ${muted ? '<span class="vcall-pip-muted">🔇</span>' : ''}
+    </div>`;
+  }).join('');
+}
+
+function startVcallTimer() {
+  clearInterval(vcallTimerInterval);
+  vcallSeconds = 0;
+  vcallTimerInterval = setInterval(() => {
+    vcallSeconds++;
+    const mm = Math.floor(vcallSeconds / 60).toString().padStart(2, '0');
+    const ss = (vcallSeconds % 60).toString().padStart(2, '0');
+    document.getElementById('vcall-timer').textContent = mm + ':' + ss;
+  }, 1000);
+}
+
+function showVcallInviteWidget() {
+  const w = document.getElementById('vcall-invite-widget');
+  const all = [S.user.name, ...Object.keys(vcallParticipants)];
+  if (all.length >= 5) { toast('Max 5 people in a call'); return; }
+  w.style.display = w.style.display === 'none' ? 'block' : 'none';
+}
+
 async function startVoiceCall(targetName) {
-  // Get mic first
   try {
     vcallLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
   } catch(e) {
-    toast('🎤 Microphone access denied');
-    return;
+    toast('🎤 Microphone access denied'); return;
   }
   vcallId = uid();
   vcallParticipants = {};
   vcallMuted = false;
-  vcallSeconds = 0;
-  // Send call invite
-  wsSend({ type: 'vcall_invite', callId: vcallId, to: targetName, from: S.user.name, fromColor: S.user.color, fromPfp: S.user.pfp||null });
-  openVcallModal([S.user.name]);
+  wsSend({ type: 'vcall_invite', callId: vcallId, to: targetName, from: S.user.name, fromColor: S.user.color, fromPfp: S.user.pfp || null });
+  showVcallBar('Calling ' + targetName + '...');
+  renderVcallBar();
+  startVcallTimer();
   toast('📞 Calling ' + targetName + '...');
-  // Start timer
-  clearInterval(vcallTimer);
-  vcallTimer = setInterval(() => {
-    vcallSeconds++;
-    const m = Math.floor(vcallSeconds/60).toString().padStart(2,'0');
-    const s = (vcallSeconds%60).toString().padStart(2,'0');
-    document.getElementById('vcall-timer').textContent = m+':'+s;
-  }, 1000);
-}
-
-function openVcallModal(participants) {
-  document.getElementById('vcall-status').textContent = participants.length > 1 ? 'In call' : 'Ringing...';
-  renderVcallGrid(participants);
-  openM('vcall-modal');
-}
-
-function renderVcallGrid(participants) {
-  const grid = document.getElementById('vcall-grid');
-  const all = [S.user.name, ...Object.keys(vcallParticipants)];
-  grid.innerHTML = all.map(name => {
-    const isSelf = name === S.user.name;
-    const color = isSelf ? S.user.color : (profileCache[name]?.color||COLORS[hash(name)%COLORS.length]);
-    const pfp = isSelf ? S.user.pfp : profileCache[name]?.pfp;
-    const muted = isSelf ? vcallMuted : vcallParticipants[name]?.muted;
-    const avHtml = pfp ? `<img src="${pfp}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : esc(name[0]?.toUpperCase()||'?');
-    return `<div class="vcall-tile">
-      <div class="vcall-av${muted?' muted':''}" style="background:${pfp?'transparent':color}">${avHtml}</div>
-      <div class="vcall-nm">${esc(name)}${isSelf?' (you)':''}</div>
-    </div>`;
-  }).join('');
-  // Show/hide invite button based on participant count
-  const inviteRow = document.getElementById('vcall-invite-row');
-  if (inviteRow) inviteRow.style.display = all.length < 5 ? '' : 'none';
 }
 
 function vcallInvite() {
@@ -4253,67 +4434,70 @@ function vcallInvite() {
   const all = [S.user.name, ...Object.keys(vcallParticipants)];
   if (all.length >= 5) { toast('Max 5 participants'); return; }
   if (all.includes(name)) { toast(name + ' is already in the call'); return; }
-  wsSend({ type: 'vcall_invite', callId: vcallId, to: name, from: S.user.name, fromColor: S.user.color, fromPfp: S.user.pfp||null });
+  wsSend({ type: 'vcall_invite', callId: vcallId, to: name, from: S.user.name, fromColor: S.user.color, fromPfp: S.user.pfp || null });
   document.getElementById('vcall-invite-in').value = '';
+  document.getElementById('vcall-invite-widget').style.display = 'none';
   toast('📨 Invited ' + name);
 }
 
 function endVoiceCall() {
   if (vcallId) wsSend({ type: 'vcall_end', callId: vcallId, from: S.user.name });
   cleanupVcall();
-  closeM('vcall-modal');
 }
 
 function cleanupVcall() {
-  clearInterval(vcallTimer); vcallTimer = null; vcallSeconds = 0;
-  // Close all peer connections
+  clearInterval(vcallTimerInterval); vcallTimerInterval = null; vcallSeconds = 0;
   Object.values(vcallParticipants).forEach(p => { try { p.pc?.close(); } catch(e){} });
   vcallParticipants = {};
-  // Stop local stream
-  if (vcallLocalStream) { vcallLocalStream.getTracks().forEach(t=>t.stop()); vcallLocalStream = null; }
-  // Remove audio elements
-  document.querySelectorAll('.vcall-audio-el').forEach(a=>a.remove());
+  if (vcallLocalStream) { vcallLocalStream.getTracks().forEach(t => t.stop()); vcallLocalStream = null; }
+  document.querySelectorAll('.vcall-audio-el').forEach(a => a.remove());
   vcallId = null; vcallMuted = false;
   document.getElementById('vcall-timer').textContent = '';
-  document.getElementById('vcall-status').textContent = '';
+  hideVcallBar();
 }
 
 function toggleVoiceCallMute() {
   vcallMuted = !vcallMuted;
   if (vcallLocalStream) vcallLocalStream.getAudioTracks().forEach(t => t.enabled = !vcallMuted);
   const btn = document.getElementById('vcall-mute-btn');
-  if (btn) btn.textContent = vcallMuted ? '🔇' : '🎙️';
-  renderVcallGrid();
+  if (btn) { btn.textContent = vcallMuted ? '🔇' : '🎙️'; btn.style.color = vcallMuted ? 'var(--red)' : 'var(--accent)'; }
+  renderVcallBar();
 }
 
-// Override the old toggleVoiceMute to also handle call mute
+// Override toggleVoiceMute to handle both voice channels and calls
 function toggleVoiceMute() {
   if (vcallId) { toggleVoiceCallMute(); return; }
-  // Original voice channel mute
   if (!vcLocalStream) return;
   vcMuted = !vcMuted;
   vcLocalStream.getAudioTracks().forEach(t => t.enabled = !vcMuted);
   const btn = document.getElementById('voice-mute-btn');
-  btn.style.color = vcMuted ? 'var(--red)' : 'var(--green)';
+  if (btn) { btn.style.color = vcMuted ? 'var(--red)' : 'var(--green)'; }
   toast(vcMuted ? '🔇 Muted' : '🎙️ Unmuted');
 }
 
 // ── Incoming call invite ──
 function recvVcallInvite(msg) {
-  // Show incoming call UI
   const from = msg.from;
-  const existing = document.getElementById('vcall-incoming');
-  if (existing) existing.remove();
+  document.getElementById('vcall-incoming')?.remove();
   const div = document.createElement('div');
   div.id = 'vcall-incoming';
-  div.style.cssText = 'position:fixed;bottom:80px;right:20px;background:var(--s3);border:1px solid var(--border2);border-radius:14px;padding:16px 18px;z-index:999;box-shadow:0 8px 40px rgba(0,0,0,.6);min-width:220px';
-  div.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:6px">📞 Incoming call from ${esc(from)}</div>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn-p" style="flex:1;font-size:12px" onclick="acceptVcall('${esc(msg.callId)}','${esc(from)}')">Accept</button>
+  div.style.cssText = 'position:fixed;bottom:80px;right:20px;background:var(--s2);border:1px solid var(--border2);border-radius:14px;padding:16px 18px;z-index:999;box-shadow:0 8px 40px rgba(0,0,0,.7);min-width:230px;animation:slideUp .2s ease';
+  div.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="width:36px;height:36px;border-radius:50%;background:${msg.fromColor||'var(--accent)'};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0">
+        ${msg.fromPfp ? `<img src="${msg.fromPfp}" style="width:100%;height:100%;object-fit:cover">` : esc(from[0]?.toUpperCase()||'?')}
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700">📞 ${esc(from)}</div>
+        <div style="font-size:11px;color:var(--t3)">Incoming voice call</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-p" style="flex:1;font-size:12px;background:#22c55e;border:none" onclick="acceptVcall('${esc(msg.callId)}','${esc(from)}')">Accept</button>
       <button class="btn-g" style="flex:1;font-size:12px;color:var(--red)" onclick="declineVcall('${esc(msg.callId)}','${esc(from)}')">Decline</button>
     </div>`;
   document.body.appendChild(div);
-  setTimeout(() => div.remove(), 30000);
+  setTimeout(() => { if (div.parentNode) div.remove(); }, 30000);
   addNotif('📞', from + ' is calling you!', () => acceptVcall(msg.callId, from));
   toast('📞 ' + from + ' is calling you!');
 }
@@ -4327,22 +4511,15 @@ async function acceptVcall(callId, from) {
   vcallMuted = false;
   vcallSeconds = 0;
   wsSend({ type: 'vcall_accept', callId, to: from, from: S.user.name });
-  // Create peer connection to caller
+  // Initiate WebRTC with caller
   const pc = vcallCreatePeer(from);
   vcallParticipants[from] = { pc, muted: false };
-  // Create offer
   const offer = await pc.createOffer();
   await pc.setLocalDescription(offer);
   wsSend({ type: 'vcall_signal', callId, from: S.user.name, to: from, signal: { sdp: offer } });
-  openVcallModal([S.user.name, from]);
-  document.getElementById('vcall-status').textContent = 'In call';
-  clearInterval(vcallTimer);
-  vcallTimer = setInterval(() => {
-    vcallSeconds++;
-    const m = Math.floor(vcallSeconds/60).toString().padStart(2,'0');
-    const s = (vcallSeconds%60).toString().padStart(2,'0');
-    document.getElementById('vcall-timer').textContent = m+':'+s;
-  }, 1000);
+  showVcallBar('In call with ' + from);
+  renderVcallBar();
+  startVcallTimer();
 }
 
 function declineVcall(callId, from) {
@@ -4351,7 +4528,6 @@ function declineVcall(callId, from) {
 }
 
 function recvVcallAccept(msg) {
-  // The other person accepted — create peer connection
   const from = msg.from;
   if (!vcallId || vcallId !== msg.callId) return;
   if (!vcallParticipants[from]) {
@@ -4359,20 +4535,21 @@ function recvVcallAccept(msg) {
     vcallParticipants[from] = { pc, muted: false };
   }
   document.getElementById('vcall-status').textContent = 'In call';
-  renderVcallGrid();
+  renderVcallBar();
   toast('✅ ' + from + ' joined the call');
 }
 
 function recvVcallDecline(msg) {
   toast('❌ ' + msg.from + ' declined the call');
-  renderVcallGrid();
+  // If nobody else in call, clean up
+  if (Object.keys(vcallParticipants).length === 0) cleanupVcall();
+  else renderVcallBar();
 }
 
 function recvVcallEnd(msg) {
   if (msg.callId !== vcallId) return;
-  toast('📵 ' + (msg.from||'Other person') + ' ended the call');
+  toast('📵 ' + (msg.from || 'Other person') + ' ended the call');
   cleanupVcall();
-  closeM('vcall-modal');
 }
 
 function vcallCreatePeer(peerId) {
@@ -4391,13 +4568,14 @@ function vcallCreatePeer(peerId) {
       document.body.appendChild(audio);
     }
     audio.srcObject = e.streams[0];
-    renderVcallGrid();
+    renderVcallBar();
   };
   pc.onconnectionstatechange = () => {
-    if (['disconnected','failed','closed'].includes(pc.connectionState)) {
+    if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
       delete vcallParticipants[peerId];
       document.getElementById('vcall-audio-' + peerId)?.remove();
-      renderVcallGrid();
+      if (Object.keys(vcallParticipants).length === 0) cleanupVcall();
+      else renderVcallBar();
     }
   };
   return pc;
@@ -4421,7 +4599,7 @@ async function handleVcallSignal(msg) {
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
     }
   } else if (msg.signal.ice) {
-    try { await pc.addIceCandidate(new RTCIceCandidate(msg.signal.ice)); } catch(e){}
+    try { await pc.addIceCandidate(new RTCIceCandidate(msg.signal.ice)); } catch(e) {}
   }
 }
 
@@ -4434,6 +4612,13 @@ function migrateServers() {
     if (!sv.banned) sv.banned = [];
   });
 }
+
+function ppDM(name) {
+  openOrCreateDM(name, profileCache[name]?.pfp || null);
+}
+
+function ppAddFriend(name) { sendFriendReqTo(name); }
+function ppCall(name) { startVoiceCall(name); }
 
 // ── BOOT ──
 initAuth();
@@ -4451,6 +4636,7 @@ initAuth();
       <div class="sv-stg-tab active" onclick="adminTab('users')">Users</div>
       <div class="sv-stg-tab" onclick="adminTab('bans')">Bans</div>
       <div class="sv-stg-tab" onclick="adminTab('dms')">View DMs</div>
+      <div class="sv-stg-tab" onclick="adminTab('alert')" style="color:#c084fc">📢 Alert</div>
     </div>
     <!-- USERS -->
     <div id="admin-pane-users" class="sv-stg-pane active">
@@ -4460,6 +4646,15 @@ initAuth();
         <button class="btn-p" style="font-size:12px" onclick="adminAppointCoadmin(true)">⭐ Make Co-Admin</button>
         <button class="btn-g" style="font-size:12px" onclick="adminAppointCoadmin(false)">Remove Co-Admin</button>
         <button class="btn-g" style="font-size:12px;color:var(--red)" onclick="adminDeleteServerByInput()">🗑 Delete Server ID</button>
+      </div>
+      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">Edit Any User (Admin Only)</div>
+        <input class="m-inp" id="admin-rename-user" placeholder="Username to edit..." maxlength="24" style="margin-bottom:6px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-g" style="font-size:12px" onclick="adminRenameUser()">✏️ Change Username</button>
+          <button class="btn-g" style="font-size:12px" onclick="adminSetPfp()">🖼 Change PFP</button>
+        </div>
+        <input type="file" id="admin-pfp-file" accept="image/*" style="display:none" onchange="onAdminPfpChange(event)">
       </div>
       <div id="admin-users-result" style="margin-top:10px;font-size:12px;color:var(--t3)"></div>
     </div>
@@ -4481,6 +4676,16 @@ initAuth();
       <input class="m-inp" id="admin-dm-user" placeholder="Username to inspect..." maxlength="24" style="margin-bottom:8px">
       <button class="btn-p" style="font-size:12px" onclick="adminViewDMs()">🔍 Request DM History</button>
       <div id="admin-dm-result" style="margin-top:10px;font-size:12px;color:var(--t3);max-height:300px;overflow-y:auto"></div>
+    </div>
+    <!-- ALERT -->
+    <div id="admin-pane-alert" class="sv-stg-pane">
+      <div style="font-size:12px;color:var(--t3);margin-bottom:10px">Send a platform-wide alert to <strong style="color:var(--t1)">all connected users</strong>. Use it for announcements, maintenance, etc.</div>
+      <div class="m-lbl">Alert Title</div>
+      <input class="m-inp" id="admin-alert-title" placeholder="e.g. Scheduled maintenance tonight" maxlength="80" style="margin-bottom:8px">
+      <div class="m-lbl">Message Body</div>
+      <textarea class="m-inp" id="admin-alert-body" placeholder="What do you want to tell everyone?" maxlength="500" rows="4" style="resize:vertical;margin-bottom:10px"></textarea>
+      <button class="btn-p" style="width:100%;background:rgba(168,85,247,.8);border:1px solid rgba(168,85,247,.4)" onclick="adminSendAlert()">📢 Send to Everyone</button>
+      <div id="admin-alert-result" style="margin-top:8px;font-size:12px;color:var(--t3)"></div>
     </div>
   </div>
 </div>
