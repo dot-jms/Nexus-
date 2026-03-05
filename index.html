@@ -1682,28 +1682,29 @@ function handleIn(msg) {
           if (!S.curSv && S.servers.length) selectSv(S.servers[0].id);
         }
       }
-      // Merge server-side friends list (survives cache wipes)
+      break;
+    case 'user_pfp':
+      if (msg.pfp && S.user) {
+        S.user.pfp = msg.pfp;
+        lsSet('nx-session', { token: S.token, user: S.user });
+        updateUser();
+      }
+      break;
+    case 'friends_data':
       if (msg.friends?.length) {
         msg.friends.forEach(sf => {
-          if (!S.friends.find(f => f.name === sf.name)) {
-            S.friends.push(sf);
-          }
+          if (!S.friends.find(f => f.name === sf.name)) S.friends.push(sf);
         });
-        persist();
-        if (document.getElementById('friends-view').style.display !== 'none') renderFriends();
       }
-      // Merge pending friend requests from server
       if (msg.friendRequests?.length) {
         msg.friendRequests.forEach(sr => {
-          if (!S.friendReqs.find(r => r.name === sr.name)) {
-            S.friendReqs.push(sr);
-          }
+          if (!S.friendReqs.find(r => r.name === sr.name)) S.friendReqs.push(sr);
         });
-        persist();
         const inReqs = S.friendReqs.filter(r => r.direction === 'in');
         document.getElementById('fr-badge').style.display = inReqs.length ? '' : 'none';
-        if (document.getElementById('friends-view').style.display !== 'none') renderFriends();
       }
+      persist();
+      if (document.getElementById('friends-view').style.display !== 'none') renderFriends();
       break;
     case 'delete_message': delById(msg.messageId,msg.channelId); break;
     case 'edit_message': {
