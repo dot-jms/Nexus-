@@ -1173,11 +1173,13 @@ async function doLogin() {
     if (resp.type === 'auth_ok') {
       onAuthOk(resp);
     } else if (resp.type === 'auth_error') {
-      // Check if legacy local account exists — offer migration
+      // Only offer migration if the server says account doesn't exist
+      // (not for wrong password — that means someone already claimed it)
       const accounts = lsGet('nx-accounts') || {};
       const legacy = accounts[username.toLowerCase()];
-      if (legacy && legacy.password === hashPw(password)) {
-        // Local account matches but not yet on server — offer migration
+      const serverSaysNotFound = resp.message?.toLowerCase().includes('not found');
+      if (legacy && legacy.password === hashPw(password) && serverSaysNotFound) {
+        // Local account exists + password matches locally + server doesn't know them yet
         offerMigration(legacy);
       } else {
         showAuthErr(resp.message || 'Login failed.');
@@ -1261,9 +1263,7 @@ async function doMigrate() {
 function skipMigration() {
   S._migrateLegacy = null;
   document.getElementById('migrate-modal').classList.remove('open');
-  // Switch to signup tab so they can register with a new username
-  switchTab('signup');
-  showAuthErr('Your old username may already be taken. Choose a new one or try logging in.');
+  switchTab('login');
 }
 
 function signOut() {
