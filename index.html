@@ -97,6 +97,9 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
 .un-dot{margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--red);display:none;flex-shrink:0}
 .ch-it.unread .un-dot{display:block}
 .ch-it.unread{color:var(--t1)}
+.ch-del-btn{opacity:0;font-size:12px;cursor:pointer;padding:0 2px;transition:opacity .12s;margin-left:2px;color:var(--t3)}
+.ch-del-btn:hover{color:var(--red)}
+.ch-it:hover .ch-del-btn{opacity:1}
 .u-panel{padding:8px;border-top:1px solid var(--border);background:var(--bg);display:flex;align-items:center;gap:8px}
 .u-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;position:relative;overflow:hidden;cursor:pointer}
 .u-av img{width:100%;height:100%;object-fit:cover}
@@ -154,7 +157,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
 .search-result-text{font-size:13px;color:var(--t2)}
 .search-highlight{background:rgba(251,191,36,.3);color:var(--t1);border-radius:2px;padding:0 2px}
 /* custom emoji */
-.custom-em{width:32px;height:32px;border-radius:4px;cursor:pointer;object-fit:cover;border:1px solid var(--border)}
+.custom-em{width:48px;height:48px;border-radius:6px;cursor:pointer;object-fit:cover;border:1px solid var(--border)}
 .custom-em:hover{border-color:var(--accent)}
 /* fr-badge inline */
 #rail-friends{position:relative}
@@ -626,7 +629,22 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
 
     <!-- CHAT -->
     <div id="chat-wrap">
-      <div class="pinned-bar" id="pinned-bar" onclick="showPinnedMessages()">
+      <!-- VOICE CHANNEL BAR -->
+    <div id="voice-bar" style="display:none;padding:10px 14px;background:rgba(52,211,153,.07);border-bottom:1px solid rgba(52,211,153,.18);flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--green);animation:blink 1.5s infinite"></div>
+        <span style="font-size:12px;font-weight:700;color:var(--green)">Voice Connected</span>
+        <div style="flex:1"></div>
+        <button class="ib" id="voice-mute-btn" onclick="toggleVoiceMute()" title="Mute/Unmute" style="color:var(--green)">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+        </button>
+        <button class="ib" onclick="leaveVoice()" title="Leave voice" style="color:var(--red)">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+      <div id="voice-members" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    </div>
+    <div class="pinned-bar" id="pinned-bar" onclick="showPinnedMessages()">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17H19V14L17 9V3H7V9L5 14V17Z"/></svg>
         <span id="pinned-bar-text">See pinned messages</span>
       </div>
@@ -662,7 +680,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
         </div>
         <div class="ws-bar"><div class="ws-dot" id="ws-dot"></div><span id="ws-txt">disconnected</span></div>
       </div>
-      <input type="file" id="file-in" multiple accept="image/*,video/*,.pdf,.txt,.doc,.docx,.zip,.json,.csv" onchange="onFiles(event)">
+      <input type="file" id="file-in" multiple accept="image/*,video/*,audio/*,.pdf,.txt,.doc,.docx,.zip,.json,.csv,.mp3,.wav,.ogg,.m4a" onchange="onFiles(event)">
     </div>
 
     <!-- DM CHAT VIEW -->
@@ -1384,6 +1402,25 @@ function handleIn(msg) {
     case 'typing':
       if(msg.author!==S.user.name) showTyping(msg.author, msg.channelId);
       break;
+    case 'role_assign': {
+      // Update local server's memberRoles
+      const sv = S.servers.find(s => s.id === msg.serverId);
+      if (sv) {
+        if (!sv.memberRoles) sv.memberRoles = {};
+        if (msg.role === 'member') delete sv.memberRoles[msg.target];
+        else sv.memberRoles[msg.target] = msg.role;
+        persist();
+        if (S.curSv?.id === msg.serverId) { renderMbs(); buildSvDropdown(); }
+      }
+      // Notify the person who got the role
+      if (msg.target === S.user.name) {
+        const roleName = msg.role === 'mod' ? 'Moderator' : msg.role === 'member' ? 'Member' : msg.role;
+        const svName = S.servers.find(s=>s.id===msg.serverId)?.name || 'a server';
+        addNotif('🛡', `You were made ${roleName} in ${svName}!`, () => { const sv=S.servers.find(s=>s.id===msg.serverId); if(sv)selectSv(sv.id); });
+        toast(`🛡 You are now ${roleName} in ${svName}!`);
+      }
+      break;
+    }
     case 'delete_message': delById(msg.messageId,msg.channelId); break;
     case 'edit_message': {
       if (msg.author !== S.user.name) {
@@ -1581,6 +1618,44 @@ function handleIn(msg) {
       persist();
       if (S.curSv) renderMbs();
       if (S.curCh) renderMsgs(S.curCh.id);
+      break;
+    }
+    case 'channel_delete': {
+      // Another user (with manage_channels) deleted a channel
+      const sv = S.servers.find(s => s.id === msg.serverId);
+      if (sv && msg.channelId) {
+        sv.channels = (sv.channels||[]).filter(c => c.id !== msg.channelId);
+        delete S.messages[msg.channelId];
+        persist();
+        if (S.curSv?.id === msg.serverId) renderChs();
+        if (S.curCh?.id === msg.channelId) {
+          const first = (sv.channels||[]).find(c=>c.type==='text');
+          S.curCh = null;
+          first ? selectCh(first.id) : showWelcome();
+        }
+      }
+      break;
+    }
+    case 'voice_join': {
+      // A peer joined our voice channel — initiate offer
+      if (msg.user !== S.user.name && vcChannelId === msg.channelId) {
+        setTimeout(() => vcCreateOffer(msg.user), 200);
+        renderVoiceMembers();
+      }
+      break;
+    }
+    case 'voice_leave': {
+      if (vcPeers[msg.user]) { vcPeers[msg.user].close(); delete vcPeers[msg.user]; }
+      if (vcStreams[msg.user]) delete vcStreams[msg.user];
+      const audio = document.getElementById('vc-audio-' + msg.user);
+      if (audio) audio.remove();
+      renderVoiceMembers();
+      break;
+    }
+    case 'voice_signal': {
+      if (msg.to === S.user.name && vcChannelId === msg.channelId) {
+        handleVoiceSignal(msg).catch(console.error);
+      }
       break;
     }
     default: console.log('ws:',msg);
@@ -1828,20 +1903,30 @@ function renderChs() {
   if(vox.length){ el.innerHTML+=`<div class="ch-cat"><span>Voice Channels</span><span class="cat-add" onclick="openM('ach')">+</span></div>`; vox.forEach(c=>el.innerHTML+=chHTML(c,'🔊')); }
   hlCh();
 }
-function chHTML(c,ico){ return `<div class="ch-it" data-id="${c.id}" onclick="selectCh('${c.id}')"><span class="ico">${ico}</span><span>${esc(c.name)}</span><span class="un-dot"></span></div>`; }
+function chHTML(c,ico){
+  const canDel = S.curSv && hasPerm(S.curSv,'manage_channels') && (S.curSv.channels||[]).length > 1;
+  const delBtn = canDel ? `<span class="ch-del-btn" onclick="event.stopPropagation();deleteCh('${c.id}')" title="Delete channel">🗑</span>` : '';
+  return `<div class="ch-it" data-id="${c.id}" onclick="selectCh('${c.id}')"><span class="ico">${ico}</span><span style="flex:1">${esc(c.name)}</span><span class="un-dot"></span>${delBtn}</div>`;
+}
 function hlCh(){ document.querySelectorAll('.ch-it').forEach(el=>{ el.classList.toggle('act',el.dataset.id===S.curCh?.id); if(el.dataset.id===S.curCh?.id) el.classList.remove('unread'); }); }
 function selectCh(id) {
   const ch=(S.curSv?.channels||[]).find(c=>c.id===id); if(!ch) return;
+  // Leave previous voice channel if switching
+  if (S.curCh?.type==='voice' && S.curCh.id!==id) leaveVoice();
   S.curCh=ch;
   document.getElementById('ch-nm').textContent=ch.name;
   document.getElementById('ch-desc').textContent=ch.desc||'';
   document.getElementById('ch-ico').textContent=ch.type==='voice'?'🔊':'#';
   document.getElementById('msg-in').placeholder=`Message #${ch.name}`;
   document.getElementById('ch-hd').style.display='flex';
-  showChat(); hlCh(); renderMsgs(ch.id); scrollBot();
+  if (ch.type==='voice') {
+    showChat(); hlCh(); renderMsgs(ch.id); // show text chat too (voice channels have text)
+    joinVoice(ch.id);
+  } else {
+    showChat(); hlCh(); renderMsgs(ch.id); scrollBot();
+  }
   Object.keys(typers).forEach(k=>delete typers[k]); renderTypingBar();
   wsSend({type:'join_channel',channelId:id,serverId:S.curSv?.id});
-  // Request missed messages since our last known message in this channel
   const msgs = S.messages[id]||[];
   const lastTs = msgs.length ? msgs[msgs.length-1].ts : 0;
   wsSend({type:'get_history', channelId:id, since:lastTs});
@@ -1856,6 +1941,20 @@ function addCh() {
   toast('✅ #'+name+' created'); document.getElementById('ch-in').value='';
   // Broadcast updated channel list to all members
   wsSend({type:'server_update', serverId:S.curSv.id, name:S.curSv.name, desc:S.curSv.desc, icon:S.curSv.icon||null, color:S.curSv.color, isPublic:S.curSv.isPublic, memberCount:S.curSv.memberCount||1, createdAt:S.curSv.createdAt||Date.now(), channels:S.curSv.channels, ownerId:S.curSv.ownerId});
+}
+function deleteCh(id) {
+  const sv = S.curSv; if (!sv) return;
+  if (!hasPerm(sv,'manage_channels')) { toast('No permission'); return; }
+  const ch = sv.channels.find(c=>c.id===id); if (!ch) return;
+  if (!confirm(`Delete #${ch.name}? All messages will be lost.`)) return;
+  sv.channels = sv.channels.filter(c=>c.id!==id);
+  delete S.messages[id];
+  persist(); renderChs();
+  if (S.curCh?.id === id) { const first=(sv.channels||[]).find(c=>c.type==='text'); first?selectCh(first.id):showWelcome(); }
+  toast('🗑 #'+ch.name+' deleted');
+  wsSend({type:'channel_delete', serverId:sv.id, channelId:id});
+  // Broadcast updated channel list
+  wsSend({type:'server_update', serverId:sv.id, name:sv.name, desc:sv.desc, icon:sv.icon||null, color:sv.color, isPublic:sv.isPublic, memberCount:sv.memberCount||1, createdAt:sv.createdAt||Date.now(), channels:sv.channels, ownerId:sv.ownerId});
 }
 function setCT(t){ S.chType=t; document.getElementById('ct-txt').classList.toggle('sel',t==='text'); document.getElementById('ct-vox').classList.toggle('sel',t==='voice'); }
 
@@ -1880,6 +1979,7 @@ function buildMsg(m,grp) {
   (m.attachments||[]).forEach(a=>{
     if(a.type==='image') atts+=`<div class="m-img"><img src="${a.url}" alt="${esc(a.name)}" loading="lazy" onclick="openLB('${a.url}')"></div>`;
     else if(a.type==='video') atts+=`<div class="m-vid"><video controls><source src="${a.url}"></video></div>`;
+    else if(a.type==='audio') atts+=`<div class="vm-msg" style="max-width:280px"><div class="vm-play" onclick="this.nextElementSibling.paused?this.nextElementSibling.play():this.nextElementSibling.pause()"><svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div><audio style="display:none"><source src="${a.url}"></audio><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px">${esc(a.name)}</div><div style="font-size:10px;color:var(--t3)">${a.size||'Audio'}</div></div></div>`;
     else atts+=`<div class="m-file"><div class="f-ico">📄</div><div><div class="f-nm">${esc(a.name)}</div><div class="f-sz">${a.size||''}</div></div></div>`;
   });
   let reacts='';
@@ -2081,8 +2181,29 @@ function renderTypingBar() {
 }
 
 // ── FILES ──
-async function onFiles(e){ for(const f of[...e.target.files]){const url=await toUrl(f);const mt=f.type.startsWith('image/')?'image':f.type.startsWith('video/')?'video':'file';S.files.push({name:f.name,size:f.size,url,mt});} renderPrev();updSnd();e.target.value=''; }
-function renderPrev(){ const el=document.getElementById('att-prev');el.innerHTML='';S.files.forEach((f,i)=>{const d=document.createElement('div');d.className='att-p';d.innerHTML=f.mt==='image'?`<img src="${f.url}"><span>${esc(f.name)}</span><span class="att-rm" onclick="rmF(${i})">×</span>`:`<span>📄</span><span>${esc(f.name)}</span><span class="att-rm" onclick="rmF(${i})">×</span>`;el.appendChild(d);});el.classList.toggle('show',S.files.length>0); }
+async function onFiles(e) {
+  for (const f of [...e.target.files]) {
+    const url = await toUrl(f);
+    let mt = 'file';
+    if (f.type.startsWith('image/')) mt = 'image';
+    else if (f.type.startsWith('video/')) mt = 'video';
+    else if (f.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|aac)$/i.test(f.name)) mt = 'audio';
+    S.files.push({ name: f.name, size: f.size, url, mt });
+  }
+  renderPrev(); updSnd(); e.target.value='';
+}
+function renderPrev() {
+  const el = document.getElementById('att-prev'); el.innerHTML = '';
+  S.files.forEach((f,i) => {
+    const d = document.createElement('div'); d.className = 'att-p';
+    const icon = f.mt==='image' ? `<img src="${f.url}">` : f.mt==='audio' ? '🎵' : f.mt==='video' ? '🎬' : '📄';
+    d.innerHTML = f.mt==='image'
+      ? `<img src="${f.url}"><span>${esc(f.name)}</span><span class="att-rm" onclick="rmF(${i})">×</span>`
+      : `<span>${icon}</span><span>${esc(f.name)}</span><span class="att-rm" onclick="rmF(${i})">×</span>`;
+    el.appendChild(d);
+  });
+  el.classList.toggle('show', S.files.length > 0);
+}
 function rmF(i){S.files.splice(i,1);renderPrev();updSnd();}
 function toUrl(f){return new Promise(res=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.readAsDataURL(f);});}
 function openLB(url){document.getElementById('lb-img').src=url;document.getElementById('lightbox').classList.add('open');}
@@ -2537,16 +2658,18 @@ function getMyRole(sv) {
   return customRole ? assignment : 'member';
 }
 
+function getEffectiveRole(sv, roleId) {
+  // Returns role with any per-server overrides applied
+  const override = (sv.roleOverrides || {})[roleId];
+  const base = DEFAULT_ROLES.find(r => r.id === roleId) || (sv.roles||[]).find(r=>r.id===roleId);
+  if (!base) return null;
+  return override ? { ...base, ...override } : base;
+}
 function hasPerm(sv, perm) {
   const role = getMyRole(sv);
   if (role === 'owner') return true;
-  if (role === 'mod') {
-    const modRole = DEFAULT_ROLES.find(r => r.id === 'mod');
-    return modRole.perms.includes(perm);
-  }
-  const allRoles = [...DEFAULT_ROLES, ...(sv.roles || [])];
-  const assignment = (sv.memberRoles || {})[S.user.name] || 'member';
-  const r = allRoles.find(x => x.id === assignment);
+  const allRoles = [...DEFAULT_ROLES.map(r=>getEffectiveRole(sv,r.id)).filter(Boolean), ...(sv.roles||[]).map(r=>getEffectiveRole(sv,r.id)||r)];
+  const r = allRoles.find(x => x.id === role);
   return r ? (r.perms.includes('*') || r.perms.includes(perm)) : false;
 }
 
@@ -2608,7 +2731,7 @@ function buildSvDropdown() {
     item(`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`, 'Server Settings', ()=>openSvSettings('overview'));
     item(`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`, 'Manage Roles', ()=>openSvSettings('roles'));
     item(`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`, 'Invite Link', ()=>showInviteModal());
-    item(`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`, 'Shorts Feed', ()=>openShorts(sv.id));
+    item(`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`, 'Shorts Feed', ()=>openShorts(sv.id, S.curCh?.id||null, S.curCh?.name||''));
     item(`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>`, 'Custom Emojis', ()=>openCustomEmojis());
     sep();
     item(`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>`, 'Delete Server', ()=>deleteServer(), true);
@@ -2675,20 +2798,23 @@ function buildRolesPane() {
   const sv = S.curSv; if (!sv) return;
   if (!sv.roles) sv.roles = [];
   const list = document.getElementById('stg-roles-list');
-  const allRoles = [...DEFAULT_ROLES, ...sv.roles];
+  const allRoles = [...DEFAULT_ROLES.map(r=>({...r,...((sv.roleOverrides||{})[r.id]||{})})), ...sv.roles];
   list.innerHTML = allRoles.map(r => {
     const count = r.id==='owner' ? 1 :
       Object.values(sv.memberRoles||{}).filter(v=>v===r.id).length + (r.id==='member'? ((S.members[sv.id]||[]).length+1 - Object.keys(sv.memberRoles||{}).length) : 0);
-    const actions = r.builtin ? '' : `
+    // Owner role can't be edited; mod/member can be edited but not deleted; custom can be edited+deleted
+    const canEdit = r.id !== 'owner';
+    const canDelete = !r.builtin; // can delete custom roles; mod/member are protected from deletion
+    const actions = canEdit ? `
       <div class="role-row-acts">
         <div class="role-act-btn" onclick="editRole('${r.id}')" title="Edit">✏️</div>
-        <div class="role-act-btn del" onclick="deleteRole('${r.id}')" title="Delete">🗑</div>
-      </div>`;
+        ${canDelete ? `<div class="role-act-btn del" onclick="deleteRole('${r.id}')" title="Delete">🗑</div>` : ''}
+      </div>` : '<span style="font-size:10px;color:var(--t3);font-weight:600;padding:2px 7px;background:var(--s4);border-radius:4px">Protected</span>';
     return `<div class="role-row">
       <div class="role-dot" style="background:${r.color}"></div>
       <div class="role-row-name">${esc(r.name)}</div>
       <div class="role-row-count">${count} member${count!==1?'s':''}</div>
-      ${r.builtin ? '<span style="font-size:10px;color:var(--t3);font-weight:600;padding:2px 7px;background:var(--s4);border-radius:4px">Built-in</span>' : actions}
+      ${actions}
     </div>`;
   }).join('');
   document.getElementById('role-editor').style.display = 'none';
@@ -2706,7 +2832,9 @@ function openCreateRole() {
 
 function editRole(id) {
   const sv = S.curSv; if (!sv) return;
-  const role = sv.roles?.find(r=>r.id===id); if (!role) return;
+  // Check custom roles first, then fall back to DEFAULT_ROLES
+  let role = sv.roles?.find(r=>r.id===id) || DEFAULT_ROLES.find(r=>r.id===id);
+  if (!role || id==='owner') return;
   editingRoleId = id;
   editingRoleColor = role.color;
   document.getElementById('role-name-in').value = role.name;
@@ -2746,6 +2874,16 @@ function saveRole() {
   if (!name) { toast('Role needs a name'); return; }
   const perms = [...document.querySelectorAll('#perm-list .toggle-switch.on')].map(el=>el.dataset.perm);
   if (!sv.roles) sv.roles = [];
+  if (isBuiltin) {
+    // Override the built-in role's properties on this server
+    if (!sv.roleOverrides) sv.roleOverrides = {};
+    sv.roleOverrides[editingRoleId] = { name, color: editingRoleColor, perms: selPerms };
+    // Also update the in-memory DEFAULT_ROLES for this session? No, do it per-server lookup
+    toast('✅ Role "'+name+'" updated');
+    persist(); buildRolesPane();
+    wsSend({ type:'roles_update', serverId:sv.id, overrides: sv.roleOverrides });
+    return;
+  }
   if (editingRoleId === '__new__') {
     sv.roles.push({ id: uid(), name, color: editingRoleColor, perms });
   } else {
@@ -3255,7 +3393,7 @@ function fmtCustomEmoji(text) {
   const emojis = S.curSv?.customEmojis || [];
   return text.replace(/:([a-z0-9_]+):/g, (match, name) => {
     const e = emojis.find(x => x.name === name);
-    return e ? `<img src="${e.data}" style="width:20px;height:20px;vertical-align:middle;border-radius:3px" title=":${name}:">` : match;
+    return e ? `<img src="${e.data}" style="width:32px;height:32px;vertical-align:middle;border-radius:4px;margin:0 1px" title=":${name}:">` : match;
   });
 }
 
@@ -3264,17 +3402,22 @@ function fmtCustomEmoji(text) {
 // ══════════════════════════════════════════════
 let curShortsServerId = null;
 
+let curShortsChannelId = null;
+
 function openShortsRail() {
-  // Open shorts for the current server, or first server
   const sv = S.curSv || S.servers[0];
   if (!sv) { toast('Join a server to see Shorts'); return; }
-  openShorts(sv.id);
+  const chId = S.curCh?.type === 'text' ? S.curCh.id : (sv.channels||[]).find(c=>c.type==='text')?.id || null;
+  const chName = S.curCh?.name || '';
+  openShorts(sv.id, chId, chName);
 }
 
-function openShorts(serverId) {
+function openShorts(serverId, channelId=null, channelName='') {
   curShortsServerId = serverId;
+  curShortsChannelId = channelId;
   const sv = S.servers.find(s => s.id === serverId);
-  document.getElementById('shorts-sv-name').textContent = (sv?.name || 'Server') + ' · Shorts';
+  const label = channelId && channelName ? `#${channelName} · Shorts` : (sv?.name || 'Server') + ' · Shorts';
+  document.getElementById('shorts-sv-name').textContent = label;
   document.getElementById('shorts-view').style.display = 'block';
   document.getElementById('rail-shorts').classList.add('act');
   renderShorts();
@@ -3296,10 +3439,13 @@ function closeShorts() {
 
 function renderShorts() {
   const sv = S.servers.find(s => s.id === curShortsServerId);
-  const shorts = (sv?.shorts || []).slice().reverse();
+  let shorts = (sv?.shorts || []).slice().reverse();
+  // Filter by channel if set
+  if (curShortsChannelId) shorts = shorts.filter(s => s.channelId === curShortsChannelId || !s.channelId);
   const feed = document.getElementById('shorts-feed');
   if (!shorts.length) {
-    feed.innerHTML = `<div class="short-card"><div style="text-align:center;color:var(--t2)"><div style="font-size:48px;margin-bottom:16px">🎬</div><div style="font-size:18px;font-weight:700;margin-bottom:8px">No Shorts Yet</div><div style="font-size:14px;opacity:.7">Be the first to post one!</div></div></div>`;
+    const chMsg = curShortsChannelId ? 'No shorts in this channel yet' : 'No Shorts Yet';
+    feed.innerHTML = `<div class="short-card"><div style="text-align:center;color:var(--t2);padding:20px"><div style="font-size:48px;margin-bottom:16px">🎬</div><div style="font-size:18px;font-weight:700;margin-bottom:8px">${chMsg}</div><div style="font-size:14px;opacity:.7">Post one with the + Post Short button!</div></div></div>`;
     return;
   }
   feed.innerHTML = shorts.map((s, i) => buildShortCard(s, i)).join('');
@@ -3355,7 +3501,7 @@ function postShort() {
   const sv = S.servers.find(s => s.id === curShortsServerId);
   if (!sv) return;
   if (!sv.shorts) sv.shorts = [];
-  const s = { id: uid(), url, caption, author: S.user.name, ts: Date.now(), likes: [], comments: [] };
+  const s = { id: uid(), url, caption, author: S.user.name, channelId: curShortsChannelId||null, ts: Date.now(), likes: [], comments: [] };
   sv.shorts.push(s);
   persist(); closeM('add-short-modal'); renderShorts();
   document.getElementById('short-url-in').value = '';
@@ -3433,6 +3579,144 @@ function shareShort(shortId) {
   navigator.clipboard.writeText(s.url).then(() => toast('🔗 Link copied!')).catch(() => toast('Could not copy'));
 }
 
+
+// ══════════════════════════════════════════════
+// VOICE CHANNELS — WebRTC
+// ══════════════════════════════════════════════
+const vcPeers = {};      // peerId -> RTCPeerConnection
+const vcStreams = {};     // peerId -> MediaStream (remote)
+let vcLocalStream = null;
+let vcChannelId = null;
+let vcMuted = false;
+
+const RTC_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ]
+};
+
+async function joinVoice(channelId) {
+  if (vcChannelId === channelId) return; // already in
+  leaveVoice(); // clean up previous
+  try {
+    vcLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch(e) {
+    toast('🎤 Microphone access denied — cannot join voice');
+    return;
+  }
+  vcChannelId = channelId;
+  document.getElementById('voice-bar').style.display = '';
+  renderVoiceMembers();
+  // Tell server we joined this voice channel
+  wsSend({ type: 'voice_join', channelId, user: S.user.name, serverId: S.curSv?.id });
+  toast('🎙️ Joined voice channel');
+}
+
+function leaveVoice() {
+  if (!vcChannelId) return;
+  wsSend({ type: 'voice_leave', channelId: vcChannelId, user: S.user.name });
+  // Close all peer connections
+  Object.values(vcPeers).forEach(pc => pc.close());
+  Object.keys(vcPeers).forEach(k => delete vcPeers[k]);
+  Object.keys(vcStreams).forEach(k => delete vcStreams[k]);
+  if (vcLocalStream) { vcLocalStream.getTracks().forEach(t => t.stop()); vcLocalStream = null; }
+  vcChannelId = null; vcMuted = false;
+  document.getElementById('voice-bar').style.display = 'none';
+  document.getElementById('voice-members').innerHTML = '';
+  // Remove any audio elements
+  document.querySelectorAll('.vc-audio').forEach(a => a.remove());
+  toast('📵 Left voice channel');
+}
+
+function toggleVoiceMute() {
+  if (!vcLocalStream) return;
+  vcMuted = !vcMuted;
+  vcLocalStream.getAudioTracks().forEach(t => t.enabled = !vcMuted);
+  const btn = document.getElementById('voice-mute-btn');
+  btn.style.color = vcMuted ? 'var(--red)' : 'var(--green)';
+  btn.title = vcMuted ? 'Unmute' : 'Mute';
+  btn.innerHTML = vcMuted
+    ? `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="22"/></svg>`
+    : `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="22"/></svg>`;
+  toast(vcMuted ? '🔇 Muted' : '🎙️ Unmuted');
+}
+
+function renderVoiceMembers() {
+  const el = document.getElementById('voice-members');
+  // Show local user + any peers we have streams for
+  const members = [S.user.name, ...Object.keys(vcStreams)];
+  el.innerHTML = members.map(name => {
+    const isSelf = name === S.user.name;
+    const col = S.user.name === name ? S.user.color : (COLORS[hash(name)%COLORS.length]);
+    const av = `<div style="width:28px;height:28px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;border:2px solid ${isSelf?'var(--green)':'var(--border2)'};">${name[0].toUpperCase()}</div>`;
+    return `<div style="display:flex;align-items:center;gap:5px">${av}<span style="font-size:11px;font-weight:600;color:var(--t2)">${esc(name)}${isSelf&&vcMuted?' 🔇':''}</span></div>`;
+  }).join('');
+}
+
+// WebRTC signalling — called when peer joins or offers
+async function vcCreateOffer(peerId) {
+  const pc = vcGetOrCreatePeer(peerId);
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  wsSend({ type: 'voice_signal', channelId: vcChannelId, from: S.user.name, to: peerId, signal: { sdp: offer } });
+}
+
+function vcGetOrCreatePeer(peerId) {
+  if (vcPeers[peerId]) return vcPeers[peerId];
+  const pc = new RTCPeerConnection(RTC_CONFIG);
+  vcPeers[peerId] = pc;
+  // Add local tracks
+  if (vcLocalStream) vcLocalStream.getTracks().forEach(t => pc.addTrack(t, vcLocalStream));
+  // ICE candidates
+  pc.onicecandidate = e => {
+    if (e.candidate) {
+      wsSend({ type: 'voice_signal', channelId: vcChannelId, from: S.user.name, to: peerId, signal: { ice: e.candidate } });
+    }
+  };
+  // Remote stream
+  pc.ontrack = e => {
+    vcStreams[peerId] = e.streams[0];
+    let audio = document.getElementById('vc-audio-' + peerId);
+    if (!audio) {
+      audio = document.createElement('audio');
+      audio.id = 'vc-audio-' + peerId;
+      audio.className = 'vc-audio';
+      audio.autoplay = true;
+      document.body.appendChild(audio);
+    }
+    audio.srcObject = e.streams[0];
+    renderVoiceMembers();
+  };
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+      delete vcPeers[peerId]; delete vcStreams[peerId];
+      const audio = document.getElementById('vc-audio-' + peerId);
+      if (audio) audio.remove();
+      renderVoiceMembers();
+    }
+  };
+  return pc;
+}
+
+async function handleVoiceSignal(msg) {
+  const peerId = msg.from;
+  if (msg.signal.sdp) {
+    const pc = vcGetOrCreatePeer(peerId);
+    const sdp = msg.signal.sdp;
+    if (sdp.type === 'offer') {
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      wsSend({ type: 'voice_signal', channelId: vcChannelId, from: S.user.name, to: peerId, signal: { sdp: answer } });
+    } else if (sdp.type === 'answer') {
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    }
+  } else if (msg.signal.ice) {
+    const pc = vcPeers[peerId];
+    if (pc) { try { await pc.addIceCandidate(new RTCIceCandidate(msg.signal.ice)); } catch(e) {} }
+  }
+}
 // ── Boot: ensure every server has roles fields ──
 function migrateServers() {
   S.servers.forEach(sv => {
