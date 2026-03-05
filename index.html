@@ -1672,7 +1672,11 @@ function handleIn(msg) {
             }
           }
         });
-        if (svChanged) { persist(); renderSvs(); }
+        if (svChanged) {
+          persist(); renderSvs();
+          // Auto-select first server if none currently selected (e.g. after cache clear)
+          if (!S.curSv && S.servers.length) selectSv(S.servers[0].id);
+        }
       }
       // Merge server-side friends list (survives cache wipes)
       if (msg.friends?.length) {
@@ -1764,7 +1768,7 @@ function handleIn(msg) {
       const existing = new Set(S.messages[msg.channelId].map(m => m.id));
       let added = 0;
       incoming.forEach(m => {
-        if (!existing.has(m.id) && m.author !== S.user.name) {
+        if (!existing.has(m.id)) {
           S.messages[msg.channelId].push(m);
           added++;
         }
@@ -2246,6 +2250,7 @@ function renderDiscover() {
 
 function discCard(sv) {
   const joined=!!S.servers.find(s=>s.id===sv.id);
+  const isOwned = sv.ownerId === S.user?.name;
   const bannerStyle=sv.banner?`background-image:url('${sv.banner}');background-size:cover;background-position:center`:`background:linear-gradient(135deg,${sv.color||'#6c63ff'}22,${sv.color||'#6c63ff'}44)`;
   const iconHTML=sv.icon?`<img src="${sv.icon}" alt="">`:(svInit(sv.name||'?'));
   return `<div class="disc-card">
@@ -2258,7 +2263,7 @@ function discCard(sv) {
       <div class="disc-card-desc">${esc(sv.desc||'No description.')}</div>
       <div class="disc-card-footer">
         <div class="disc-card-members">${(sv.memberCount||0).toLocaleString()} members</div>
-        <button class="disc-join-btn${joined?' joined':''}" onclick="joinDiscoverSv(${JSON.stringify(sv).replace(/"/g,'&quot;')},this)">${joined?'Joined':'Join'}</button>
+        <button class="disc-join-btn${(joined||isOwned)?' joined':''}" onclick="joinDiscoverSv(${JSON.stringify(sv).replace(/"/g,'&quot;')},this)">${isOwned?'Your server':joined?'Joined':'Join'}</button>
       </div>
     </div>
   </div>`;
