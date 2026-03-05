@@ -58,6 +58,41 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
 .auth-hint a{color:var(--accent-h);cursor:pointer}
 .auth-hint a:hover{text-decoration:underline}
 
+
+/* ── PROFILE PAGE ── */
+#profile-page{position:fixed;inset:0;z-index:160;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .18s}
+#profile-page.open{opacity:1;pointer-events:all}
+.pp-card{width:420px;max-width:94vw;background:var(--s2);border:1px solid var(--border2);border-radius:20px;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.7)}
+.pp-banner{height:90px;background:linear-gradient(135deg,var(--accent),#a855f7);position:relative;flex-shrink:0}
+.pp-av{width:72px;height:72px;border-radius:50%;border:4px solid var(--s2);position:absolute;bottom:-36px;left:20px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0}
+.pp-av img{width:100%;height:100%;object-fit:cover}
+.pp-body{padding:44px 22px 22px}
+.pp-name{font-size:18px;font-weight:800;letter-spacing:-.3px}
+.pp-tag{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-bottom:4px}
+.pp-badges{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+.pp-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;letter-spacing:.05em}
+.pp-bio{font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:14px;white-space:pre-wrap;word-break:break-word}
+.pp-socials{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.pp-social{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--t3);background:var(--s3);padding:5px 10px;border-radius:6px;text-decoration:none;transition:all .12s;border:1px solid var(--border)}
+.pp-social:hover{border-color:var(--accent);color:var(--accent)}
+.pp-actions{display:flex;gap:8px}
+/* DM textarea fix */
+#dm-msg-in{flex:1;background:transparent;border:none;outline:none;color:var(--t1);font-family:'Outfit',sans-serif;font-size:13.5px;resize:none;max-height:120px;line-height:1.5;padding:5px 0}
+#dm-msg-in::placeholder{color:var(--t3)}
+#dm-inp-wrap .inp-box{background:var(--s3);border:1px solid var(--border2);border-radius:var(--r);transition:border-color .15s,box-shadow .15s}
+#dm-inp-wrap .inp-box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+#dm-inp-wrap .inp-row{display:flex;align-items:flex-end;gap:6px;padding:7px 10px}
+/* Voice call modal */
+.vcall-grid{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:16px 0}
+.vcall-tile{width:80px;display:flex;flex-direction:column;align-items:center;gap:5px}
+.vcall-av{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:#fff;position:relative;border:2px solid transparent;transition:border-color .2s}
+.vcall-av.speaking{border-color:var(--green);box-shadow:0 0 12px rgba(52,211,153,.4)}
+.vcall-av.muted::after{content:'🔇';position:absolute;bottom:-2px;right:-2px;font-size:11px;background:var(--s2);border-radius:50%;padding:1px}
+.vcall-nm{font-size:11px;font-weight:600;color:var(--t2);text-align:center;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vcall-controls{display:flex;gap:10px;justify-content:center;padding:16px 0;border-top:1px solid var(--border)}
+.vcall-btn{width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .15s}
+.vcall-btn:hover{transform:scale(1.08)}
+
 /* ══ APP ══ */
 #app{display:flex;height:100vh;width:100%;opacity:0;transition:opacity .35s}
 #app.vis{opacity:1}
@@ -687,7 +722,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
     <div id="dm-chat">
       <div class="dm-chat-hd">
         <div class="dm-chat-av" id="dm-chat-av"></div>
-        <div class="dm-chat-name" id="dm-chat-name"></div>
+        <div class="dm-chat-name" id="dm-chat-name" style="cursor:pointer" onclick="if(curDM)openProfilePage(curDM)"></div>
         <div style="margin-left:auto;display:flex;gap:3px">
           <button class="ib" title="Back to servers" onclick="closeDMChat()">
             <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
@@ -701,11 +736,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
         <div class="dm-pending-sub" id="dm-pending-sub"></div>
       </div>
       <div class="ty-bar" id="dm-ty-bar"></div>
-      <div class="inp-wrap" id="dm-inp-wrap">
+      <div class="inp-wrap" id="dm-inp-wrap" style="padding:0 12px 14px">
         <div class="inp-box">
           <div class="inp-row">
-            <textarea id="dm-msg-in" placeholder="Message" rows="1" oninput="onDMType()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendDMMsg();}"></textarea>
-            <button class="snd" onclick="sendDMMsg()">
+            <textarea id="dm-msg-in" placeholder="Message..." rows="1" oninput="onDMType()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendDMMsg();}"></textarea>
+            <button class="snd" id="dm-snd-btn" onclick="sendDMMsg()">
               <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
           </div>
@@ -748,24 +783,78 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
     </div>
   </div>
 </div>
-<!-- PROFILE MODAL -->
-<div class="overlay" id="profile-modal">
-  <div class="modal" style="text-align:center">
+<!-- PROFILE VIEW PAGE (other users) -->
+<div id="profile-page" onclick="if(event.target===this)closeProfilePage()">
+  <div class="pp-card">
+    <div class="pp-banner" id="pp-banner"></div>
+    <div class="pp-body">
+      <div style="position:relative;height:40px">
+        <div class="pp-av" id="pp-av"></div>
+      </div>
+      <div class="pp-name" id="pp-name"></div>
+      <div class="pp-tag" id="pp-tag"></div>
+      <div class="pp-badges" id="pp-badges"></div>
+      <div class="pp-bio" id="pp-bio" style="display:none"></div>
+      <div class="pp-socials" id="pp-socials"></div>
+      <div class="pp-actions" id="pp-actions"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE EDIT MODAL -->
+<div class="overlay" id="profile-edit-modal" style="z-index:161">
+  <div class="modal" style="text-align:center;max-height:88vh;overflow-y:auto">
     <div class="profile-modal-av" id="profile-modal-av" onclick="document.getElementById('pfp-file-in').click()">
       <div class="av-overlay">Change</div>
     </div>
     <input type="file" id="pfp-file-in" accept="image/*" style="display:none" onchange="onPfpChange(event)">
     <div class="modal-t" id="profile-modal-name" style="margin-bottom:4px"></div>
-    <div style="font-size:12px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-bottom:20px" id="profile-modal-tag"></div>
+    <div style="font-size:12px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-bottom:16px" id="profile-modal-tag"></div>
     <div style="text-align:left">
-      <div class="m-lbl">Display Name</div>
-      <input class="m-inp" id="profile-disp-name" placeholder="Display name" maxlength="24">
-      <div class="m-lbl">Avatar Color <span style="color:var(--t3);font-size:9px;text-transform:none;letter-spacing:0">(used if no image)</span></div>
-      <div class="av-grid" id="profile-av-grid" style="margin-bottom:12px"></div>
+      <div class="m-lbl">Avatar Color</div>
+      <div class="av-grid" id="profile-av-grid" style="margin-bottom:14px"></div>
+      <div class="m-lbl">About Me <span style="color:var(--t3);font-size:9px;font-weight:400;text-transform:none">max 160 chars</span></div>
+      <textarea class="m-inp" id="profile-bio-in" placeholder="Tell people about yourself..." maxlength="160" rows="3" style="resize:vertical"></textarea>
+      <div class="m-lbl">Website</div>
+      <input class="m-inp" id="profile-website-in" placeholder="https://yoursite.com" maxlength="80">
+      <div class="m-lbl">Twitter / X</div>
+      <input class="m-inp" id="profile-twitter-in" placeholder="@username" maxlength="40">
+      <div style="border-top:1px solid var(--border);margin:14px 0 14px;padding-top:14px">
+        <div class="m-lbl">Change Password</div>
+        <div class="pw-wrap" style="margin-bottom:8px"><input class="m-inp" id="chpw-old" type="password" placeholder="Current password" style="margin-bottom:0"><span class="pw-tog" onclick="togglePw('chpw-old',this)">Show</span></div>
+        <div class="pw-wrap" style="margin-bottom:8px"><input class="m-inp" id="chpw-new" type="password" placeholder="New password" style="margin-bottom:0"><span class="pw-tog" onclick="togglePw('chpw-new',this)">Show</span></div>
+        <div class="pw-wrap" style="margin-bottom:8px"><input class="m-inp" id="chpw-new2" type="password" placeholder="Confirm new password" style="margin-bottom:0"><span class="pw-tog" onclick="togglePw('chpw-new2',this)">Show</span></div>
+        <div id="chpw-err" style="font-size:12px;color:var(--red);display:none;margin-bottom:6px"></div>
+        <button class="btn-g" style="width:100%;font-size:12px" onclick="changePassword()">Update Password</button>
+      </div>
     </div>
     <div class="m-row">
-      <button class="btn-g" onclick="closeM('profile-modal')">Cancel</button>
-      <button class="btn-p" onclick="saveProfile()">Save Changes</button>
+      <button class="btn-g" onclick="closeM('profile-edit-modal')">Cancel</button>
+      <button class="btn-p" onclick="saveProfile()">Save Profile</button>
+    </div>
+  </div>
+</div>
+
+<!-- VOICE CALL MODAL -->
+<div class="overlay" id="vcall-modal" style="z-index:170">
+  <div class="modal" style="text-align:center;max-width:400px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div class="modal-t" style="margin-bottom:0">🔊 Voice Call</div>
+      <div id="vcall-timer" style="font-size:12px;color:var(--t3);font-family:'JetBrains Mono',monospace"></div>
+    </div>
+    <div class="modal-s" id="vcall-status">Calling...</div>
+    <div class="vcall-grid" id="vcall-grid"></div>
+    <div id="vcall-invite-row" style="margin-bottom:12px;display:none">
+      <div class="m-lbl">Invite someone (max 5 total)</div>
+      <div style="display:flex;gap:8px">
+        <input class="m-inp" id="vcall-invite-in" placeholder="Username..." maxlength="24" style="margin-bottom:0;flex:1">
+        <button class="btn-p" style="font-size:12px;white-space:nowrap" onclick="vcallInvite()">Invite</button>
+      </div>
+    </div>
+    <div class="vcall-controls">
+      <button class="vcall-btn" id="vcall-mute-btn" onclick="toggleVoiceMute()" title="Mute" style="background:var(--s3);color:var(--t1)">🎙️</button>
+      <button class="vcall-btn" onclick="endVoiceCall()" title="End call" style="background:var(--red);color:#fff">📵</button>
+      <button class="vcall-btn" onclick="document.getElementById('vcall-invite-row').style.display=document.getElementById('vcall-invite-row').style.display==='none'?'':'none'" title="Invite" style="background:var(--s3);color:var(--t1)">➕</button>
     </div>
   </div>
 </div>
@@ -1097,32 +1186,17 @@ let reactPickerMsgId = null;
 let discFilter = 'all';
 
 // ══════════════════════════════════════════════════════════════════════
-// AUTH — Server-side authentication via WebSocket + Deno KV
-// Session tokens are stored in localStorage for auto-login.
-// Accounts live on the server and survive relay restarts.
-// Username uniqueness is enforced globally.
+// AUTH — clean server-side auth, no migration noise
 // ══════════════════════════════════════════════════════════════════════
-
-// Temporary WS used ONLY for auth before the main app WS opens
 let authWs = null;
-let authResolve = null;
 
 function authRequest(msg) {
   return new Promise((resolve, reject) => {
-    // Reuse or open a temp WS for auth
-    if (!authWs || authWs.readyState !== WebSocket.OPEN) {
-      authWs = new WebSocket(WS_URL);
-      authWs.onopen = () => {
-        authWs.send(JSON.stringify(msg));
-      };
-    } else {
-      authWs.send(JSON.stringify(msg));
-    }
-    authWs.onmessage = (e) => {
-      try { resolve(JSON.parse(e.data)); } catch { reject(new Error('Bad response')); }
-    };
-    authWs.onerror = () => reject(new Error('Connection failed'));
-    setTimeout(() => reject(new Error('Timeout')), 10000);
+    const ws = new WebSocket(WS_URL);
+    ws.onopen = () => ws.send(JSON.stringify(msg));
+    ws.onmessage = (e) => { try { resolve(JSON.parse(e.data)); } catch { reject(); } finally { try { ws.close(); } catch(e){} } };
+    ws.onerror = () => reject(new Error('Connection failed'));
+    setTimeout(() => { reject(new Error('Timeout')); try { ws.close(); } catch(e){} }, 10000);
   });
 }
 
@@ -1135,7 +1209,7 @@ function initAuth() {
     d.onclick=()=>{ document.querySelectorAll('.av-opt').forEach(x=>x.classList.remove('sel')); d.classList.add('sel'); selectedColor=c; };
     grid.appendChild(d);
   });
-  document.getElementById('su-user').addEventListener('input',function(){
+  document.getElementById('su-user').addEventListener('input', function() {
     document.querySelectorAll('.av-opt').forEach(a=>a.textContent=this.value?this.value[0].toUpperCase():'A');
     const p=document.getElementById('su-pfp-preview');
     if (!suPfpData) p.textContent=this.value?this.value[0].toUpperCase():'?';
@@ -1143,22 +1217,13 @@ function initAuth() {
   ['login-user','login-pass'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();}));
   ['su-user','su-pass'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')doSignup();}));
 
-  // Check for saved session token first
+  // Auto-login from saved session token — no prompts, just boot
   const sess = lsGet('nx-session');
-  if (sess?.token) {
-    // Restore session — we'll verify via identify on WS open
+  if (sess?.token && sess?.user) {
     S.user = sess.user;
     S.token = sess.token;
     loadUserData();
     bootApp();
-    return;
-  }
-
-  // Check if there's a legacy local account that needs migration
-  const legacyAccounts = lsGet('nx-accounts');
-  if (legacyAccounts && Object.keys(legacyAccounts).length > 0) {
-    // Show login form by default — they may already have migrated
-    // Migration will be offered after a failed login if needed
   }
 }
 
@@ -1166,29 +1231,19 @@ async function doLogin() {
   const username = document.getElementById('login-user').value.trim();
   const password = document.getElementById('login-pass').value;
   if (!username || !password) { showAuthErr('Please fill in all fields.'); return; }
-
-  showAuthErr(''); document.querySelector('#form-login .auth-btn').textContent = 'Signing in…';
+  const btn = document.querySelector('#form-login .auth-btn');
+  btn.textContent = 'Signing in…'; btn.disabled = true;
   try {
     const resp = await authRequest({ type: 'auth_login', username, password });
     if (resp.type === 'auth_ok') {
       onAuthOk(resp);
-    } else if (resp.type === 'auth_error') {
-      // Only offer migration if the server says account doesn't exist
-      // (not for wrong password — that means someone already claimed it)
-      const accounts = lsGet('nx-accounts') || {};
-      const legacy = accounts[username.toLowerCase()];
-      const serverSaysNotFound = resp.message?.toLowerCase().includes('not found');
-      if (legacy && legacy.password === hashPw(password) && serverSaysNotFound) {
-        // Local account exists + password matches locally + server doesn't know them yet
-        offerMigration(legacy);
-      } else {
-        showAuthErr(resp.message || 'Login failed.');
-      }
+    } else {
+      showAuthErr(resp.message || 'Login failed.');
     }
   } catch(e) {
     showAuthErr('Could not connect to server. Check your internet.');
   }
-  document.querySelector('#form-login .auth-btn').textContent = 'Sign In →';
+  btn.textContent = 'Sign In →'; btn.disabled = false;
 }
 
 async function doSignup() {
@@ -1198,8 +1253,8 @@ async function doSignup() {
   if (username.length < 2) { showAuthErr('Username must be at least 2 characters.'); return; }
   if (!/^[a-zA-Z0-9_.\-]{2,24}$/.test(username)) { showAuthErr('Only letters, numbers, underscores, dots, hyphens.'); return; }
   if (!password || password.length < 4) { showAuthErr('Password must be at least 4 characters.'); return; }
-
-  showAuthErr(''); document.querySelector('#form-signup .auth-btn').textContent = 'Creating…';
+  const btn = document.querySelector('#form-signup .auth-btn');
+  btn.textContent = 'Creating…'; btn.disabled = true;
   try {
     const resp = await authRequest({ type: 'auth_register', username, password, color: selectedColor, pfp: suPfpData || null });
     if (resp.type === 'auth_ok') {
@@ -1211,59 +1266,19 @@ async function doSignup() {
   } catch(e) {
     showAuthErr('Could not connect to server.');
   }
-  document.querySelector('#form-signup .auth-btn').textContent = 'Create Account →';
+  btn.textContent = 'Create Account →'; btn.disabled = false;
 }
 
 function onAuthOk(resp) {
-  S.user = { name: resp.user.name, tag: resp.user.tag, color: resp.user.color, pfp: resp.user.pfp || null, systemRole: resp.user.systemRole || 'user', coAdmin: resp.user.coAdmin || false };
+  S.user = { name: resp.user.name, tag: resp.user.tag, color: resp.user.color, pfp: resp.user.pfp || null, systemRole: resp.user.systemRole || 'user', coAdmin: resp.user.coAdmin || false, bio: resp.user.bio || '', socials: resp.user.socials || {} };
   S.token = resp.token;
   lsSet('nx-session', { token: resp.token, user: S.user });
   loadUserData();
   bootApp();
-  if (authWs) { try { authWs.close(); } catch(e) {} authWs = null; }
-}
-
-// ── MIGRATION — existing localStorage account → server account ──
-function offerMigration(legacy) {
-  document.getElementById('migrate-uname').textContent = legacy.name;
-  // Store legacy info for the migration flow
-  S._migrateLegacy = legacy;
-  document.getElementById('migrate-pass').value = '';
-  document.getElementById('migrate-pass2').value = '';
-  document.getElementById('migrate-err').style.display = 'none';
-  document.getElementById('migrate-modal').classList.add('open');
-}
-
-async function doMigrate() {
-  const legacy = S._migrateLegacy; if (!legacy) return;
-  const pass = document.getElementById('migrate-pass').value;
-  const pass2 = document.getElementById('migrate-pass2').value;
-  const errEl = document.getElementById('migrate-err');
-  errEl.style.display = 'none';
-  if (pass.length < 4) { errEl.textContent = 'Password must be at least 4 characters.'; errEl.style.display = 'block'; return; }
-  if (pass !== pass2) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block'; return; }
-
-  try {
-    const resp = await authRequest({ type: 'auth_migrate', username: legacy.name, password: pass, tag: legacy.tag, color: legacy.color, pfp: legacy.pfp || null });
-    if (resp.type === 'auth_ok') {
-      document.getElementById('migrate-modal').classList.remove('open');
-      S._migrateLegacy = null;
-      onAuthOk(resp);
-      toast('✅ Account secured! You are now logged in.');
-    } else {
-      errEl.textContent = resp.message || 'Migration failed.';
-      errEl.style.display = 'block';
-    }
-  } catch(e) {
-    errEl.textContent = 'Could not reach server.';
-    errEl.style.display = 'block';
+  // First login as Puck — prompt password change
+  if (resp.user.systemRole === 'admin' && resp.firstLogin) {
+    setTimeout(() => { toast('⚡ Welcome Puck! Change your password in Profile Settings.'); }, 1500);
   }
-}
-
-function skipMigration() {
-  S._migrateLegacy = null;
-  document.getElementById('migrate-modal').classList.remove('open');
-  switchTab('login');
 }
 
 function signOut() {
@@ -1272,8 +1287,7 @@ function signOut() {
   S.user = null; S.token = null;
   S.servers = []; S.messages = {}; S.dms = []; S.dmMessages = {};
   S.friends = []; S.friendReqs = []; S.members = {};
-  S.curSv = null; S.curCh = null;
-  S.wsConnecting = false; S.wsOk = false; curDM = null;
+  S.curSv = null; S.curCh = null; S.wsConnecting = false; S.wsOk = false; curDM = null;
   if (S.ws) { try { S.ws.onclose = null; S.ws.close(); } catch(e) {} S.ws = null; }
   document.getElementById('app').classList.remove('vis');
   document.getElementById('auth-screen').style.display = 'flex';
@@ -1282,6 +1296,31 @@ function signOut() {
   document.getElementById('login-pass').value = '';
   suPfpData = null;
 }
+
+// Change password (from profile)
+async function changePassword() {
+  const oldPw = document.getElementById('chpw-old').value;
+  const newPw = document.getElementById('chpw-new').value;
+  const newPw2 = document.getElementById('chpw-new2').value;
+  const errEl = document.getElementById('chpw-err');
+  errEl.style.display = 'none';
+  if (!oldPw || !newPw) { errEl.textContent = 'Fill in all fields.'; errEl.style.display = 'block'; return; }
+  if (newPw.length < 4) { errEl.textContent = 'New password must be at least 4 characters.'; errEl.style.display = 'block'; return; }
+  if (newPw !== newPw2) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block'; return; }
+  try {
+    const resp = await authRequest({ type: 'auth_change_password', username: S.user.name, oldPassword: oldPw, newPassword: newPw, token: S.token });
+    if (resp.type === 'auth_ok' || resp.type === 'success') {
+      document.getElementById('chpw-old').value = '';
+      document.getElementById('chpw-new').value = '';
+      document.getElementById('chpw-new2').value = '';
+      toast('✅ Password changed!');
+      closeM('profile-modal');
+    } else {
+      errEl.textContent = resp.message || 'Failed.'; errEl.style.display = 'block';
+    }
+  } catch(e) { errEl.textContent = 'Server error.'; errEl.style.display = 'block'; }
+}
+
 
 function onSuPfp(e) {
   const f=e.target.files[0]; if(!f) return;
@@ -1315,48 +1354,7 @@ function switchTab(tab) {
 function togglePw(id,btn){ const el=document.getElementById(id); const h=el.type==='password'; el.type=h?'text':'password'; btn.textContent=h?'Hide':'Show'; }
 function showAuthErr(msg){ const el=document.getElementById('auth-err'); el.textContent=msg; el.classList.toggle('show',!!msg); }
 
-function doLogin() {
-  const username=document.getElementById('login-user').value.trim();
-  const password=document.getElementById('login-pass').value;
-  if(!username||!password){showAuthErr('Please fill in all fields.');return;}
-  const accounts=lsGet('nx-accounts')||{};
-  const acct=accounts[username.toLowerCase()];
-  if(!acct){showAuthErr('Account not found. Create one instead.');return;}
-  if(acct.password!==hashPw(password)){showAuthErr('Incorrect password.');return;}
-  S.user={name:acct.name,tag:acct.tag,color:acct.color,pfp:acct.pfp||null};
-  lsSet('nx-session',{user:S.user}); loadUserData(); bootApp();
-}
-
-function doSignup() {
-  const username=document.getElementById('su-user').value.trim();
-  const password=document.getElementById('su-pass').value;
-  if(!username){showAuthErr('Please choose a username.');return;}
-  if(username.length<2){showAuthErr('Username must be at least 2 characters.');return;}
-  if(!password){showAuthErr('Please choose a password.');return;}
-  if(password.length<4){showAuthErr('Password must be at least 4 characters.');return;}
-  const accounts=lsGet('nx-accounts')||{};
-  if(accounts[username.toLowerCase()]){showAuthErr('That username is already taken.');return;}
-  const tag=String(Math.floor(Math.random()*9999)).padStart(4,'0');
-  const acct={name:username,tag,color:selectedColor,pfp:suPfpData||null,password:hashPw(password)};
-  accounts[username.toLowerCase()]=acct; lsSet('nx-accounts',accounts);
-  S.user={name:username,tag,color:selectedColor,pfp:suPfpData||null};
-  lsSet('nx-session',{user:S.user}); loadUserData(); bootApp();
-  toast('👋 Welcome to Nexus, '+username+'!');
-}
-
-function signOut() {
-  if(!confirm('Sign out?'))return;
-  lsSet('nx-session',null); S.user=null; S.servers=[]; S.messages={}; S.dms=[]; S.dmMessages={};
-  S.friends=[]; S.friendReqs=[]; S.members={}; S.curSv=null; S.curCh=null;
-  S.wsConnecting=false; S.wsOk=false; curDM=null;
-  if(S.ws){try{S.ws.onclose=null;S.ws.close();}catch(e){} S.ws=null;}
-  document.getElementById('app').classList.remove('vis');
-  document.getElementById('auth-screen').style.display='flex';
-  switchTab('login');
-  document.getElementById('login-user').value='';
-  document.getElementById('login-pass').value='';
-  suPfpData=null;
-}
+// (legacy local auth removed — using server-side auth)
 
 function hashPw(pw){ let h=5381; for(let i=0;i<pw.length;i++){h=((h<<5)+h)+pw.charCodeAt(i);h|=0;} return h.toString(36); }
 function loadUserData(){
@@ -1384,22 +1382,30 @@ function bootApp() {
 
 // ── PROFILE EDIT ──
 function buildProfileModal() {
+  // This now opens the edit modal
+  openProfileEdit();
+}
+
+function openProfileEdit() {
   const av=document.getElementById('profile-modal-av');
   av.style.background=S.user.color;
   if(S.user.pfp) av.innerHTML=`<img src="${S.user.pfp}" alt="pfp"><div class="av-overlay">Change</div>`;
   else { av.innerHTML=`${S.user.name[0].toUpperCase()}<div class="av-overlay">Change</div>`; }
   document.getElementById('profile-modal-name').textContent=S.user.name;
   document.getElementById('profile-modal-tag').textContent='#'+S.user.tag;
-  document.getElementById('profile-disp-name').value=S.user.name;
+  if(document.getElementById('profile-bio-in')) document.getElementById('profile-bio-in').value=S.user.bio||'';
+  if(document.getElementById('profile-website-in')) document.getElementById('profile-website-in').value=S.user.socials?.website||'';
+  if(document.getElementById('profile-twitter-in')) document.getElementById('profile-twitter-in').value=S.user.socials?.twitter||'';
   const grid=document.getElementById('profile-av-grid'); grid.innerHTML='';
-  COLORS.forEach(c=>{
+  COLORS.forEach(col=>{
     const d=document.createElement('div');
-    d.className='av-opt'+(c===S.user.color?' sel':'');
-    d.style.background=c; d.dataset.c=c;
+    d.className='av-opt'+(col===S.user.color?' sel':'');
+    d.style.background=col; d.dataset.c=col;
     d.textContent=S.user.name[0].toUpperCase();
     d.onclick=()=>{ document.querySelectorAll('#profile-av-grid .av-opt').forEach(x=>x.classList.remove('sel')); d.classList.add('sel'); };
     grid.appendChild(d);
   });
+  openM('profile-edit-modal');
 }
 
 let pfpCropState = { x:0, y:0, zoom:1, src:null, dragging:false, startX:0, startY:0, startImgX:0, startImgY:0 };
@@ -1498,23 +1504,21 @@ function commitPfpCrop() {
 }
 
 function saveProfile() {
-  const name=document.getElementById('profile-disp-name').value.trim()||S.user.name;
   const selColor=document.querySelector('#profile-av-grid .av-opt.sel')?.dataset.c||S.user.color;
   const av=document.getElementById('profile-modal-av');
   const newPfp=av._pendingPfp||S.user.pfp;
-  S.user.name=name; S.user.color=selColor; S.user.pfp=newPfp||null;
-  // Update in accounts store
-  const accounts=lsGet('nx-accounts')||{};
-  const key=Object.keys(accounts).find(k=>accounts[k].tag===S.user.tag);
-  if(key){ accounts[key].color=selColor; accounts[key].pfp=newPfp||null; lsSet('nx-accounts',accounts); }
-  lsSet('nx-session',{user:S.user}); persist();
-  updateUser(); closeM('profile-modal'); toast('✅ Profile updated');
-  // Update local message history with new pfp/color
+  const bio = (document.getElementById('profile-bio-in')?.value||'').slice(0,160);
+  const website = document.getElementById('profile-website-in')?.value.trim()||'';
+  const twitter = document.getElementById('profile-twitter-in')?.value.trim().replace('@','')||'';
+  S.user.color=selColor; S.user.pfp=newPfp||null;
+  S.user.bio=bio; S.user.socials={website,twitter};
+  lsSet('nx-session',{token:S.token,user:S.user}); persist();
+  updateUser(); closeM('profile-edit-modal'); toast('✅ Profile updated');
   Object.values(S.messages).forEach(arr => {
     arr.forEach(m => { if(m.author===S.user.name){m.authorColor=S.user.color;m.authorPfp=S.user.pfp||null;} });
   });
   if (S.curCh) renderMsgs(S.curCh.id);
-  wsSend({type:'profile_update',user:S.user.name,color:S.user.color,pfp:S.user.pfp||null});
+  wsSend({type:'profile_update',user:S.user.name,color:S.user.color,pfp:S.user.pfp||null,bio,socials:{website,twitter}});
 }
 
 // ══════════════════════════════════
@@ -1882,6 +1886,21 @@ function handleIn(msg) {
       toast('ℹ️ ' + (msg.message || ''));
       document.getElementById('admin-dm-result').textContent = msg.message || '';
       break;
+    case 'vcall_invite':
+      recvVcallInvite(msg);
+      break;
+    case 'vcall_accept':
+      recvVcallAccept(msg);
+      break;
+    case 'vcall_decline':
+      recvVcallDecline(msg);
+      break;
+    case 'vcall_end':
+      recvVcallEnd(msg);
+      break;
+    case 'vcall_signal':
+      handleVcallSignal(msg);
+      break;
     default: console.log('ws:',msg);
   }
 }
@@ -2211,7 +2230,7 @@ function buildMsg(m,grp) {
   return `<div class="msg${grp?' grouped':''}" data-id="${m.id}">
     <div class="m-av" style="background:${m.authorPfp?'transparent':ac}">${avInner}</div>
     <div class="m-body">
-      ${!grp?`<div class="m-head"><span class="m-auth">${esc(m.author)}${isMe?'<span class="m-you">you</span>':''}</span><span class="m-time">${fmtTime(m.ts)}</span></div>`:''}
+      ${!grp?`<div class="m-head"><span class="m-auth" onclick="openProfilePage('${esc(m.author)}')">${esc(m.author)}${isMe?'<span class="m-you">you</span>':''}</span><span class="m-time">${fmtTime(m.ts)}</span></div>`:''}
       ${m.voiceMsg ? buildVoiceMsg(m) : `<div class="m-txt">${fmtTxt(m.text)}${m.edited?'<span class="m-edited">(edited)</span>':''}</div>`}${atts}${reacts}
     </div>
     <div class="m-acts">
@@ -2456,7 +2475,7 @@ function renderMbs() {
       const badge=roleLabel(sv,m.name);
       const myRole=getMyRole(sv);
       const canCtx=(myRole==='owner'||myRole==='mod')&&m.name!==S.user.name;
-      el.innerHTML+=`<div class="mb-it" ${canCtx?`oncontextmenu="openMemberCtx('${esc(m.name)}',event)" onclick="openMemberCtx('${esc(m.name)}',event)"`:''}  title="${canCtx?'Right-click for options':''}">
+      el.innerHTML+=`<div class="mb-it" onclick="openProfilePage('${esc(m.name)}')" oncontextmenu="${canCtx?`openMemberCtx('${esc(m.name)}',event)`:''}" title="Click for profile${canCtx?' · Right-click for options':''}">
         <div class="mb-av" style="background:${avBg}">${avContent}<div class="mb-st on" style="background:${m.status==='idle'?'var(--yellow)':m.status==='dnd'?'var(--red)':m.status==='invisible'?'var(--t3)':'var(--green)'}"></div></div>
         <div style="flex:1;min-width:0"><div class="mb-nm">${esc(m.name)}</div></div>
         <div class="mb-role">${badge}</div>
@@ -2683,6 +2702,8 @@ function onDMType() {
   const inp = document.getElementById('dm-msg-in');
   inp.style.height = 'auto';
   inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
+  const btn = document.getElementById('dm-snd-btn');
+  if (btn) btn.classList.toggle('on', inp.value.trim().length > 0);
 }
 
 // ══════════════════════════════════
@@ -3571,6 +3592,13 @@ function isOnline(name) {
   return Object.values(S.members).some(list => list.some(m => m.name === name));
 }
 
+function sendFriendReqTo(name) {
+  if (!name) return;
+  if (S.friends.find(f=>f.name===name)) { toast(name+' is already your friend'); return; }
+  wsSend({ type:'friend_request', to:name, from:S.user.name, fromColor:S.user.color, fromPfp:S.user.pfp||null });
+  toast('👋 Friend request sent to '+name);
+}
+
 function sendFriendReq() {
   const name = document.getElementById('friend-search-in').value.trim();
   if (!name) return;
@@ -4057,6 +4085,346 @@ async function handleVoiceSignal(msg) {
     if (pc) { try { await pc.addIceCandidate(new RTCIceCandidate(msg.signal.ice)); } catch(e) {} }
   }
 }
+
+// ══════════════════════════════════════════════════════════════════
+// PROFILE PAGE — view any user's profile
+// ══════════════════════════════════════════════════════════════════
+const profileCache = {}; // username → profile data
+
+function openProfilePage(username) {
+  const page = document.getElementById('profile-page');
+  // Use cached data or build from what we know
+  const data = profileCache[username] || buildLocalProfile(username);
+  renderProfilePage(data);
+  page.classList.add('open');
+}
+
+function buildLocalProfile(username) {
+  // Build from local state: server members, DM contacts, etc.
+  const isSelf = username === S.user?.name;
+  if (isSelf) return { name: S.user.name, tag: S.user.tag, color: S.user.color, pfp: S.user.pfp, bio: S.user.bio||'', socials: S.user.socials||{}, systemRole: S.user.systemRole, coAdmin: S.user.coAdmin };
+  // Check members list
+  for (const svId in S.members) {
+    const m = (S.members[svId]||[]).find(x=>x.name===username);
+    if (m) return m;
+  }
+  // Check DM contacts
+  const dm = S.dms.find(d=>d.name===username);
+  if (dm) return { name: dm.name, color: COLORS[hash(dm.name)%COLORS.length], pfp: dm.pfp, bio:'', socials:{} };
+  return { name: username, color: COLORS[hash(username)%COLORS.length], pfp: null, bio:'', socials:{} };
+}
+
+function renderProfilePage(u) {
+  const isSelf = u.name === S.user?.name;
+  // Banner color based on user color
+  document.getElementById('pp-banner').style.background = `linear-gradient(135deg,${u.color||'var(--accent)'},${u.color||'#a855f7'}88)`;
+  // Avatar
+  const avEl = document.getElementById('pp-av');
+  avEl.style.background = u.pfp ? 'transparent' : (u.color||COLORS[0]);
+  avEl.innerHTML = u.pfp ? `<img src="${u.pfp}" style="width:100%;height:100%;object-fit:cover">` : esc(u.name[0]?.toUpperCase()||'?');
+  // Name / tag
+  document.getElementById('pp-name').textContent = u.name;
+  document.getElementById('pp-tag').textContent = '#' + (u.tag||'????');
+  // Badges
+  const badges = document.getElementById('pp-badges');
+  let badgeHtml = '';
+  if (u.systemRole==='admin') badgeHtml += `<span class="pp-badge" style="background:rgba(108,99,255,.2);color:var(--accent);border:1px solid rgba(108,99,255,.3)">⚡ Admin</span>`;
+  if (u.coAdmin) badgeHtml += `<span class="pp-badge" style="background:rgba(168,85,247,.2);color:#c084fc;border:1px solid rgba(168,85,247,.3)">⭐ Co-Admin</span>`;
+  if (isSelf) badgeHtml += `<span class="pp-badge" style="background:rgba(52,211,153,.12);color:var(--green);border:1px solid rgba(52,211,153,.2)">You</span>`;
+  badges.innerHTML = badgeHtml;
+  // Bio
+  const bioEl = document.getElementById('pp-bio');
+  if (u.bio) { bioEl.textContent = u.bio; bioEl.style.display = ''; }
+  else bioEl.style.display = 'none';
+  // Socials
+  const socialsEl = document.getElementById('pp-socials');
+  let soc = '';
+  if (u.socials?.website) soc += `<a class="pp-social" href="${esc(u.socials.website)}" target="_blank" rel="noopener">🌐 Website</a>`;
+  if (u.socials?.twitter) soc += `<a class="pp-social" href="https://twitter.com/${esc(u.socials.twitter)}" target="_blank" rel="noopener">𝕏 @${esc(u.socials.twitter)}</a>`;
+  socialsEl.innerHTML = soc;
+  // Actions
+  const actEl = document.getElementById('pp-actions');
+  if (isSelf) {
+    actEl.innerHTML = `<button class="btn-p" style="flex:1" onclick="closeProfilePage();openProfileEdit()">✏️ Edit Profile</button>`;
+  } else {
+    const isDM = S.dms.find(d=>d.name===u.name && d.status==='accepted');
+    const isFriend = S.friends.find(f=>f.name===u.name);
+    actEl.innerHTML = `
+      <button class="btn-p" style="flex:1" onclick="closeProfilePage();ppDM('${esc(u.name)}')">💬 Message</button>
+      ${!isFriend ? `<button class="btn-g" onclick="closeProfilePage();ppAddFriend('${esc(u.name)}')">+ Friend</button>` : ''}
+      <button class="btn-g" style="color:var(--accent)" onclick="closeProfilePage();ppCall('${esc(u.name)}')">📞 Call</button>
+    `;
+  }
+}
+
+function closeProfilePage() {
+  document.getElementById('profile-page').classList.remove('open');
+}
+
+function ppDM(name) {
+  if (!S.dms.find(d=>d.name===name)) {
+    S.dms.push({id:uid(),name,last:'',status:'pending_sent',pfp:profileCache[name]?.pfp||null});
+    persist();
+    wsSend({type:'dm_request',to:name,from:S.user.name,fromColor:S.user.color,fromPfp:S.user.pfp||null});
+    toast('📨 DM request sent to '+name);
+  }
+  renderDMs(); openDMChat(name);
+  document.getElementById('dm-panel').classList.add('open');
+}
+
+function ppAddFriend(name) {
+  sendFriendReqTo(name);
+}
+
+function ppCall(name) {
+  startVoiceCall(name);
+}
+
+// Store profile data when we receive profile_update broadcasts
+function cacheProfile(data) {
+  if (!data.user) return;
+  profileCache[data.user] = { ...profileCache[data.user], name: data.user, color: data.color, pfp: data.pfp, bio: data.bio, socials: data.socials };
+}
+
+// ══════════════════════════════════════════════════════════════════
+// VOICE CALLS — invite up to 5 people, P2P WebRTC
+// ══════════════════════════════════════════════════════════════════
+let vcallId = null;          // unique call session ID
+let vcallParticipants = {};  // name → { stream, muted, pc }
+let vcallTimer = null;
+let vcallSeconds = 0;
+let vcallLocalStream = null;
+let vcallMuted = false;
+
+async function startVoiceCall(targetName) {
+  // Get mic first
+  try {
+    vcallLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch(e) {
+    toast('🎤 Microphone access denied');
+    return;
+  }
+  vcallId = uid();
+  vcallParticipants = {};
+  vcallMuted = false;
+  vcallSeconds = 0;
+  // Send call invite
+  wsSend({ type: 'vcall_invite', callId: vcallId, to: targetName, from: S.user.name, fromColor: S.user.color, fromPfp: S.user.pfp||null });
+  openVcallModal([S.user.name]);
+  toast('📞 Calling ' + targetName + '...');
+  // Start timer
+  clearInterval(vcallTimer);
+  vcallTimer = setInterval(() => {
+    vcallSeconds++;
+    const m = Math.floor(vcallSeconds/60).toString().padStart(2,'0');
+    const s = (vcallSeconds%60).toString().padStart(2,'0');
+    document.getElementById('vcall-timer').textContent = m+':'+s;
+  }, 1000);
+}
+
+function openVcallModal(participants) {
+  document.getElementById('vcall-status').textContent = participants.length > 1 ? 'In call' : 'Ringing...';
+  renderVcallGrid(participants);
+  openM('vcall-modal');
+}
+
+function renderVcallGrid(participants) {
+  const grid = document.getElementById('vcall-grid');
+  const all = [S.user.name, ...Object.keys(vcallParticipants)];
+  grid.innerHTML = all.map(name => {
+    const isSelf = name === S.user.name;
+    const color = isSelf ? S.user.color : (profileCache[name]?.color||COLORS[hash(name)%COLORS.length]);
+    const pfp = isSelf ? S.user.pfp : profileCache[name]?.pfp;
+    const muted = isSelf ? vcallMuted : vcallParticipants[name]?.muted;
+    const avHtml = pfp ? `<img src="${pfp}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : esc(name[0]?.toUpperCase()||'?');
+    return `<div class="vcall-tile">
+      <div class="vcall-av${muted?' muted':''}" style="background:${pfp?'transparent':color}">${avHtml}</div>
+      <div class="vcall-nm">${esc(name)}${isSelf?' (you)':''}</div>
+    </div>`;
+  }).join('');
+  // Show/hide invite button based on participant count
+  const inviteRow = document.getElementById('vcall-invite-row');
+  if (inviteRow) inviteRow.style.display = all.length < 5 ? '' : 'none';
+}
+
+function vcallInvite() {
+  const name = document.getElementById('vcall-invite-in').value.trim();
+  if (!name) return;
+  const all = [S.user.name, ...Object.keys(vcallParticipants)];
+  if (all.length >= 5) { toast('Max 5 participants'); return; }
+  if (all.includes(name)) { toast(name + ' is already in the call'); return; }
+  wsSend({ type: 'vcall_invite', callId: vcallId, to: name, from: S.user.name, fromColor: S.user.color, fromPfp: S.user.pfp||null });
+  document.getElementById('vcall-invite-in').value = '';
+  toast('📨 Invited ' + name);
+}
+
+function endVoiceCall() {
+  if (vcallId) wsSend({ type: 'vcall_end', callId: vcallId, from: S.user.name });
+  cleanupVcall();
+  closeM('vcall-modal');
+}
+
+function cleanupVcall() {
+  clearInterval(vcallTimer); vcallTimer = null; vcallSeconds = 0;
+  // Close all peer connections
+  Object.values(vcallParticipants).forEach(p => { try { p.pc?.close(); } catch(e){} });
+  vcallParticipants = {};
+  // Stop local stream
+  if (vcallLocalStream) { vcallLocalStream.getTracks().forEach(t=>t.stop()); vcallLocalStream = null; }
+  // Remove audio elements
+  document.querySelectorAll('.vcall-audio-el').forEach(a=>a.remove());
+  vcallId = null; vcallMuted = false;
+  document.getElementById('vcall-timer').textContent = '';
+  document.getElementById('vcall-status').textContent = '';
+}
+
+function toggleVoiceCallMute() {
+  vcallMuted = !vcallMuted;
+  if (vcallLocalStream) vcallLocalStream.getAudioTracks().forEach(t => t.enabled = !vcallMuted);
+  const btn = document.getElementById('vcall-mute-btn');
+  if (btn) btn.textContent = vcallMuted ? '🔇' : '🎙️';
+  renderVcallGrid();
+}
+
+// Override the old toggleVoiceMute to also handle call mute
+function toggleVoiceMute() {
+  if (vcallId) { toggleVoiceCallMute(); return; }
+  // Original voice channel mute
+  if (!vcLocalStream) return;
+  vcMuted = !vcMuted;
+  vcLocalStream.getAudioTracks().forEach(t => t.enabled = !vcMuted);
+  const btn = document.getElementById('voice-mute-btn');
+  btn.style.color = vcMuted ? 'var(--red)' : 'var(--green)';
+  toast(vcMuted ? '🔇 Muted' : '🎙️ Unmuted');
+}
+
+// ── Incoming call invite ──
+function recvVcallInvite(msg) {
+  // Show incoming call UI
+  const from = msg.from;
+  const existing = document.getElementById('vcall-incoming');
+  if (existing) existing.remove();
+  const div = document.createElement('div');
+  div.id = 'vcall-incoming';
+  div.style.cssText = 'position:fixed;bottom:80px;right:20px;background:var(--s3);border:1px solid var(--border2);border-radius:14px;padding:16px 18px;z-index:999;box-shadow:0 8px 40px rgba(0,0,0,.6);min-width:220px';
+  div.innerHTML = `<div style="font-size:13px;font-weight:700;margin-bottom:6px">📞 Incoming call from ${esc(from)}</div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn-p" style="flex:1;font-size:12px" onclick="acceptVcall('${esc(msg.callId)}','${esc(from)}')">Accept</button>
+      <button class="btn-g" style="flex:1;font-size:12px;color:var(--red)" onclick="declineVcall('${esc(msg.callId)}','${esc(from)}')">Decline</button>
+    </div>`;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 30000);
+  addNotif('📞', from + ' is calling you!', () => acceptVcall(msg.callId, from));
+  toast('📞 ' + from + ' is calling you!');
+}
+
+async function acceptVcall(callId, from) {
+  document.getElementById('vcall-incoming')?.remove();
+  try {
+    vcallLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  } catch(e) { toast('🎤 Mic denied'); return; }
+  vcallId = callId;
+  vcallMuted = false;
+  vcallSeconds = 0;
+  wsSend({ type: 'vcall_accept', callId, to: from, from: S.user.name });
+  // Create peer connection to caller
+  const pc = vcallCreatePeer(from);
+  vcallParticipants[from] = { pc, muted: false };
+  // Create offer
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  wsSend({ type: 'vcall_signal', callId, from: S.user.name, to: from, signal: { sdp: offer } });
+  openVcallModal([S.user.name, from]);
+  document.getElementById('vcall-status').textContent = 'In call';
+  clearInterval(vcallTimer);
+  vcallTimer = setInterval(() => {
+    vcallSeconds++;
+    const m = Math.floor(vcallSeconds/60).toString().padStart(2,'0');
+    const s = (vcallSeconds%60).toString().padStart(2,'0');
+    document.getElementById('vcall-timer').textContent = m+':'+s;
+  }, 1000);
+}
+
+function declineVcall(callId, from) {
+  document.getElementById('vcall-incoming')?.remove();
+  wsSend({ type: 'vcall_decline', callId, to: from, from: S.user.name });
+}
+
+function recvVcallAccept(msg) {
+  // The other person accepted — create peer connection
+  const from = msg.from;
+  if (!vcallId || vcallId !== msg.callId) return;
+  if (!vcallParticipants[from]) {
+    const pc = vcallCreatePeer(from);
+    vcallParticipants[from] = { pc, muted: false };
+  }
+  document.getElementById('vcall-status').textContent = 'In call';
+  renderVcallGrid();
+  toast('✅ ' + from + ' joined the call');
+}
+
+function recvVcallDecline(msg) {
+  toast('❌ ' + msg.from + ' declined the call');
+  renderVcallGrid();
+}
+
+function recvVcallEnd(msg) {
+  if (msg.callId !== vcallId) return;
+  toast('📵 ' + (msg.from||'Other person') + ' ended the call');
+  cleanupVcall();
+  closeM('vcall-modal');
+}
+
+function vcallCreatePeer(peerId) {
+  const pc = new RTCPeerConnection(RTC_CONFIG);
+  if (vcallLocalStream) vcallLocalStream.getTracks().forEach(t => pc.addTrack(t, vcallLocalStream));
+  pc.onicecandidate = e => {
+    if (e.candidate) wsSend({ type: 'vcall_signal', callId: vcallId, from: S.user.name, to: peerId, signal: { ice: e.candidate } });
+  };
+  pc.ontrack = e => {
+    let audio = document.getElementById('vcall-audio-' + peerId);
+    if (!audio) {
+      audio = document.createElement('audio');
+      audio.id = 'vcall-audio-' + peerId;
+      audio.className = 'vcall-audio-el';
+      audio.autoplay = true;
+      document.body.appendChild(audio);
+    }
+    audio.srcObject = e.streams[0];
+    renderVcallGrid();
+  };
+  pc.onconnectionstatechange = () => {
+    if (['disconnected','failed','closed'].includes(pc.connectionState)) {
+      delete vcallParticipants[peerId];
+      document.getElementById('vcall-audio-' + peerId)?.remove();
+      renderVcallGrid();
+    }
+  };
+  return pc;
+}
+
+async function handleVcallSignal(msg) {
+  const peerId = msg.from;
+  if (!vcallParticipants[peerId]) {
+    const pc = vcallCreatePeer(peerId);
+    vcallParticipants[peerId] = { pc, muted: false };
+  }
+  const pc = vcallParticipants[peerId].pc;
+  if (msg.signal.sdp) {
+    const sdp = msg.signal.sdp;
+    if (sdp.type === 'offer') {
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      wsSend({ type: 'vcall_signal', callId: vcallId, from: S.user.name, to: peerId, signal: { sdp: answer } });
+    } else if (sdp.type === 'answer') {
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+    }
+  } else if (msg.signal.ice) {
+    try { await pc.addIceCandidate(new RTCIceCandidate(msg.signal.ice)); } catch(e){}
+  }
+}
+
 // ── Boot: ensure every server has roles fields ──
 function migrateServers() {
   S.servers.forEach(sv => {
@@ -4071,23 +4439,6 @@ function migrateServers() {
 initAuth();
 </script>
 
-<!-- MIGRATION MODAL — for existing users to claim their account server-side -->
-<div class="overlay" id="migrate-modal" style="z-index:220">
-  <div class="modal" style="max-width:460px">
-    <div style="font-size:28px;text-align:center;margin-bottom:8px">🔄</div>
-    <div class="modal-t" style="text-align:center">Secure Your Account</div>
-    <div class="modal-s" style="text-align:center;margin-bottom:16px">Nexus now uses server-side authentication. Set a password to keep your existing username <strong id="migrate-uname"></strong> and all your data.</div>
-    <div class="m-lbl">Choose a Password</div>
-    <div class="pw-wrap"><input class="m-inp" id="migrate-pass" type="password" placeholder="At least 4 characters" maxlength="64"><span class="pw-tog" onclick="togglePw('migrate-pass',this)">Show</span></div>
-    <div class="m-lbl" style="margin-top:10px">Confirm Password</div>
-    <div class="pw-wrap"><input class="m-inp" id="migrate-pass2" type="password" placeholder="Repeat password" maxlength="64"><span class="pw-tog" onclick="togglePw('migrate-pass2',this)">Show</span></div>
-    <div id="migrate-err" style="font-size:12px;color:var(--red);margin-top:8px;display:none"></div>
-    <div class="m-row" style="margin-top:16px">
-      <button class="btn-g" onclick="skipMigration()">Skip (new account)</button>
-      <button class="btn-p" onclick="doMigrate()">Secure My Account →</button>
-    </div>
-  </div>
-</div>
 
 <!-- ADMIN PANEL MODAL -->
 <div class="overlay" id="admin-panel-modal" style="z-index:210">
