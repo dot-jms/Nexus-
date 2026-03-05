@@ -1657,6 +1657,7 @@ function handleIn(msg) {
               channels: ss.channels || [], isOwner: ss.ownerId === S.user.name,
               ownerId: ss.ownerId, memberCount: ss.memberCount || 1,
               createdAt: ss.createdAt || Date.now(), memberRoles: {}, roles: [], banned: [],
+              isPublic: ss.isPublic !== false,
             };
             S.servers.push(rejoined);
             svChanged = true;
@@ -2100,7 +2101,7 @@ function createSv() {
       {id:uid(),name:'general',type:'text',desc:'General chat'},
       {id:uid(),name:'random',type:'text',desc:'Anything goes'},
       {id:uid(),name:'announcements',type:'text',desc:'News'},
-    ], isOwner:true, memberCount:1, createdAt:Date.now(),
+    ], isOwner:true, isPublic:true, memberCount:1, createdAt:Date.now(),
   };
   S.servers.push(sv); persist(); closeM('csv'); renderSvs(); selectSv(sv.id);
   toast('🎉 "'+name+'" created');
