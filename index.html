@@ -1052,6 +1052,10 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
     Ban Member
   </div>
+  <div class="sv-dd-item danger" id="ctx-admin-ban" onclick="adminCtxBan()" style="display:none">
+    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    ⚡ Platform Ban
+  </div>
 </div>
 
 <script>
@@ -1062,7 +1066,7 @@ const WS_URL = 'wss://nexus.dot-jms.deno.net';
 
 // ── STATE ──
 const S = {
-  user: null, servers: [], curSv: null, curCh: null,
+  user: null, token: null, servers: [], curSv: null, curCh: null,
   messages: {}, dms: [], dmMessages: {}, files: [], members: {},
   friends: [], friendReqs: [],
   ws: null, wsOk: false, mbOpen: true, chType: 'text',
@@ -1092,9 +1096,36 @@ let svIconData = null;
 let reactPickerMsgId = null;
 let discFilter = 'all';
 
-// ══════════════════════════════════
-// AUTH
-// ══════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════
+// AUTH — Server-side authentication via WebSocket + Deno KV
+// Session tokens are stored in localStorage for auto-login.
+// Accounts live on the server and survive relay restarts.
+// Username uniqueness is enforced globally.
+// ══════════════════════════════════════════════════════════════════════
+
+// Temporary WS used ONLY for auth before the main app WS opens
+let authWs = null;
+let authResolve = null;
+
+function authRequest(msg) {
+  return new Promise((resolve, reject) => {
+    // Reuse or open a temp WS for auth
+    if (!authWs || authWs.readyState !== WebSocket.OPEN) {
+      authWs = new WebSocket(WS_URL);
+      authWs.onopen = () => {
+        authWs.send(JSON.stringify(msg));
+      };
+    } else {
+      authWs.send(JSON.stringify(msg));
+    }
+    authWs.onmessage = (e) => {
+      try { resolve(JSON.parse(e.data)); } catch { reject(new Error('Bad response')); }
+    };
+    authWs.onerror = () => reject(new Error('Connection failed'));
+    setTimeout(() => reject(new Error('Timeout')), 10000);
+  });
+}
+
 function initAuth() {
   const grid = document.getElementById('av-grid');
   COLORS.forEach((c, i) => {
@@ -1111,8 +1142,145 @@ function initAuth() {
   });
   ['login-user','login-pass'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();}));
   ['su-user','su-pass'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')doSignup();}));
-  const sess=lsGet('nx-session');
-  if(sess?.user){ S.user=sess.user; loadUserData(); bootApp(); }
+
+  // Check for saved session token first
+  const sess = lsGet('nx-session');
+  if (sess?.token) {
+    // Restore session — we'll verify via identify on WS open
+    S.user = sess.user;
+    S.token = sess.token;
+    loadUserData();
+    bootApp();
+    return;
+  }
+
+  // Check if there's a legacy local account that needs migration
+  const legacyAccounts = lsGet('nx-accounts');
+  if (legacyAccounts && Object.keys(legacyAccounts).length > 0) {
+    // Show login form by default — they may already have migrated
+    // Migration will be offered after a failed login if needed
+  }
+}
+
+async function doLogin() {
+  const username = document.getElementById('login-user').value.trim();
+  const password = document.getElementById('login-pass').value;
+  if (!username || !password) { showAuthErr('Please fill in all fields.'); return; }
+
+  showAuthErr(''); document.querySelector('#form-login .auth-btn').textContent = 'Signing in…';
+  try {
+    const resp = await authRequest({ type: 'auth_login', username, password });
+    if (resp.type === 'auth_ok') {
+      onAuthOk(resp);
+    } else if (resp.type === 'auth_error') {
+      // Check if legacy local account exists — offer migration
+      const accounts = lsGet('nx-accounts') || {};
+      const legacy = accounts[username.toLowerCase()];
+      if (legacy && legacy.password === hashPw(password)) {
+        // Local account matches but not yet on server — offer migration
+        offerMigration(legacy);
+      } else {
+        showAuthErr(resp.message || 'Login failed.');
+      }
+    }
+  } catch(e) {
+    showAuthErr('Could not connect to server. Check your internet.');
+  }
+  document.querySelector('#form-login .auth-btn').textContent = 'Sign In →';
+}
+
+async function doSignup() {
+  const username = document.getElementById('su-user').value.trim();
+  const password = document.getElementById('su-pass').value;
+  if (!username) { showAuthErr('Please choose a username.'); return; }
+  if (username.length < 2) { showAuthErr('Username must be at least 2 characters.'); return; }
+  if (!/^[a-zA-Z0-9_.\-]{2,24}$/.test(username)) { showAuthErr('Only letters, numbers, underscores, dots, hyphens.'); return; }
+  if (!password || password.length < 4) { showAuthErr('Password must be at least 4 characters.'); return; }
+
+  showAuthErr(''); document.querySelector('#form-signup .auth-btn').textContent = 'Creating…';
+  try {
+    const resp = await authRequest({ type: 'auth_register', username, password, color: selectedColor, pfp: suPfpData || null });
+    if (resp.type === 'auth_ok') {
+      onAuthOk(resp);
+      toast('👋 Welcome to Nexus, ' + resp.user.name + '!');
+    } else {
+      showAuthErr(resp.message || 'Registration failed.');
+    }
+  } catch(e) {
+    showAuthErr('Could not connect to server.');
+  }
+  document.querySelector('#form-signup .auth-btn').textContent = 'Create Account →';
+}
+
+function onAuthOk(resp) {
+  S.user = { name: resp.user.name, tag: resp.user.tag, color: resp.user.color, pfp: resp.user.pfp || null, systemRole: resp.user.systemRole || 'user', coAdmin: resp.user.coAdmin || false };
+  S.token = resp.token;
+  lsSet('nx-session', { token: resp.token, user: S.user });
+  loadUserData();
+  bootApp();
+  if (authWs) { try { authWs.close(); } catch(e) {} authWs = null; }
+}
+
+// ── MIGRATION — existing localStorage account → server account ──
+function offerMigration(legacy) {
+  document.getElementById('migrate-uname').textContent = legacy.name;
+  // Store legacy info for the migration flow
+  S._migrateLegacy = legacy;
+  document.getElementById('migrate-pass').value = '';
+  document.getElementById('migrate-pass2').value = '';
+  document.getElementById('migrate-err').style.display = 'none';
+  document.getElementById('migrate-modal').classList.add('open');
+}
+
+async function doMigrate() {
+  const legacy = S._migrateLegacy; if (!legacy) return;
+  const pass = document.getElementById('migrate-pass').value;
+  const pass2 = document.getElementById('migrate-pass2').value;
+  const errEl = document.getElementById('migrate-err');
+  errEl.style.display = 'none';
+  if (pass.length < 4) { errEl.textContent = 'Password must be at least 4 characters.'; errEl.style.display = 'block'; return; }
+  if (pass !== pass2) { errEl.textContent = 'Passwords do not match.'; errEl.style.display = 'block'; return; }
+
+  try {
+    const resp = await authRequest({ type: 'auth_migrate', username: legacy.name, password: pass, tag: legacy.tag, color: legacy.color, pfp: legacy.pfp || null });
+    if (resp.type === 'auth_ok') {
+      document.getElementById('migrate-modal').classList.remove('open');
+      S._migrateLegacy = null;
+      onAuthOk(resp);
+      toast('✅ Account secured! You are now logged in.');
+    } else {
+      errEl.textContent = resp.message || 'Migration failed.';
+      errEl.style.display = 'block';
+    }
+  } catch(e) {
+    errEl.textContent = 'Could not reach server.';
+    errEl.style.display = 'block';
+  }
+}
+
+function skipMigration() {
+  S._migrateLegacy = null;
+  document.getElementById('migrate-modal').classList.remove('open');
+  // Switch to signup tab so they can register with a new username
+  switchTab('signup');
+  showAuthErr('Your old username may already be taken. Choose a new one or try logging in.');
+}
+
+function signOut() {
+  if (!confirm('Sign out?')) return;
+  lsSet('nx-session', null);
+  S.user = null; S.token = null;
+  S.servers = []; S.messages = {}; S.dms = []; S.dmMessages = {};
+  S.friends = []; S.friendReqs = []; S.members = {};
+  S.curSv = null; S.curCh = null;
+  S.wsConnecting = false; S.wsOk = false; curDM = null;
+  if (S.ws) { try { S.ws.onclose = null; S.ws.close(); } catch(e) {} S.ws = null; }
+  document.getElementById('app').classList.remove('vis');
+  document.getElementById('auth-screen').style.display = 'flex';
+  switchTab('login');
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  suPfpData = null;
 }
 
 function onSuPfp(e) {
@@ -1365,7 +1533,7 @@ function connectWS() {
   ws.onopen = () => {
     if (S.ws !== ws) { ws.close(); return; } // stale socket, discard
     S.wsConnecting = false; S.wsOk = true; setWS('connected'); hideBanner();
-    wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null});
+    wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null,token:S.token});
     const myPublic = S.servers.filter(sv => sv.isPublic && sv.ownerId === S.user.name);
     if (myPublic.length) {
       wsSend({type:'announce_servers', servers: myPublic.map(sv => ({
@@ -1384,7 +1552,7 @@ function connectWS() {
     setTimeout(connectWS, 5000);
   };
 }
-function wsSend(o){ if(S.ws?.readyState===1){S.ws.send(JSON.stringify(o));return true;} return false; }
+function wsSend(o){ if(S.ws?.readyState===1){S.ws.send(JSON.stringify({...o,token:S.token}));return true;} return false; }
 
 function handleIn(msg) {
   switch(msg.type) {
@@ -1658,6 +1826,62 @@ function handleIn(msg) {
       }
       break;
     }
+    case 'auth_required':
+      // Token rejected — force re-login
+      toast('⚠️ Session expired — please sign in again');
+      signOut();
+      break;
+    case 'banned': {
+      const until = msg.until === -1 ? 'permanently' : 'until ' + new Date(msg.until).toLocaleString();
+      signOut();
+      setTimeout(() => showAuthErr('You are banned ' + until + '. Reason: ' + (msg.reason || 'none')), 500);
+      break;
+    }
+    case 'system_role_update': {
+      // Co-admin status changed
+      if (msg.coAdmin !== undefined) {
+        S.user.coAdmin = msg.coAdmin;
+        lsSet('nx-session', { token: S.token, user: S.user });
+        addNotif('⭐', msg.message || (msg.coAdmin ? 'You are now a Co-Admin!' : 'Your Co-Admin status was removed.'), null);
+        toast(msg.message || (msg.coAdmin ? '⭐ You are now Co-Admin!' : 'Co-Admin status removed'));
+        updateUser();
+      }
+      break;
+    }
+    case 'admin_dm_request': {
+      // Admin is requesting our DM data
+      if (msg.requestedBy) {
+        wsSend({ type: 'admin_dm_response', requestedBy: msg.requestedBy, dms: S.dms.map(dm => ({ name: dm.name, messages: S.dmMessages[dm.name] || [] })) });
+      }
+      break;
+    }
+    case 'admin_dm_data': {
+      // Admin receives DM data from a user
+      const el = document.getElementById('admin-dm-result');
+      if (el) {
+        const allDms = msg.dms || [];
+        if (!allDms.length) { el.textContent = 'No DM conversations found.'; break; }
+        el.innerHTML = allDms.map(d => `<div style="margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px"><div style="font-weight:700;color:var(--accent);margin-bottom:4px">💬 with ${esc(d.name)}</div>${(d.messages||[]).map(m=>`<div style="margin:2px 0"><span style="color:var(--t3)">${esc(m.author||'?')}: </span>${esc(m.text||'[attachment]')}</div>`).join('')}</div>`).join('');
+      }
+      break;
+    }
+    case 'coadmin_update': {
+      // Someone's co-admin status changed — update local member lists
+      if (S.curSv) renderMbs();
+      break;
+    }
+    case 'error':
+      toast('⚠️ ' + (msg.message || 'Server error'));
+      break;
+    case 'success':
+      toast('✅ ' + (msg.message || 'Done'));
+      document.getElementById('admin-users-result').textContent = msg.message || '';
+      document.getElementById('admin-ban-result').textContent = msg.message || '';
+      break;
+    case 'info':
+      toast('ℹ️ ' + (msg.message || ''));
+      document.getElementById('admin-dm-result').textContent = msg.message || '';
+      break;
     default: console.log('ws:',msg);
   }
 }
@@ -2590,7 +2814,26 @@ function updateUser(){
   if(S.user.pfp){ av.innerHTML=`<img src="${S.user.pfp}" alt="pfp"><div class="u-dot" id="u-dot"></div>`; av.style.background='transparent'; }
   else{ av.style.background=S.user.color; av.innerHTML=S.user.name[0].toUpperCase()+'<div class="u-dot" id="u-dot"></div>'; }
   document.getElementById('u-nm').textContent=S.user.name;
-  document.getElementById('u-tg').textContent='#'+S.user.tag;
+  const tagEl = document.getElementById('u-tg');
+  const adminBadge = isSystemAdmin() ? ' <span style="font-size:9px;background:#6c63ff;color:#fff;padding:1px 5px;border-radius:4px;font-weight:700;letter-spacing:.05em">ADMIN</span>' : isCoAdmin() ? ' <span style="font-size:9px;background:#a855f7;color:#fff;padding:1px 5px;border-radius:4px;font-weight:700;letter-spacing:.05em">CO-ADMIN</span>' : '';
+  tagEl.innerHTML = '#'+S.user.tag + adminBadge;
+  // Show/hide admin panel button in u-acts
+  let adminBtn = document.getElementById('admin-panel-btn');
+  if (isPlatformPower()) {
+    if (!adminBtn) {
+      adminBtn = document.createElement('button');
+      adminBtn.id = 'admin-panel-btn';
+      adminBtn.className = 'ib';
+      adminBtn.title = 'Admin Panel';
+      adminBtn.innerHTML = '⚡';
+      adminBtn.style.cssText = 'color:#fbbf24;font-size:14px';
+      adminBtn.onclick = openAdminPanel;
+      const uActs = document.getElementById('u-acts');
+      if (uActs) uActs.prepend(adminBtn);
+    }
+  } else if (adminBtn) {
+    adminBtn.remove();
+  }
 }
 function toast(msg){const c=document.getElementById('toasts'),t=document.createElement('div');t.className='toast';t.textContent=msg;c.appendChild(t);setTimeout(()=>t.remove(),3200);}
 
@@ -2666,11 +2909,102 @@ function getEffectiveRole(sv, roleId) {
   return override ? { ...base, ...override } : base;
 }
 function hasPerm(sv, perm) {
+  // Platform admins/co-admins have all permissions in every server
+  if (isPlatformPower()) return true;
   const role = getMyRole(sv);
   if (role === 'owner') return true;
   const allRoles = [...DEFAULT_ROLES.map(r=>getEffectiveRole(sv,r.id)).filter(Boolean), ...(sv.roles||[]).map(r=>getEffectiveRole(sv,r.id)||r)];
   const r = allRoles.find(x => x.id === role);
   return r ? (r.perms.includes('*') || r.perms.includes(perm)) : false;
+}
+
+
+// ══════════════════════════════════════════════
+// ADMIN SYSTEM
+// ══════════════════════════════════════════════
+function isSystemAdmin() { return S.user?.systemRole === 'admin'; }
+function isCoAdmin()     { return S.user?.coAdmin === true; }
+function isPlatformPower() { return isSystemAdmin() || isCoAdmin(); }
+
+// Admin has mod powers in ANY server
+function hasPlatformModPower(sv) {
+  if (!sv) return false;
+  return isPlatformPower();
+}
+
+function openAdminPanel() {
+  if (!isPlatformPower()) { toast('No access'); return; }
+  adminTab('users');
+  openM('admin-panel-modal');
+}
+
+function adminTab(tab) {
+  document.querySelectorAll('#admin-panel-modal .sv-stg-tab').forEach((el, i) => {
+    const tabs = ['users','bans','dms'];
+    el.classList.toggle('active', tabs[i] === tab);
+  });
+  document.querySelectorAll('#admin-panel-modal .sv-stg-pane').forEach(el => el.classList.remove('active'));
+  document.getElementById('admin-pane-' + tab).classList.add('active');
+}
+
+function adminAppointCoadmin(appoint) {
+  if (!isSystemAdmin()) { toast('Only Puck can appoint Co-Admins'); return; }
+  const target = document.getElementById('admin-user-in').value.trim();
+  if (!target) { toast('Enter a username'); return; }
+  wsSend({ type: 'appoint_coadmin', target, appoint });
+}
+
+function adminBanUser() {
+  if (!isPlatformPower()) { toast('No access'); return; }
+  const target = document.getElementById('admin-ban-user').value.trim();
+  const duration = document.getElementById('admin-ban-dur').value.trim() || '1d';
+  const reason = document.getElementById('admin-ban-reason').value.trim();
+  if (!target) { toast('Enter a username'); return; }
+  if (!confirm('Ban ' + target + ' for ' + duration + '?')) return;
+  wsSend({ type: 'admin_ban', target, duration, reason });
+}
+
+function adminUnbanUser() {
+  if (!isPlatformPower()) { toast('No access'); return; }
+  const target = document.getElementById('admin-ban-user').value.trim();
+  if (!target) { toast('Enter a username'); return; }
+  wsSend({ type: 'admin_unban', target });
+}
+
+function adminViewDMs() {
+  if (!isPlatformPower()) { toast('No access'); return; }
+  const target = document.getElementById('admin-dm-user').value.trim();
+  if (!target) { toast('Enter a username'); return; }
+  document.getElementById('admin-dm-result').textContent = 'Requesting…';
+  wsSend({ type: 'admin_view_dms', target });
+}
+
+function adminDeleteServerByInput() {
+  if (!isPlatformPower()) { toast('No access'); return; }
+  const sid = document.getElementById('admin-user-in').value.trim();
+  if (!sid) { toast('Enter a server ID'); return; }
+  if (!confirm('Delete server ' + sid + '? This cannot be undone.')) return;
+  wsSend({ type: 'admin_delete_server', serverId: sid });
+}
+
+// Admin can delete any server from the dropdown (bypasses ownership check)
+function adminForceDeleteServer(serverId) {
+  if (!isPlatformPower()) return;
+  if (!confirm('Force-delete this server? This cannot be undone.')) return;
+  wsSend({ type: 'admin_delete_server', serverId });
+  const sv = S.servers.find(s => s.id === serverId);
+  if (sv) { (sv.channels||[]).forEach(ch => delete S.messages[ch.id]); S.servers = S.servers.filter(s => s.id !== serverId); persist(); renderSvs(); }
+  if (S.curSv?.id === serverId) { S.curSv = null; S.curCh = null; showWelcome(); }
+}
+
+// Admin ban from member context menu (with duration picker)
+function adminCtxBan() {
+  if (!isPlatformPower() || !ctxTargetMember) return;
+  document.getElementById('member-ctx').style.display = 'none';
+  const dur = prompt('Ban duration (e.g. 1h, 7d, permanent):', '1d');
+  if (!dur) return;
+  const reason = prompt('Reason (optional):') || '';
+  wsSend({ type: 'admin_ban', target: ctxTargetMember, duration: dur, reason });
 }
 
 function getMemberRole(sv, memberName) {
@@ -2740,6 +3074,11 @@ function buildSvDropdown() {
   if (!isOwner) {
     sep();
     item(`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`, 'Leave Server', ()=>leaveServer(), true);
+  }
+  // Platform admin/co-admin can force-delete any server
+  if (isPlatformPower() && !isOwner) {
+    sep();
+    item(`<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M9 6V4h6v2"/></svg>`, '⚡ Force Delete Server', ()=>adminForceDeleteServer(sv.id), true);
   }
 }
 
@@ -2956,6 +3295,7 @@ function openMemberCtx(memberName, e) {
   const isOwner = sv.ownerId === S.user.name;
   document.getElementById('ctx-role-item').style.display = isOwner ? '' : 'none';
   document.getElementById('ctx-mod-item').style.display = isOwner ? '' : 'none';
+  document.getElementById('ctx-admin-ban').style.display = isPlatformPower() ? '' : 'none';
   ctx.style.display = 'block';
   const x = Math.min(e.clientX, window.innerWidth-190);
   const y = Math.min(e.clientY, window.innerHeight-200);
@@ -3730,5 +4070,69 @@ function migrateServers() {
 // ── BOOT ──
 initAuth();
 </script>
+
+<!-- MIGRATION MODAL — for existing users to claim their account server-side -->
+<div class="overlay" id="migrate-modal" style="z-index:220">
+  <div class="modal" style="max-width:460px">
+    <div style="font-size:28px;text-align:center;margin-bottom:8px">🔄</div>
+    <div class="modal-t" style="text-align:center">Secure Your Account</div>
+    <div class="modal-s" style="text-align:center;margin-bottom:16px">Nexus now uses server-side authentication. Set a password to keep your existing username <strong id="migrate-uname"></strong> and all your data.</div>
+    <div class="m-lbl">Choose a Password</div>
+    <div class="pw-wrap"><input class="m-inp" id="migrate-pass" type="password" placeholder="At least 4 characters" maxlength="64"><span class="pw-tog" onclick="togglePw('migrate-pass',this)">Show</span></div>
+    <div class="m-lbl" style="margin-top:10px">Confirm Password</div>
+    <div class="pw-wrap"><input class="m-inp" id="migrate-pass2" type="password" placeholder="Repeat password" maxlength="64"><span class="pw-tog" onclick="togglePw('migrate-pass2',this)">Show</span></div>
+    <div id="migrate-err" style="font-size:12px;color:var(--red);margin-top:8px;display:none"></div>
+    <div class="m-row" style="margin-top:16px">
+      <button class="btn-g" onclick="skipMigration()">Skip (new account)</button>
+      <button class="btn-p" onclick="doMigrate()">Secure My Account →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL MODAL -->
+<div class="overlay" id="admin-panel-modal" style="z-index:210">
+  <div class="modal" style="width:520px;max-height:85vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="modal-t" style="margin-bottom:0">⚡ Admin Panel</div>
+      <button class="btn-g" style="padding:6px 12px;font-size:12px" onclick="closeM('admin-panel-modal')">✕</button>
+    </div>
+    <div class="sv-stg-tabs" style="margin-bottom:14px">
+      <div class="sv-stg-tab active" onclick="adminTab('users')">Users</div>
+      <div class="sv-stg-tab" onclick="adminTab('bans')">Bans</div>
+      <div class="sv-stg-tab" onclick="adminTab('dms')">View DMs</div>
+    </div>
+    <!-- USERS -->
+    <div id="admin-pane-users" class="sv-stg-pane active">
+      <div style="font-size:12px;color:var(--t3);margin-bottom:10px">Manage users, appoint co-admins, delete servers.</div>
+      <input class="m-inp" id="admin-user-in" placeholder="Username..." maxlength="24" style="margin-bottom:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-p" style="font-size:12px" onclick="adminAppointCoadmin(true)">⭐ Make Co-Admin</button>
+        <button class="btn-g" style="font-size:12px" onclick="adminAppointCoadmin(false)">Remove Co-Admin</button>
+        <button class="btn-g" style="font-size:12px;color:var(--red)" onclick="adminDeleteServerByInput()">🗑 Delete Server ID</button>
+      </div>
+      <div id="admin-users-result" style="margin-top:10px;font-size:12px;color:var(--t3)"></div>
+    </div>
+    <!-- BANS -->
+    <div id="admin-pane-bans" class="sv-stg-pane">
+      <div style="font-size:12px;color:var(--t3);margin-bottom:10px">Ban or unban users. Duration: 30m, 2h, 7d, permanent</div>
+      <input class="m-inp" id="admin-ban-user" placeholder="Username to ban..." maxlength="24" style="margin-bottom:8px">
+      <input class="m-inp" id="admin-ban-dur" placeholder="Duration (e.g. 24h, 7d, permanent)" maxlength="20" style="margin-bottom:8px">
+      <input class="m-inp" id="admin-ban-reason" placeholder="Reason..." maxlength="120" style="margin-bottom:8px">
+      <div style="display:flex;gap:8px">
+        <button class="btn-g" style="font-size:12px;color:var(--red);flex:1" onclick="adminBanUser()">🔨 Ban User</button>
+        <button class="btn-g" style="font-size:12px;flex:1" onclick="adminUnbanUser()">✅ Unban User</button>
+      </div>
+      <div id="admin-ban-result" style="margin-top:10px;font-size:12px;color:var(--t3)"></div>
+    </div>
+    <!-- DMs -->
+    <div id="admin-pane-dms" class="sv-stg-pane">
+      <div style="font-size:12px;color:var(--t3);margin-bottom:10px">View a user's DM conversations (safety moderation). User must be online.</div>
+      <input class="m-inp" id="admin-dm-user" placeholder="Username to inspect..." maxlength="24" style="margin-bottom:8px">
+      <button class="btn-p" style="font-size:12px" onclick="adminViewDMs()">🔍 Request DM History</button>
+      <div id="admin-dm-result" style="margin-top:10px;font-size:12px;color:var(--t3);max-height:300px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
