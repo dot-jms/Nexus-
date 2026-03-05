@@ -1386,8 +1386,10 @@ function loadUserData(){
   // Full state reset before loading new user data
   S.servers=[]; S.messages={}; S.dms=[]; S.dmMessages={}; S.members={};
   S.curSv=null; S.curCh=null; S.discServers=[];
+  // Load only non-server data from localStorage — servers come from the relay
   const d=lsGet('nx-data-'+S.user.name.toLowerCase())||{};
-  S.servers=d.servers||[]; S.messages=d.messages||{}; S.dms=d.dms||[]; S.dmMessages=d.dmMessages||{};
+  S.servers=[]; // always fetch fresh from server
+  S.messages=d.messages||{}; S.dms=d.dms||[]; S.dmMessages=d.dmMessages||{};
   S.friends=d.friends||[]; S.friendReqs=d.friendReqs||[];
 }
 
@@ -1674,6 +1676,8 @@ function handleIn(msg) {
         });
         if (svChanged) {
           persist(); renderSvs();
+          // Fetch full server info (icon etc) for each restored server
+          S.servers.forEach(sv => wsSend({type:'get_server_info', serverId:sv.id}));
           // Auto-select first server if none currently selected (e.g. after cache clear)
           if (!S.curSv && S.servers.length) selectSv(S.servers[0].id);
         }
@@ -1781,13 +1785,19 @@ function handleIn(msg) {
       break;
     }
     case 'server_info': {
-      // Update local server with authoritative data (especially channels)
       const sv = S.servers.find(s => s.id === msg.server?.id);
       if (sv && msg.server) {
         if (msg.server.channels?.length) sv.channels = msg.server.channels;
         if (msg.server.ownerId) sv.ownerId = msg.server.ownerId;
+        if (msg.server.icon !== undefined) sv.icon = msg.server.icon;
+        if (msg.server.name) sv.name = msg.server.name;
+        if (msg.server.desc !== undefined) sv.desc = msg.server.desc;
+        if (msg.server.color) sv.color = msg.server.color;
+        if (msg.server.isPublic !== undefined) sv.isPublic = msg.server.isPublic;
+        sv.isOwner = msg.server.ownerId === S.user.name;
         persist();
-        if (S.curSv?.id === sv.id) renderChs();
+        renderSvs();
+        if (S.curSv?.id === sv.id) { renderChs(); document.getElementById('sv-nm').textContent = sv.name; }
       }
       break;
     }
@@ -2270,7 +2280,8 @@ function discCard(sv) {
 }
 
 function joinDiscoverSv(sv, btn) {
-  if(S.servers.find(s=>s.id===sv.id)){ toast('Already in this server'); return; }
+  const existing = S.servers.find(s=>s.id===sv.id);
+  if(existing){ selectSv(existing.id); return; }
   // Request full server info (including channels) from relay before joining
   wsSend({type:'get_server_info', serverId:sv.id});
   // Optimistically add with available data, channels will be synced via server_info response
