@@ -3267,7 +3267,7 @@ function onStgIcon(e) {
 function setSvVis(v, silent=false) {
   document.getElementById('vis-public').classList.toggle('sel', v==='public');
   document.getElementById('vis-private').classList.toggle('sel', v==='private');
-  if (!silent && S.curSv) S.curSv._pendingVis = v;
+  if (S.curSv) S.curSv._pendingVis = v; // always set so saveSvOverview reads correctly
 }
 
 function saveSvOverview() {
@@ -3279,8 +3279,10 @@ function saveSvOverview() {
   sv.isPublic = sv._pendingVis !== 'private';
   if (stgIconData) sv.icon = stgIconData;
   persist(); renderSvs(); document.getElementById('sv-nm').textContent = sv.name;
-  toast('✅ Server updated');
-  wsSend({type:'server_update', serverId:sv.id, name:sv.name, desc:sv.desc, icon:sv.icon||null, color:sv.color, isPublic:sv.isPublic, memberCount:sv.memberCount||1, createdAt:sv.createdAt||Date.now(), channels:sv.channels||[]});
+  const visLabel = sv.isPublic ? '🌐 Public' : '🔒 Private';
+  toast('✅ Server updated — ' + visLabel);
+  closeM('sv-settings');
+  wsSend({type:'server_update', serverId:sv.id, name:sv.name, desc:sv.desc, icon:sv.icon||null, color:sv.color, isPublic:sv.isPublic, memberCount:sv.memberCount||1, createdAt:sv.createdAt||Date.now(), channels:sv.channels||[], ownerId:sv.ownerId});
 }
 
 // ── ROLES PANE ──
