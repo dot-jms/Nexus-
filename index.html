@@ -1386,9 +1386,9 @@ function loadUserData(){
   // Full state reset before loading new user data
   S.servers=[]; S.messages={}; S.dms=[]; S.dmMessages={}; S.members={};
   S.curSv=null; S.curCh=null; S.discServers=[];
-  // Load only non-server data from localStorage — servers come from the relay
+  // Load cached servers as fallback — relay will overwrite/merge via identified event
   const d=lsGet('nx-data-'+S.user.name.toLowerCase())||{};
-  S.servers=[]; // always fetch fresh from server
+  S.servers=d.servers||[]; // fallback until relay confirms
   S.messages=d.messages||{}; S.dms=d.dms||[]; S.dmMessages=d.dmMessages||{};
   S.friends=d.friends||[]; S.friendReqs=d.friendReqs||[];
 }
@@ -1580,7 +1580,7 @@ function connectWS() {
     if (S.ws !== ws) { ws.close(); return; } // stale socket, discard
     S.wsConnecting = false; S.wsOk = true; setWS('connected'); hideBanner();
     wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null,token:S.token});
-
+    // Queue will be flushed after 'identified' response arrives
   };
   ws.onmessage = e => { try { handleIn(JSON.parse(e.data)); } catch(err) {} };
   ws.onerror = () => { S.wsOk = false; setWS('error'); };
@@ -1591,7 +1591,24 @@ function connectWS() {
     setTimeout(connectWS, 5000);
   };
 }
-function wsSend(o){ if(S.ws?.readyState===1){S.ws.send(JSON.stringify({...o,token:S.token}));return true;} return false; }
+// ── Outbound message queue — survives reconnects ────────────────────────────
+const _wsQueue = [];
+const _QUEUED_TYPES = new Set(['server_create','server_update','server_delete','leave_server','join_server','message','dm']);
+function wsSend(o) {
+  if (S.ws?.readyState === 1) {
+    S.ws.send(JSON.stringify({ ...o, token: S.token }));
+    return true;
+  }
+  // Queue important messages instead of silently dropping them
+  if (_QUEUED_TYPES.has(o.type)) _wsQueue.push(o);
+  return false;
+}
+function _flushWsQueue() {
+  while (_wsQueue.length && S.ws?.readyState === 1) {
+    const msg = _wsQueue.shift();
+    S.ws.send(JSON.stringify({ ...msg, token: S.token }));
+  }
+}
 
 function handleIn(msg) {
   switch(msg.type) {
@@ -1675,6 +1692,12 @@ function handleIn(msg) {
           if (!S.curSv && S.servers.length) selectSv(S.servers[0].id);
         }
       }
+      // Flush any messages that were queued while WS was reconnecting
+      _flushWsQueue();
+      break;
+    case 'server_create_ok':
+      // Relay confirmed our server was persisted to KV — safe to relax
+      console.log('[nexus] server_create confirmed by relay:', msg.serverId);
       break;
     case 'user_pfp':
       if (msg.pfp && S.user) {
