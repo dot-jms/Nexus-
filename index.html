@@ -2114,7 +2114,6 @@ function createSv() {
   S.servers.push(sv); persist(); closeM('csv'); renderSvs(); selectSv(sv.id);
   toast('🎉 "'+name+'" created');
   wsSend({type:'server_create',serverId:sv.id,name,desc:sv.desc,icon:null,color:sv.color,isPublic:true,memberCount:1,createdAt:sv.createdAt||Date.now(),channels:sv.channels,ownerId:sv.ownerId});
-  // Send icon separately after server is registered (avoids oversized WS frame)
   if(sv.icon) setTimeout(()=>wsSend({type:'server_update',serverId:sv.id,name,desc:sv.desc||'',icon:sv.icon,color:sv.color,isPublic:true,memberCount:sv.memberCount||1,createdAt:sv.createdAt||Date.now(),channels:sv.channels,ownerId:sv.ownerId}),600);
   document.getElementById('sv-in').value=''; document.getElementById('sv-desc').value='';
   svIconData=null; document.getElementById('sv-icon-preview').innerHTML='🖼️';
