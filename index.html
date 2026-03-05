@@ -1578,7 +1578,7 @@ function connectWS() {
     if (S.ws !== ws) { ws.close(); return; } // stale socket, discard
     S.wsConnecting = false; S.wsOk = true; setWS('connected'); hideBanner();
     wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null,token:S.token});
-    const myPublic = S.servers.filter(sv => sv.isPublic && sv.ownerId === S.user.name);
+    const myPublic = S.servers.filter(sv => sv.isPublic === true && sv.ownerId === S.user.name);
     if (myPublic.length) {
       wsSend({type:'announce_servers', servers: myPublic.map(sv => ({
         id:sv.id, name:sv.name, desc:sv.desc||'', icon:sv.icon||null,
@@ -2209,7 +2209,7 @@ function renderDiscover() {
   const query=document.getElementById('disc-search').value.trim().toLowerCase();
 
   // Merge local servers (public) + WS-provided servers
-  const localPublic=S.servers.filter(sv=>sv.isPublic||sv.isOwner).map(sv=>({
+  const localPublic=S.servers.filter(sv=>sv.isPublic===true).map(sv=>({
     id:sv.id, name:sv.name, desc:sv.desc||'', icon:sv.icon||null, color:sv.color,
     memberCount:sv.memberCount||1, createdAt:sv.createdAt||Date.now(), isOwner:sv.isOwner,
   }));
@@ -3283,6 +3283,10 @@ function saveSvOverview() {
   toast('✅ Server updated — ' + visLabel);
   closeM('sv-settings');
   wsSend({type:'server_update', serverId:sv.id, name:sv.name, desc:sv.desc, icon:sv.icon||null, color:sv.color, isPublic:sv.isPublic, memberCount:sv.memberCount||1, createdAt:sv.createdAt||Date.now(), channels:sv.channels||[], ownerId:sv.ownerId});
+  // If made public, also re-announce so relay's in-memory map is updated immediately
+  if (sv.isPublic) {
+    wsSend({type:'announce_servers', servers:[{id:sv.id, name:sv.name, desc:sv.desc||'', icon:sv.icon||null, color:sv.color, memberCount:sv.memberCount||1, createdAt:sv.createdAt||Date.now(), channels:sv.channels||[], ownerId:sv.ownerId}]});
+  }
 }
 
 // ── ROLES PANE ──
