@@ -1381,7 +1381,7 @@ function showAuthErr(msg){ const el=document.getElementById('auth-err'); el.text
 
 // (legacy local auth removed — using server-side auth)
 
-function hashPw(pw){ let h=5381; for(let i=0;i<pw.length;i++){h=((h<<5)+h)+pw.charCodeAt(i);h|=0;} return h.toString(36); }
+function hashPw(pw){ let h=5381; for(let i=0;i<pw.length;i++){h=((h<<5)+h)+pw.charCodeAt(i);h|=0;} return (h>>>0).toString(36); }
 function loadUserData(){
   // Full state reset before loading new user data
   S.servers=[]; S.messages={}; S.dms=[]; S.dmMessages={}; S.members={};
@@ -1396,7 +1396,6 @@ function bootApp() {
   document.getElementById('app').classList.add('vis');
   migrateServers();
   updateUser(); renderSvs(); buildFullEmoji(); buildReactPicker(); renderDMs();
-  buildProfileModal();
   connectWS();
   checkInviteHash();
   reqNotifPermission();
@@ -1407,8 +1406,7 @@ function bootApp() {
 
 // ── PROFILE EDIT ──
 function buildProfileModal() {
-  // This now opens the edit modal
-  openProfileEdit();
+  // no-op — profile modal is opened on demand via openProfileEdit()
 }
 
 function openProfileEdit() {
@@ -1635,6 +1633,41 @@ function handleIn(msg) {
       }
       break;
     }
+    case 'identified':
+      // Server sends fresh account data — update role/pfp in case they changed
+      if (msg.user) {
+        S.user.systemRole = msg.user.systemRole || S.user.systemRole;
+        S.user.coAdmin    = msg.user.coAdmin    ?? S.user.coAdmin;
+        S.user.pfp        = msg.user.pfp        || S.user.pfp;
+        S.user.tag        = msg.user.tag        || S.user.tag;
+        S.user.bio        = msg.user.bio        || S.user.bio;
+        S.user.socials    = msg.user.socials    || S.user.socials;
+        lsSet('nx-session', { token: S.token, user: S.user });
+        updateUser();
+      }
+      // Merge server-side friends list (survives cache wipes)
+      if (msg.friends?.length) {
+        msg.friends.forEach(sf => {
+          if (!S.friends.find(f => f.name === sf.name)) {
+            S.friends.push(sf);
+          }
+        });
+        persist();
+        if (document.getElementById('friends-view').style.display !== 'none') renderFriends();
+      }
+      // Merge pending friend requests from server
+      if (msg.friendRequests?.length) {
+        msg.friendRequests.forEach(sr => {
+          if (!S.friendReqs.find(r => r.name === sr.name)) {
+            S.friendReqs.push(sr);
+          }
+        });
+        persist();
+        const inReqs = S.friendReqs.filter(r => r.direction === 'in');
+        document.getElementById('fr-badge').style.display = inReqs.length ? '' : 'none';
+        if (document.getElementById('friends-view').style.display !== 'none') renderFriends();
+      }
+      break;
     case 'delete_message': delById(msg.messageId,msg.channelId); break;
     case 'edit_message': {
       if (msg.author !== S.user.name) {
@@ -3286,7 +3319,8 @@ function saveRole() {
   const sv = S.curSv; if (!sv) return;
   const name = document.getElementById('role-name-in').value.trim();
   if (!name) { toast('Role needs a name'); return; }
-  const perms = [...document.querySelectorAll('#perm-list .toggle-switch.on')].map(el=>el.dataset.perm);
+  const selPerms = [...document.querySelectorAll('#perm-list .toggle-switch.on')].map(el=>el.dataset.perm);
+  const isBuiltin = DEFAULT_ROLES.some(r => r.id === editingRoleId);
   if (!sv.roles) sv.roles = [];
   if (isBuiltin) {
     // Override the built-in role's properties on this server
@@ -3299,10 +3333,10 @@ function saveRole() {
     return;
   }
   if (editingRoleId === '__new__') {
-    sv.roles.push({ id: uid(), name, color: editingRoleColor, perms });
+    sv.roles.push({ id: uid(), name, color: editingRoleColor, perms: selPerms });
   } else {
     const r = sv.roles.find(x=>x.id===editingRoleId);
-    if (r) { r.name=name; r.color=editingRoleColor; r.perms=perms; }
+    if (r) { r.name=name; r.color=editingRoleColor; r.perms=selPerms; }
   }
   persist(); buildRolesPane(); renderMbs(); toast('✅ Role saved');
   wsSend({type:'roles_update', serverId:sv.id, roles:sv.roles});
@@ -3713,6 +3747,7 @@ function removeFriend(name) {
   if (!confirm('Remove ' + name + ' from friends?')) return;
   S.friends = S.friends.filter(f => f.name !== name);
   persist(); renderFriends(); toast('Removed ' + name);
+  wsSend({ type: 'friend_remove', target: name });
 }
 
 function dmFriend(name) {
@@ -4142,7 +4177,7 @@ const profileCache = {}; // username → profile data
 function openProfilePage(username) {
   const data = profileCache[username] || buildLocalProfile(username);
   renderProfilePage(data);
-  document.getElementById('profile-panel').classList.add('open');
+  document.getElementById('profile-page').classList.add('open');
 }
 
 function buildLocalProfile(username) {
@@ -4225,7 +4260,7 @@ function renderProfilePage(u) {
 }
 
 function closeProfilePage() {
-  document.getElementById('profile-panel').classList.remove('open');
+  document.getElementById('profile-page').classList.remove('open');
 }
 
 // Admin-only: Puck can rename any user
