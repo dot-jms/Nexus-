@@ -1933,15 +1933,36 @@ function handleIn(msg) {
       }
       break;
     }
+    case 'server_create': {
+      // FIX: Handle server_create broadcast from other users — add to discover list immediately
+      // so new public servers appear without requiring a manual get_server_list refresh.
+      if (msg.isPublic !== false) {
+        const alreadyKnown = S.discServers.find(s => s.id === msg.serverId);
+        if (!alreadyKnown) {
+          S.discServers.push({
+            id: msg.serverId, name: msg.name, desc: msg.desc || '',
+            color: msg.color || '#6c63ff', icon: msg.icon || null,
+            memberCount: msg.memberCount || 1, createdAt: msg.createdAt || Date.now(),
+            ownerId: msg.ownerId, isPublic: true,
+          });
+          // Only re-render discover if it's currently visible
+          if (document.getElementById('discover').classList.contains('show')) renderDiscover();
+        }
+      }
+      break;
+    }
     case 'server_delete': {
       const wasCur = S.curSv?.id === msg.serverId;
       const deletedSv = S.servers.find(s => s.id === msg.serverId);
       // Delete all channel messages for this server
       if (deletedSv) (deletedSv.channels||[]).forEach(ch => delete S.messages[ch.id]);
+      // Also remove from discServers
+      S.discServers = S.discServers.filter(s => s.id !== msg.serverId);
       S.servers = S.servers.filter(s => s.id !== msg.serverId);
       persist(); renderSvs();
       if (wasCur) { S.curSv=null; S.curCh=null; showWelcome(); document.getElementById('sv-nm').textContent='—'; document.getElementById('ch-list').innerHTML=''; document.getElementById('members').innerHTML=''; }
-      toast('🗑 A server you were in was deleted');
+      if (deletedSv) toast('🗑 A server you were in was deleted');
+      else if (document.getElementById('discover').classList.contains('show')) renderDiscover();
       break;
     }
     case 'kick_member':
