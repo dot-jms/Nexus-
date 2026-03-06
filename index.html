@@ -1194,7 +1194,7 @@ const S = {
   friends: [], friendReqs: [],
   ws: null, wsOk: false, mbOpen: true, chType: 'text',
   tyTimer: null, tySent: false,
-  discFilter: 'all', discServers: [],
+  discServers: [],
   reactTarget: null,
   tempSvIcon: null,
 };
@@ -1277,7 +1277,7 @@ async function doLogin() {
   } catch(e) {
     showAuthErr('Could not connect to server. Check your internet.');
   }
-  btn.textContent = 'Sign In →'; btn.disabled = false;
+  btn.textContent = 'Sign in →'; btn.disabled = false;
 }
 
 async function doSignup() {
@@ -1317,7 +1317,7 @@ function onAuthOk(resp) {
 
 function signOut() {
   if (!confirm('Sign out?')) return;
-  lsSet('nx-session', null);
+  try { localStorage.removeItem('nx-session'); } catch(e) {}
   S.user = null; S.token = null;
   S.servers = []; S.messages = {}; S.dms = []; S.dmMessages = {};
   S.friends = []; S.friendReqs = []; S.members = {};
@@ -1726,6 +1726,8 @@ function handleIn(msg) {
               if (ss.name) existing.name = ss.name;
               if (ss.channels?.length) existing.channels = ss.channels;
               if (ss.icon !== undefined) existing.icon = ss.icon;
+              if (ss.ownerId) existing.ownerId = ss.ownerId; // always trust backend for owner
+              existing.isOwner = ss.ownerId === S.user.name;
               svChanged = true;
             }
           }
@@ -1776,6 +1778,20 @@ function handleIn(msg) {
         if (s) s.value = '';
       }
       break;
+    case 'dm_stubs': {
+      // Restore DM conversations after cache clear — backend sends partner names + last msg
+      let dmChanged = false;
+      (msg.stubs || []).forEach(stub => {
+        if (!stub.with || stub.with === S.user?.name) return;
+        const existing = S.dms.find(d => d.name === stub.with);
+        if (!existing) {
+          S.dms.push({ id: uid(), name: stub.with, last: stub.last || '', lastTs: stub.ts || 0, status: 'accepted', pfp: profileCache[stub.with]?.pfp || null });
+          dmChanged = true;
+        }
+      });
+      if (dmChanged) { persist(); renderDMs(); }
+      break;
+    }
     case 'user_pfp':
       if (msg.pfp && S.user) {
         S.user.pfp = msg.pfp;
@@ -2516,7 +2532,9 @@ function renderMsgs(chId) {
   const el=document.getElementById('msgs'); el.innerHTML='';
   if(!msgs.length){ el.innerHTML=`<div style="text-align:center;padding:40px 0;color:var(--t3)"><div style="font-size:32px;margin-bottom:8px">#</div><div style="font-weight:700;color:var(--t2);font-size:14px">Start of #${esc(S.curCh?.name||'')}</div><div style="margin-top:5px;font-size:12px">Be the first to say something!</div></div>`; return; }
   let ld='',la='',lt=0;
-  msgs.forEach(m=>{ const d=fmtDate(m.ts); if(d!==ld){el.innerHTML+=`<div class="day-sep">${d}</div>`;ld=d;la='';lt=0;} const grp=m.author===la&&(m.ts-lt)<300000; el.innerHTML+=buildMsg(m,grp); la=m.author;lt=m.ts; });
+  const parts=[];
+  msgs.forEach(m=>{ const d=fmtDate(m.ts); if(d!==ld){parts.push(`<div class="day-sep">${d}</div>`);ld=d;la='';lt=0;} const grp=m.author===la&&(m.ts-lt)<300000; parts.push(buildMsg(m,grp)); la=m.author;lt=m.ts; });
+  el.innerHTML=parts.join('');
   scrollBot();
 }
 
@@ -2565,7 +2583,7 @@ function sendMsg() {
 function addMsg(m){ if(!S.messages[m.channelId]) S.messages[m.channelId]=[]; S.messages[m.channelId].push(m); persist(); }
 function delMsg(id){ const arr=S.messages[S.curCh?.id]; if(!arr) return; const i=arr.findIndex(m=>m.id===id); if(i!==-1){arr.splice(i,1);persist();renderMsgs(S.curCh.id);} wsSend({type:'delete_message',messageId:id,channelId:S.curCh.id}); }
 function delById(id,chId){ if(!S.messages[chId]) return; S.messages[chId]=S.messages[chId].filter(m=>m.id!==id); persist(); if(S.curCh?.id===chId) renderMsgs(chId); }
-function replyTo(name){ const el=document.getElementById('msg-in'); el.value=`@${name} `+el.value; el.focus(); updSnd(); }
+function replyTo(name){ if(editingMsgId) cancelEdit(); const el=document.getElementById('msg-in'); el.value=`@${name} `+el.value; el.focus(); updSnd(); }
 
 // ── MESSAGE EDITING ──
 let editingMsgId = null;
@@ -2654,12 +2672,20 @@ function filterEmoji() {
 }
 
 function insertEmoji(em) {
+  const picker=document.getElementById('main-emoji-picker');
+  // If the picker was opened for a reaction, route to reaction instead of text input
+  if (picker._forReaction) {
+    picker._forReaction = false;
+    picker.classList.remove('open');
+    if (reactPickerMsgId) toggleReact(reactPickerMsgId, em);
+    return;
+  }
   const inp=document.getElementById('msg-in');
   const start=inp.selectionStart, end=inp.selectionEnd;
   inp.value=inp.value.slice(0,start)+em+inp.value.slice(end);
   inp.selectionStart=inp.selectionEnd=start+em.length;
   inp.focus(); updSnd();
-  document.getElementById('main-emoji-picker').classList.remove('open');
+  picker.classList.remove('open');
 }
 
 function toggleMainEmoji() { document.getElementById('main-emoji-picker').classList.toggle('open'); }
@@ -2681,12 +2707,15 @@ function openReactPicker(msgId, e) {
   reactPickerMsgId=msgId;
   const picker=document.getElementById('react-picker');
   picker.classList.add('open');
-  // Position near click
-  const rect=e.target.getBoundingClientRect();
-  picker.style.left=Math.min(rect.left,window.innerWidth-260)+'px';
-  picker.style.top=(rect.top-picker.offsetHeight-8)+'px';
   picker.style.position='fixed';
   picker.style.bottom='auto';
+  // Position near click — use rAF so the picker has rendered and offsetHeight is real
+  const rect=e.target.getBoundingClientRect();
+  requestAnimationFrame(() => {
+    const ph = picker.offsetHeight || 56; // fallback if still 0
+    picker.style.left=Math.min(rect.left,window.innerWidth-260)+'px';
+    picker.style.top=(rect.top-ph-8)+'px';
+  });
 }
 
 function closeReactPicker(){ document.getElementById('react-picker').classList.remove('open'); reactPickerMsgId=null; }
@@ -3201,7 +3230,7 @@ let stgIconData = null;        // pending new server icon in settings
 // ── helpers ──
 function getMyRole(sv) {
   if (!sv) return 'member';
-  if (sv.ownerId === S.user.name) return 'owner';
+  if (sv.ownerId && sv.ownerId.toLowerCase() === (S.user?.name || '').toLowerCase()) return 'owner';
   const assignment = (sv.memberRoles || {})[S.user.name];
   if (assignment === 'mod') return 'mod';
   // check custom role
@@ -3348,7 +3377,8 @@ function adminCtxBan() {
 
 function getMemberRole(sv, memberName) {
   if (!sv) return 'member';
-  if (sv.ownerId === memberName) return 'owner';
+  // Case-insensitive owner check — ownerId may be display name, memberName may vary
+  if (sv.ownerId && sv.ownerId.toLowerCase() === (memberName || '').toLowerCase()) return 'owner';
   return (sv.memberRoles || {})[memberName] || 'member';
 }
 
@@ -4878,7 +4908,9 @@ async function handleVcallSignal(msg) {
 // ── Boot: ensure every server has roles fields ──
 function migrateServers() {
   S.servers.forEach(sv => {
-    if (!sv.ownerId) sv.ownerId = S.user.name; // legacy: assume creator
+    // Only assign ownerId to self if there's genuinely no owner recorded at all
+    // AND isOwner was explicitly set true (meaning we created it locally)
+    if (!sv.ownerId && sv.isOwner === true) sv.ownerId = S.user.name;
     if (!sv.memberRoles) sv.memberRoles = {};
     if (!sv.roles) sv.roles = [];
     if (!sv.banned) sv.banned = [];
