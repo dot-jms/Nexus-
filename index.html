@@ -18,7 +18,7 @@ html,body{height:100%;overflow:hidden}
 body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);display:flex;height:100vh}
 ::-webkit-scrollbar{width:2px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:9px}
 /* ── DEBUG OVERLAY ── */
-#dbg-overlay{position:fixed;bottom:12px;right:12px;z-index:9999;width:340px;max-height:220px;background:rgba(7,7,10,.92);border:1px solid rgba(108,99,255,.35);border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#8888a0;overflow:hidden;display:flex;flex-direction:column;pointer-events:none}
+#dbg-overlay{position:fixed;bottom:12px;right:12px;z-index:9999;width:340px;max-height:220px;background:rgba(7,7,10,.92);border:1px solid rgba(108,99,255,.35);border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:10px;color:#8888a0;overflow:hidden;display:none;flex-direction:column;pointer-events:none}
 #dbg-overlay.has-logs{pointer-events:auto}
 #dbg-title{padding:5px 10px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(108,99,255,.8);border-bottom:1px solid rgba(108,99,255,.15);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 #dbg-close{cursor:pointer;color:var(--t3);font-size:11px;pointer-events:auto}
@@ -1407,6 +1407,7 @@ function bootApp() {
   document.getElementById('app').classList.add('vis');
   migrateServers();
   updateUser(); renderSvs(); buildFullEmoji(); buildReactPicker(); renderDMs();
+  document.getElementById('dbg-overlay').style.display = S.user?.systemRole === 'admin' ? 'flex' : 'none';
   connectWS();
   checkInviteHash();
   reqNotifPermission();
@@ -1613,6 +1614,7 @@ function connectWS() {
 const _pendingServerCreates = new Map();
 // ── Debug overlay logger ─────────────────────────────────────────────────────
 function dbg(msg, type='info') {
+  if (S.user?.systemRole !== 'admin') return;
   const box = document.getElementById('dbg-lines');
   if (!box) return;
   const el = document.createElement('div');
@@ -1759,10 +1761,19 @@ function handleIn(msg) {
     case 'auth_required':
       dbg('✕ auth_required from server — token rejected', 'err');
       break;
+    case 'server_create_ok':
       _pendingServerCreates.delete(msg.serverId);
       _savePending();
       console.log('[nexus] server_create confirmed by relay:', msg.serverId);
       dbg('✓ server saved to backend: ' + msg.serverId.slice(0,8), 'ok');
+      break;
+    case 'admin_accounts_list':
+      if (isSystemAdmin()) {
+        _adminAccounts = msg.accounts || [];
+        renderAdminAccounts(_adminAccounts);
+        const s = document.getElementById('admin-acct-search');
+        if (s) s.value = '';
+      }
       break;
     case 'user_pfp':
       if (msg.pfp && S.user) {
@@ -3194,13 +3205,44 @@ function openAdminPanel() {
 
 function adminTab(tab) {
   document.querySelectorAll('#admin-panel-modal .sv-stg-tab').forEach((el, i) => {
-    const tabs = ['users','bans','dms','alert'];
+    const tabs = ['users','accounts','bans','dms','alert'];
     el.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('#admin-panel-modal .sv-stg-pane').forEach(el => el.classList.remove('active'));
   document.getElementById('admin-pane-' + tab).classList.add('active');
+  if (tab === 'accounts') adminLoadAccounts();
 }
 
+let _adminAccounts = [];
+function adminLoadAccounts() {
+  const box = document.getElementById('admin-acct-list');
+  box.innerHTML = '<div style="font-size:12px;color:var(--t3);padding:8px 0">Loading...</div>';
+  wsSend({ type: 'admin_list_accounts' });
+}
+function adminFilterAccounts() {
+  const q = (document.getElementById('admin-acct-search')?.value || '').toLowerCase();
+  const filtered = q ? _adminAccounts.filter(a => a.name.toLowerCase().includes(q)) : _adminAccounts;
+  renderAdminAccounts(filtered);
+}
+function renderAdminAccounts(accounts) {
+  const box = document.getElementById('admin-acct-list');
+  if (!box) return;
+  if (!accounts.length) { box.innerHTML = '<div style="font-size:12px;color:var(--t3);padding:8px 0">No accounts found.</div>'; return; }
+  box.innerHTML = accounts.map(a => {
+    const avBg = a.color || '#6c63ff';
+    const avContent = a.pfp ? `<img src="${a.pfp}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : `<span style="font-size:13px;font-weight:700;color:#fff">${esc(a.name[0]?.toUpperCase()||'?')}</span>`;
+    const roleBadge = a.systemRole === 'admin' ? `<span style="font-size:9px;background:rgba(108,99,255,.2);color:var(--accent);border:1px solid rgba(108,99,255,.3);border-radius:99px;padding:1px 6px;font-weight:700">⚡ Admin</span>`
+      : a.coAdmin ? `<span style="font-size:9px;background:rgba(52,211,153,.15);color:var(--green);border:1px solid rgba(52,211,153,.3);border-radius:99px;padding:1px 6px;font-weight:700">★ Co-Admin</span>` : '';
+    const joined = a.createdAt ? new Date(a.createdAt).toLocaleDateString('en',{month:'short',day:'numeric',year:'numeric'}) : '?';
+    return `<div style="display:flex;align-items:center;gap:10px;background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;transition:border-color .12s" onclick="openProfilePage('${esc(a.name)}')" onmouseenter="this.style.borderColor='var(--accent)'" onmouseleave="this.style.borderColor='var(--border)'">
+      <div style="width:34px;height:34px;border-radius:50%;background:${avBg};display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">${avContent}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px">${esc(a.name)}<span style="font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace">#${a.tag||'0000'}</span>${roleBadge}</div>
+        <div style="font-size:10px;color:var(--t3);margin-top:1px">Joined ${joined}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
 function adminAppointCoadmin(appoint) {
   if (!isSystemAdmin()) { toast('Only Puck can appoint Co-Admins'); return; }
   const target = document.getElementById('admin-user-in').value.trim();
@@ -4827,6 +4869,7 @@ initAuth();
     </div>
     <div class="sv-stg-tabs" style="margin-bottom:14px">
       <div class="sv-stg-tab active" onclick="adminTab('users')">Users</div>
+      <div class="sv-stg-tab" onclick="adminTab('accounts')">👥 Accounts</div>
       <div class="sv-stg-tab" onclick="adminTab('bans')">Bans</div>
       <div class="sv-stg-tab" onclick="adminTab('dms')">View DMs</div>
       <div class="sv-stg-tab" onclick="adminTab('alert')" style="color:#c084fc">📢 Alert</div>
@@ -4850,6 +4893,15 @@ initAuth();
         <input type="file" id="admin-pfp-file" accept="image/*" style="display:none" onchange="onAdminPfpChange(event)">
       </div>
       <div id="admin-users-result" style="margin-top:10px;font-size:12px;color:var(--t3)"></div>
+    </div>
+    <!-- ACCOUNTS -->
+    <div id="admin-pane-accounts" class="sv-stg-pane">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:12px;color:var(--t3)">All registered accounts on the platform.</div>
+        <button class="btn-g" style="font-size:11px;padding:5px 10px;flex-shrink:0" onclick="adminLoadAccounts()">↻ Refresh</button>
+      </div>
+      <input class="m-inp" id="admin-acct-search" placeholder="Search by username..." oninput="adminFilterAccounts()" style="margin-bottom:10px">
+      <div id="admin-acct-list" style="display:flex;flex-direction:column;gap:6px;max-height:380px;overflow-y:auto"></div>
     </div>
     <!-- BANS -->
     <div id="admin-pane-bans" class="sv-stg-pane">
