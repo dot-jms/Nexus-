@@ -305,7 +305,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--t1);display:
 .m-av img{width:100%;height:100%;object-fit:cover}
 .m-body{flex:1;min-width:0}
 .m-head{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
-.m-auth{font-size:13px;font-weight:800;cursor:pointer;letter-spacing:-.2px}
+.m-auth{font-size:13px;font-weight:500;cursor:pointer;letter-spacing:-.1px;font-family:'DM Mono',monospace}
 .m-auth:hover{text-decoration:underline}
 .m-time{font-size:10px;color:var(--t3);font-family:'DM Mono',monospace}
 .m-you{display:inline-block;background:rgba(124,109,250,.2);color:var(--accent-h);font-size:9px;font-weight:700;padding:1px 6px;border-radius:5px;vertical-align:middle;margin-left:4px;letter-spacing:.06em;text-transform:uppercase;border:1px solid rgba(124,109,250,.25)}
@@ -1839,18 +1839,23 @@ function handleIn(msg) {
     }
     case 'member_leave':
       if (msg.serverId === '__all__') {
-        // User disconnected — remove from all servers
         Object.keys(S.members).forEach(sid => {
           S.members[sid] = S.members[sid].filter(m => m.name !== msg.user);
         });
         if (S.curSv) renderMbs();
       } else {
         if(S.members[msg.serverId]) S.members[msg.serverId]=S.members[msg.serverId].filter(m=>m.name!==msg.user);
+        // Decrement member count
+        const lvSv = S.servers.find(s => s.id === msg.serverId);
+        if (lvSv && lvSv.memberCount > 1) { lvSv.memberCount--; persist(); renderDiscover(); }
         if(S.curSv?.id===msg.serverId) renderMbs();
       }
       break;
     case 'member_list':
       S.members[msg.serverId]=msg.members||[];
+      // Keep member count in sync with actual list
+      { const mlSv = S.servers.find(s => s.id === msg.serverId);
+        if (mlSv && msg.members?.length) { mlSv.memberCount = msg.members.length; persist(); renderDiscover(); } }
       if(S.curSv?.id===msg.serverId) renderMbs();
       break;
     // Discover — server can push public server list
@@ -1928,9 +1933,8 @@ function handleIn(msg) {
       break;
     }
     case 'join_server': {
-      // Update member count for servers we know about
       const sv = S.servers.find(s => s.id === msg.serverId);
-      if (sv) { sv.memberCount = (sv.memberCount||1)+1; persist(); }
+      if (sv) { sv.memberCount = (sv.memberCount||1)+1; persist(); renderDiscover(); }
       break;
     }
     case 'pin_message': {
@@ -1984,17 +1988,41 @@ function handleIn(msg) {
       break;
     }
     case 'profile_update': {
-      // Update member list
+      const updUser = msg.user;
+      // Update profileCache first
+      if (!profileCache[updUser]) profileCache[updUser] = {};
+      if (msg.color) profileCache[updUser].color = msg.color;
+      if (msg.pfp !== undefined) profileCache[updUser].pfp = msg.pfp;
+      if (msg.bio !== undefined) profileCache[updUser].bio = msg.bio;
+      // Update member lists in all servers
       if (S.members) {
         Object.values(S.members).forEach(list => {
-          const m = list.find(x => x.name === msg.user);
+          const m = list.find(x => x.name === updUser);
           if (m) { if(msg.color) m.color=msg.color; if(msg.pfp!==undefined) m.pfp=msg.pfp; }
         });
       }
-      // Update any messages already stored
+      // Update DM conversation entry (avatar in sidebar)
+      const dm = S.dms.find(d => d.name === updUser);
+      if (dm && msg.pfp !== undefined) { dm.pfp = msg.pfp; renderDMs(); }
+      // If this is an open DM, update its header avatar
+      if (curDM === updUser) {
+        const dmAvEl = document.getElementById('dm-chat-av');
+        if (dmAvEl) {
+          if (msg.pfp) { dmAvEl.innerHTML = `<img src="${msg.pfp}" style="width:100%;height:100%;object-fit:cover">`; dmAvEl.style.background = 'transparent'; }
+          else if (msg.color) { dmAvEl.style.background = msg.color; }
+        }
+      }
+      // If this is the current user, update user panel
+      if (updUser === S.user?.name) {
+        if (msg.color) S.user.color = msg.color;
+        if (msg.pfp !== undefined) S.user.pfp = msg.pfp;
+        lsSet('nx-session', { token: S.token, user: S.user });
+        updateUser();
+      }
+      // Update stored messages
       Object.values(S.messages).forEach(arr => {
         arr.forEach(m => {
-          if (m.author === msg.user) {
+          if (m.author === updUser) {
             if (msg.color) m.authorColor = msg.color;
             if (msg.pfp !== undefined) m.authorPfp = msg.pfp;
           }
