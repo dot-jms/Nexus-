@@ -1693,7 +1693,7 @@ function handleIn(msg) {
         }
       }
       // Flush any messages that were queued while WS was reconnecting
-      _flushWsQueue();
+      setTimeout(_flushWsQueue, 100); // small delay ensures server-side identify is fully done
       break;
     case 'server_create_ok':
       // Relay confirmed our server was persisted to KV — safe to relax
