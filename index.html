@@ -35,7 +35,7 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--t1);displa
 .pw-wrap .pw-tog{position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--t3);font-size:12px;font-weight:600;transition:color .13s;user-select:none}
 .pw-wrap .pw-tog:hover{color:var(--t2)}
 
-/* pfp upload in signup */  
+/* pfp upload in signup */
 .pfp-upload-row{display:flex;align-items:center;gap:14px}
 .pfp-preview{width:56px;height:56px;border-radius:50%;background:var(--s3);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:var(--t2);overflow:hidden;flex-shrink:0;cursor:pointer;transition:border-color .15s}
 .pfp-preview:hover{border-color:var(--accent)}
@@ -1609,6 +1609,8 @@ function _flushWsQueue() {
     S.ws.send(JSON.stringify({ ...msg, token: S.token }));
   }
 }
+// Periodically flush queue in case messages got stuck
+setInterval(_flushWsQueue, 3000);
 
 function handleIn(msg) {
   switch(msg.type) {
@@ -2136,7 +2138,12 @@ function createSv() {
   };
   S.servers.push(sv); persist(); closeM('csv'); renderSvs(); selectSv(sv.id);
   toast('🎉 "'+name+'" created');
-  wsSend({type:'server_create',serverId:sv.id,name,desc:sv.desc,icon:null,color:sv.color,isPublic:true,memberCount:1,createdAt:sv.createdAt||Date.now(),channels:sv.channels,ownerId:sv.ownerId});
+  if(!wsSend({type:'server_create',serverId:sv.id,name,desc:sv.desc,icon:null,color:sv.color,isPublic:true,memberCount:1,createdAt:sv.createdAt||Date.now(),channels:sv.channels,ownerId:sv.ownerId})){
+    // wsSend returned false — queued. Try flushing in a moment once WS settles.
+    setTimeout(_flushWsQueue, 500);
+    setTimeout(_flushWsQueue, 2000);
+    setTimeout(_flushWsQueue, 5000);
+  }
   if(sv.icon) setTimeout(()=>wsSend({type:'server_update',serverId:sv.id,name,desc:sv.desc||'',icon:sv.icon,color:sv.color,isPublic:true,memberCount:sv.memberCount||1,createdAt:sv.createdAt||Date.now(),channels:sv.channels,ownerId:sv.ownerId}),600);
   document.getElementById('sv-in').value=''; document.getElementById('sv-desc').value='';
   svIconData=null; document.getElementById('sv-icon-preview').innerHTML='🖼️';
