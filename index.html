@@ -2138,12 +2138,12 @@ function createSv() {
   };
   S.servers.push(sv); persist(); closeM('csv'); renderSvs(); selectSv(sv.id);
   toast('🎉 "'+name+'" created');
-  if(!wsSend({type:'server_create',serverId:sv.id,name,desc:sv.desc,icon:null,color:sv.color,isPublic:true,memberCount:1,createdAt:sv.createdAt||Date.now(),channels:sv.channels,ownerId:sv.ownerId})){
-    // wsSend returned false — queued. Try flushing in a moment once WS settles.
-    setTimeout(_flushWsQueue, 500);
-    setTimeout(_flushWsQueue, 2000);
-    setTimeout(_flushWsQueue, 5000);
-  }
+  // Always add to queue first so it survives a reconnect, then try to send immediately
+  _wsQueue.push({type:'server_create',serverId:sv.id,name,desc:sv.desc,icon:null,color:sv.color,isPublic:true,memberCount:1,createdAt:sv.createdAt||Date.now(),channels:sv.channels,ownerId:sv.ownerId});
+  _flushWsQueue();
+  setTimeout(_flushWsQueue, 1000);
+  setTimeout(_flushWsQueue, 3000);
+  setTimeout(_flushWsQueue, 6000);
   if(sv.icon) setTimeout(()=>wsSend({type:'server_update',serverId:sv.id,name,desc:sv.desc||'',icon:sv.icon,color:sv.color,isPublic:true,memberCount:sv.memberCount||1,createdAt:sv.createdAt||Date.now(),channels:sv.channels,ownerId:sv.ownerId}),600);
   document.getElementById('sv-in').value=''; document.getElementById('sv-desc').value='';
   svIconData=null; document.getElementById('sv-icon-preview').innerHTML='🖼️';
