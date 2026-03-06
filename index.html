@@ -1592,7 +1592,23 @@ function connectWS() {
   };
 }
 // ── Pending server creates — resent until relay ACKs ────────────────────────
-const _pendingServerCreates = new Map(); // serverId → full message object
+// Stored in localStorage so they survive page reloads on flaky connections
+const _pendingServerCreates = new Map();
+
+function _loadPending() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('nx-pending-creates') || '{}');
+    Object.entries(saved).forEach(([id, msg]) => _pendingServerCreates.set(id, msg));
+  } catch {}
+}
+function _savePending() {
+  try {
+    const obj = {};
+    _pendingServerCreates.forEach((msg, id) => obj[id] = msg);
+    localStorage.setItem('nx-pending-creates', JSON.stringify(obj));
+  } catch {}
+}
+_loadPending(); // restore on page load
 
 function _retryPending() {
   if (!_pendingServerCreates.size) return;
@@ -1692,6 +1708,7 @@ function handleIn(msg) {
       break;
     case 'server_create_ok':
       _pendingServerCreates.delete(msg.serverId);
+      _savePending();
       console.log('[nexus] server_create confirmed by relay:', msg.serverId);
       break;
     case 'user_pfp':
@@ -2133,7 +2150,8 @@ function createSv() {
   toast('🎉 "'+name+'" created');
   const _createMsg = {type:'server_create',serverId:sv.id,name,desc:sv.desc,icon:null,color:sv.color,isPublic:true,memberCount:1,createdAt:sv.createdAt||Date.now(),channels:sv.channels,ownerId:sv.ownerId};
   _pendingServerCreates.set(sv.id, _createMsg);
-  wsSend(_createMsg); // try immediately, _retryPending handles reconnect retries
+  _savePending();
+  wsSend(_createMsg);
   if(sv.icon) setTimeout(()=>wsSend({type:'server_update',serverId:sv.id,name,desc:sv.desc||'',icon:sv.icon,color:sv.color,isPublic:true,memberCount:sv.memberCount||1,createdAt:sv.createdAt||Date.now(),channels:sv.channels,ownerId:sv.ownerId}),600);
   document.getElementById('sv-in').value=''; document.getElementById('sv-desc').value='';
   svIconData=null; document.getElementById('sv-icon-preview').innerHTML='🖼️';
