@@ -1579,7 +1579,13 @@ function connectWS() {
   ws.onopen = () => {
     if (S.ws !== ws) { ws.close(); return; } // stale socket, discard
     S.wsConnecting = false; S.wsOk = true; setWS('connected'); hideBanner();
-    wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null,token:S.token});
+    // Include locally-known servers so backend can recover any it lost (e.g. after KV wipe / Deno restart)
+    const _localSvSnapshot = (S.servers||[]).map(sv=>({
+      id:sv.id, name:sv.name, desc:sv.desc||'', color:sv.color||'#6c63ff',
+      icon:sv.icon||null, channels:sv.channels||[], memberCount:sv.memberCount||1,
+      createdAt:sv.createdAt||Date.now(), isPublic:sv.isPublic!==false, ownerId:sv.ownerId||S.user.name
+    }));
+    wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null,token:S.token,localServers:_localSvSnapshot});
     // Queue will be flushed after 'identified' response arrives
   };
   ws.onmessage = e => { try { handleIn(JSON.parse(e.data)); } catch(err) {} };
@@ -1705,6 +1711,23 @@ function handleIn(msg) {
       }
       // Retry any pending server creates that haven't been ACKed yet
       setTimeout(_retryPending, 200);
+      // Re-register any local servers the backend doesn't know about
+      // (handles case where server is in localStorage but was lost from KV)
+      if (S.servers.length) {
+        const knownByServer = new Set((msg.servers||[]).map(s=>s.id));
+        S.servers.forEach(sv => {
+          if (!knownByServer.has(sv.id)) {
+            console.log('[nexus] server missing from backend — re-registering:', sv.id, sv.name);
+            const reCreateMsg = {type:'server_create', serverId:sv.id, name:sv.name,
+              desc:sv.desc||'', icon:null, color:sv.color||'#6c63ff', isPublic:sv.isPublic!==false,
+              memberCount:sv.memberCount||1, createdAt:sv.createdAt||Date.now(),
+              channels:sv.channels||[], ownerId:sv.ownerId||S.user.name};
+            _pendingServerCreates.set(sv.id, reCreateMsg);
+            _savePending();
+            setTimeout(()=>wsSend(reCreateMsg), 400);
+          }
+        });
+      }
       break;
     case 'server_create_ok':
       _pendingServerCreates.delete(msg.serverId);
