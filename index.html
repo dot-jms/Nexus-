@@ -1591,26 +1591,19 @@ function connectWS() {
     setTimeout(connectWS, 5000);
   };
 }
-// ── Outbound message queue — survives reconnects ────────────────────────────
-const _wsQueue = [];
-const _QUEUED_TYPES = new Set(['server_create','server_update','server_delete','leave_server','join_server','message','dm']);
-function wsSend(o) {
-  if (S.ws?.readyState === 1) {
-    S.ws.send(JSON.stringify({ ...o, token: S.token }));
-    return true;
-  }
-  // Queue important messages instead of silently dropping them
-  if (_QUEUED_TYPES.has(o.type)) _wsQueue.push(o);
-  return false;
-}
-function _flushWsQueue() {
-  while (_wsQueue.length && S.ws?.readyState === 1) {
-    const msg = _wsQueue.shift();
+// ── Pending server creates — resent until relay ACKs ────────────────────────
+const _pendingServerCreates = new Map(); // serverId → full message object
+
+function _retryPending() {
+  if (!_pendingServerCreates.size) return;
+  if (S.ws?.readyState !== 1) return;
+  _pendingServerCreates.forEach(msg => {
+    console.log('[nexus] retrying server_create for', msg.serverId);
     S.ws.send(JSON.stringify({ ...msg, token: S.token }));
-  }
+  });
 }
-// Periodically flush queue in case messages got stuck
-setInterval(_flushWsQueue, 3000);
+setInterval(_retryPending, 4000);
+function wsSend(o){ if(S.ws?.readyState===1){S.ws.send(JSON.stringify({...o,token:S.token}));return true;} return false; }
 
 function handleIn(msg) {
   switch(msg.type) {
@@ -1694,11 +1687,11 @@ function handleIn(msg) {
           if (!S.curSv && S.servers.length) selectSv(S.servers[0].id);
         }
       }
-      // Flush any messages that were queued while WS was reconnecting
-      setTimeout(_flushWsQueue, 100); // small delay ensures server-side identify is fully done
+      // Retry any pending server creates that haven't been ACKed yet
+      setTimeout(_retryPending, 200);
       break;
     case 'server_create_ok':
-      // Relay confirmed our server was persisted to KV — safe to relax
+      _pendingServerCreates.delete(msg.serverId);
       console.log('[nexus] server_create confirmed by relay:', msg.serverId);
       break;
     case 'user_pfp':
@@ -2138,12 +2131,9 @@ function createSv() {
   };
   S.servers.push(sv); persist(); closeM('csv'); renderSvs(); selectSv(sv.id);
   toast('🎉 "'+name+'" created');
-  // Always add to queue first so it survives a reconnect, then try to send immediately
-  _wsQueue.push({type:'server_create',serverId:sv.id,name,desc:sv.desc,icon:null,color:sv.color,isPublic:true,memberCount:1,createdAt:sv.createdAt||Date.now(),channels:sv.channels,ownerId:sv.ownerId});
-  _flushWsQueue();
-  setTimeout(_flushWsQueue, 1000);
-  setTimeout(_flushWsQueue, 3000);
-  setTimeout(_flushWsQueue, 6000);
+  const _createMsg = {type:'server_create',serverId:sv.id,name,desc:sv.desc,icon:null,color:sv.color,isPublic:true,memberCount:1,createdAt:sv.createdAt||Date.now(),channels:sv.channels,ownerId:sv.ownerId};
+  _pendingServerCreates.set(sv.id, _createMsg);
+  wsSend(_createMsg); // try immediately, _retryPending handles reconnect retries
   if(sv.icon) setTimeout(()=>wsSend({type:'server_update',serverId:sv.id,name,desc:sv.desc||'',icon:sv.icon,color:sv.color,isPublic:true,memberCount:sv.memberCount||1,createdAt:sv.createdAt||Date.now(),channels:sv.channels,ownerId:sv.ownerId}),600);
   document.getElementById('sv-in').value=''; document.getElementById('sv-desc').value='';
   svIconData=null; document.getElementById('sv-icon-preview').innerHTML='🖼️';
