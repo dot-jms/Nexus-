@@ -1643,12 +1643,24 @@ function _savePending() {
 }
 _loadPending(); // restore on page load
 
+const _pendingRetryCount = new Map(); // serverId → retry count
 function _retryPending() {
   if (!_pendingServerCreates.size) return;
   if (S.ws?.readyState !== 1) return;
-  _pendingServerCreates.forEach(msg => {
-    console.log('[nexus] retrying server_create for', msg.serverId);
-    dbg('↩ retrying server_create: ' + msg.serverId.slice(0,8), 'warn');
+  _pendingServerCreates.forEach((msg, id) => {
+    const count = (_pendingRetryCount.get(id) || 0) + 1;
+    _pendingRetryCount.set(id, count);
+    // FIX: Stop hammering after 10 retries — if we can't register it by then,
+    // something is structurally wrong (ownership mismatch, etc). Clear it to stop the loop.
+    if (count > 10) {
+      console.warn('[nexus] giving up on server_create retry for', id, 'after', count, 'attempts');
+      dbg('✕ gave up retrying server_create: ' + id.slice(0,8), 'err');
+      _pendingServerCreates.delete(id);
+      _savePending();
+      return;
+    }
+    console.log('[nexus] retrying server_create for', msg.serverId, '(attempt', count, ')');
+    dbg('↩ retrying server_create: ' + msg.serverId.slice(0,8) + ' (#' + count + ')', 'warn');
     S.ws.send(JSON.stringify({ ...msg, token: S.token }));
   });
 }
@@ -1712,7 +1724,7 @@ function handleIn(msg) {
             const rejoined = {
               id: ss.id, name: ss.name, desc: ss.desc || '',
               color: ss.color || '#6c63ff', icon: ss.icon || null,
-              channels: ss.channels || [], isOwner: ss.ownerId === S.user.name,
+              channels: ss.channels || [], isOwner: (ss.ownerId||"").toLowerCase() === (S.user.name||"").toLowerCase(),
               ownerId: ss.ownerId, memberCount: ss.memberCount || 1,
               createdAt: ss.createdAt || Date.now(), memberRoles: {}, roles: [], banned: [],
               isPublic: ss.isPublic !== false,
@@ -1727,7 +1739,7 @@ function handleIn(msg) {
               if (ss.channels?.length) existing.channels = ss.channels;
               if (ss.icon !== undefined) existing.icon = ss.icon;
               if (ss.ownerId) existing.ownerId = ss.ownerId; // always trust backend for owner
-              existing.isOwner = ss.ownerId === S.user.name;
+              existing.isOwner = (ss.ownerId||"").toLowerCase() === (S.user.name||"").toLowerCase();
               svChanged = true;
             }
           }
@@ -1744,12 +1756,16 @@ function handleIn(msg) {
       setTimeout(_retryPending, 200);
       // Re-register any local servers the backend doesn't know about
       // (handles case where server is in localStorage but was lost from KV)
+      // FIX: Only re-register servers where this user is the owner — members don't
+      // need to re-register servers they merely joined (the owner will do that).
+      // This prevents a flood of server_create messages from non-owners.
       if (S.servers.length) {
         const knownByServer = new Set((msg.servers||[]).map(s=>s.id));
         S.servers.forEach(sv => {
-          if (!knownByServer.has(sv.id)) {
-            console.log('[nexus] server missing from backend — re-registering:', sv.id, sv.name);
-            dbg('⚠ server not in backend, re-registering: "' + sv.name + '"', 'warn');
+          const iAmOwner = (sv.ownerId||'').toLowerCase() === (S.user?.name||'').toLowerCase() || sv.isOwner === true;
+          if (!knownByServer.has(sv.id) && iAmOwner) {
+            console.log('[nexus] owned server missing from backend — re-registering:', sv.id, sv.name);
+            dbg('⚠ owned server not in backend, re-registering: "' + sv.name + '"', 'warn');
             const reCreateMsg = {type:'server_create', serverId:sv.id, name:sv.name,
               desc:sv.desc||'', icon:null, color:sv.color||'#6c63ff', isPublic:sv.isPublic!==false,
               memberCount:sv.memberCount||1, createdAt:sv.createdAt||Date.now(),
@@ -1766,6 +1782,7 @@ function handleIn(msg) {
       break;
     case 'server_create_ok':
       _pendingServerCreates.delete(msg.serverId);
+      _pendingRetryCount.delete(msg.serverId);
       _savePending();
       console.log('[nexus] server_create confirmed by relay:', msg.serverId);
       dbg('✓ server saved to backend: ' + msg.serverId.slice(0,8), 'ok');
@@ -1909,7 +1926,7 @@ function handleIn(msg) {
         if (msg.server.desc !== undefined) sv.desc = msg.server.desc;
         if (msg.server.color) sv.color = msg.server.color;
         if (msg.server.isPublic !== undefined) sv.isPublic = msg.server.isPublic;
-        sv.isOwner = msg.server.ownerId === S.user.name;
+        sv.isOwner = (msg.server.ownerId||"").toLowerCase() === (S.user.name||"").toLowerCase();
         persist();
         renderSvs();
         if (S.curSv?.id === sv.id) { renderChs(); document.getElementById('sv-nm').textContent = sv.name; }
@@ -1943,8 +1960,13 @@ function handleIn(msg) {
         if (msg.icon !== undefined) sv.icon = msg.icon;
         if (msg.color) sv.color = msg.color;
         if (msg.channels) sv.channels = msg.channels;
+        // FIX: Only update ownerId if the incoming message has one AND it doesn't overwrite an existing owner
+        // (prevents a non-owner's server_update from wiping out ownership)
+        if (msg.ownerId && !sv.ownerId) sv.ownerId = msg.ownerId;
+        // Always recompute isOwner from ownerId
+        if (sv.ownerId) sv.isOwner = (sv.ownerId||'').toLowerCase() === (S.user?.name||'').toLowerCase();
         persist(); renderSvs();
-        if (S.curSv?.id === msg.serverId) { document.getElementById('sv-nm').textContent = sv.name; renderChs(); }
+        if (S.curSv?.id === msg.serverId) { document.getElementById('sv-nm').textContent = sv.name; renderChs(); buildSvDropdown(); }
       }
       break;
     }
@@ -2286,7 +2308,7 @@ function svInit(n){ return n.split(' ').map(w=>w[0]).join('').slice(0,3).toUpper
 function showRailCtx(sv, e) {
   // Remove any existing rail ctx
   document.getElementById('rail-ctx')?.remove();
-  const isOwner = sv.ownerId === S.user.name;
+  const isOwner = (sv.ownerId||'').toLowerCase() === (S.user.name||'').toLowerCase();
   const ctx = document.createElement('div');
   ctx.id = 'rail-ctx';
   ctx.style.cssText = `position:fixed;background:var(--s3);border:1px solid var(--border2);border-radius:10px;padding:4px;z-index:300;min-width:180px;box-shadow:0 8px 32px rgba(0,0,0,.6)`;
@@ -2416,7 +2438,7 @@ function renderDiscover() {
 
 function discCard(sv) {
   const joined=!!S.servers.find(s=>s.id===sv.id);
-  const isOwned = sv.ownerId === S.user?.name;
+  const isOwned = (sv.ownerId||'').toLowerCase() === (S.user?.name||'').toLowerCase();
   const bannerStyle=sv.banner?`background-image:url('${sv.banner}');background-size:cover;background-position:center`:`background:linear-gradient(135deg,${sv.color||'#6c63ff'}22,${sv.color||'#6c63ff'}44)`;
   const iconHTML=sv.icon?`<img src="${sv.icon}" alt="">`:(svInit(sv.name||'?'));
   return `<div class="disc-card">
@@ -3489,7 +3511,7 @@ function setSvVis(v, silent=false) {
 }
 
 function saveSvOverview() {
-  const sv = S.curSv; if (!sv || sv.ownerId !== S.user.name) return;
+  const sv = S.curSv; if (!sv || (sv.ownerId||'').toLowerCase() !== (S.user.name||'').toLowerCase()) return;
   const name = document.getElementById('stg-sv-name').value.trim();
   if (!name) { toast('Server name cannot be empty'); return; }
   sv.name = name;
@@ -3621,7 +3643,7 @@ function deleteRole(id) {
 // ── MEMBERS PANE ──
 function buildMembersPane() {
   const sv = S.curSv; if (!sv) return;
-  const isOwner = sv.ownerId === S.user.name;
+  const isOwner = (sv.ownerId||'').toLowerCase() === (S.user.name||'').toLowerCase();
   const allMembers = [S.user.name, ...(S.members[sv.id]||[]).map(m=>m.name).filter(n=>n!==S.user.name)];
   const allRoles = [...DEFAULT_ROLES, ...(sv.roles||[])];
   const el = document.getElementById('stg-member-list');
@@ -3631,7 +3653,7 @@ function buildMembersPane() {
     const avBg = mdata.pfp?'transparent':(mdata.color||COLORS[hash(name)%COLORS.length]);
     const avContent = mdata.pfp?`<img src="${mdata.pfp}">`:`${name[0].toUpperCase()}`;
     const currentRole = getMemberRole(sv, name);
-    const isThisOwner = sv.ownerId === name;
+    const isThisOwner = (sv.ownerId||'').toLowerCase() === (name||'').toLowerCase();
 
     const roleSelectHTML = (isOwner && !isThisOwner) ? `
       <select class="role-select" onchange="assignRole('${name}',this.value)">
@@ -3648,7 +3670,7 @@ function buildMembersPane() {
 }
 
 function assignRole(memberName, roleId) {
-  const sv = S.curSv; if (!sv || sv.ownerId!==S.user.name) return;
+  const sv = S.curSv; if (!sv || (sv.ownerId||'').toLowerCase()!==(S.user.name||'').toLowerCase()) return;
   if (!sv.memberRoles) sv.memberRoles = {};
   if (roleId === 'member') delete sv.memberRoles[memberName];
   else sv.memberRoles[memberName] = roleId;
@@ -3668,7 +3690,7 @@ function openMemberCtx(memberName, e) {
   const isMod = getMemberRole(sv, memberName) === 'mod';
   document.getElementById('ctx-mod-item').textContent = isMod ? '🛡 Remove Mod' : '🛡 Make Moderator';
   // Only owner can assign roles / toggle mod
-  const isOwner = sv.ownerId === S.user.name;
+  const isOwner = (sv.ownerId||'').toLowerCase() === (S.user.name||'').toLowerCase();
   document.getElementById('ctx-role-item').style.display = isOwner ? '' : 'none';
   document.getElementById('ctx-mod-item').style.display = isOwner ? '' : 'none';
   document.getElementById('ctx-admin-ban').style.display = isPlatformPower() ? '' : 'none';
@@ -3720,7 +3742,7 @@ function kickMember(name, silent=false) {
 // ── SERVER LIFECYCLE (owner only) ──
 function deleteServer() {
   const sv = S.curSv; if (!sv) return;
-  if (sv.ownerId !== S.user.name) { toast('Only the server owner can delete it'); return; }
+  if ((sv.ownerId||'').toLowerCase() !== (S.user.name||'').toLowerCase()) { toast('Only the server owner can delete it'); return; }
   if (!confirm(`Permanently delete "${sv.name}"? This cannot be undone.`)) return;
   (sv.channels||[]).forEach(ch => delete S.messages[ch.id]);
   S.servers = S.servers.filter(s=>s.id!==sv.id);
@@ -3737,7 +3759,7 @@ function deleteServer() {
 
 function leaveServer() {
   const sv = S.curSv; if (!sv) return;
-  if (sv.ownerId === S.user.name) { toast("You own this server — delete it instead"); return; }
+  if ((sv.ownerId||'').toLowerCase() === (S.user.name||'').toLowerCase()) { toast("You own this server — delete it instead"); return; }
   if (!confirm(`Leave "${sv.name}"?`)) return;
   S.servers = S.servers.filter(s=>s.id!==sv.id);
   persist(); S.curSv=null; S.curCh=null; renderSvs();
