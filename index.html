@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="nexus-version" content="__NEXUS_VERSION__">
 <title>Nexus</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -1673,10 +1674,12 @@ function handleIn(msg) {
       if(msg.author!==S.user.name){
         addMsg(msg);
         if(S.curCh?.id===msg.channelId) renderMsgs(msg.channelId); else markUnread(msg.channelId);
-        // Notification for @mentions
         if(msg.text?.includes('@'+S.user.name)){
           const sv=S.servers.find(s=>s.channels?.some(c=>c.id===msg.channelId));
           addNotif('🔔',msg.author+' mentioned you in '+(sv?.name||'a server'),()=>{if(sv)selectSv(sv.id);});
+          playSound('mention');
+        } else {
+          playSound('message');
         }
       }
       break;
@@ -1859,7 +1862,7 @@ function handleIn(msg) {
     }
     case 'dm': recvDM(msg); break;
     case 'dm_history': recvDMHistory(msg); break;
-    case 'dm_request': recvDMRequest(msg); break;
+    case 'dm_request': recvDMRequest(msg); playSound('dm_request'); break;
     case 'dm_accept': recvDMAccept(msg); break;
     case 'dm_decline': recvDMDecline(msg); break;
     // Real member presence — server sends these
@@ -1867,7 +1870,7 @@ function handleIn(msg) {
       if(!S.members[msg.serverId]) S.members[msg.serverId]=[];
       const existingMb=S.members[msg.serverId].find(m=>m.name===msg.user);
       if(!existingMb) S.members[msg.serverId].push({name:msg.user,color:msg.color||COLORS[hash(msg.user)%COLORS.length],pfp:msg.pfp||null,status:'on'});
-      if(S.curSv?.id===msg.serverId) renderMbs();
+      if(S.curSv?.id===msg.serverId) { renderMbs(); playSound('member_join'); }
       break;
     }
     case 'member_leave':
@@ -1875,13 +1878,12 @@ function handleIn(msg) {
         Object.keys(S.members).forEach(sid => {
           S.members[sid] = S.members[sid].filter(m => m.name !== msg.user);
         });
-        if (S.curSv) renderMbs();
+        if (S.curSv) { renderMbs(); playSound('member_leave'); }
       } else {
         if(S.members[msg.serverId]) S.members[msg.serverId]=S.members[msg.serverId].filter(m=>m.name!==msg.user);
-        // Decrement member count
         const lvSv = S.servers.find(s => s.id === msg.serverId);
         if (lvSv && lvSv.memberCount > 1) { lvSv.memberCount--; persist(); renderDiscover(); }
-        if(S.curSv?.id===msg.serverId) renderMbs();
+        if(S.curSv?.id===msg.serverId) { renderMbs(); playSound('member_leave'); }
       }
       break;
     case 'member_list':
@@ -1956,13 +1958,14 @@ function handleIn(msg) {
       const deletedSv = S.servers.find(s => s.id === msg.serverId);
       // Delete all channel messages for this server
       if (deletedSv) (deletedSv.channels||[]).forEach(ch => delete S.messages[ch.id]);
-      // Also remove from discServers
+      // Remove from both server list and discover list
       S.discServers = S.discServers.filter(s => s.id !== msg.serverId);
       S.servers = S.servers.filter(s => s.id !== msg.serverId);
       persist(); renderSvs();
       if (wasCur) { S.curSv=null; S.curCh=null; showWelcome(); document.getElementById('sv-nm').textContent='—'; document.getElementById('ch-list').innerHTML=''; document.getElementById('members').innerHTML=''; }
       if (deletedSv) toast('🗑 A server you were in was deleted');
-      else if (document.getElementById('discover').classList.contains('show')) renderDiscover();
+      // Always refresh discover if open — covers members, non-members, and the owner
+      if (document.getElementById('discover').classList.contains('show')) renderDiscover();
       break;
     }
     case 'kick_member':
@@ -1970,6 +1973,7 @@ function handleIn(msg) {
         S.servers = S.servers.filter(s => s.id !== msg.serverId);
         persist(); renderSvs();
         if (S.curSv?.id === msg.serverId) { S.curSv=null; S.curCh=null; showWelcome(); document.getElementById('sv-nm').textContent='—'; document.getElementById('ch-list').innerHTML=''; document.getElementById('members').innerHTML=''; }
+        playSound('kick');
         toast('⚡ You were kicked from a server');
       }
       break;
@@ -2109,10 +2113,10 @@ function handleIn(msg) {
       break;
     }
     case 'voice_join': {
-      // A peer joined our voice channel — initiate offer
       if (msg.user !== S.user.name && vcChannelId === msg.channelId) {
         setTimeout(() => vcCreateOffer(msg.user), 200);
         renderVoiceMembers();
+        playSound('voice_join');
       }
       break;
     }
@@ -2122,6 +2126,7 @@ function handleIn(msg) {
       const audio = document.getElementById('vc-audio-' + msg.user);
       if (audio) audio.remove();
       renderVoiceMembers();
+      playSound('voice_leave');
       break;
     }
     case 'voice_signal': {
@@ -2137,6 +2142,7 @@ function handleIn(msg) {
       break;
     case 'banned': {
       const until = msg.until === -1 ? 'permanently' : 'until ' + new Date(msg.until).toLocaleString();
+      playSound('banned');
       signOut();
       setTimeout(() => showAuthErr('You are banned ' + until + '. Reason: ' + (msg.reason || 'none')), 500);
       break;
@@ -2248,15 +2254,19 @@ function handleIn(msg) {
       break;
     case 'vcall_invite':
       recvVcallInvite(msg);
+      playSound('vcall_invite');
       break;
     case 'vcall_accept':
       recvVcallAccept(msg);
+      playSound('vcall_accept');
       break;
     case 'vcall_decline':
       recvVcallDecline(msg);
+      playSound('vcall_decline');
       break;
     case 'vcall_end':
       recvVcallEnd(msg);
+      playSound('vcall_end');
       break;
     case 'vcall_signal':
       handleVcallSignal(msg);
@@ -2493,6 +2503,7 @@ function joinDiscoverSv(sv, btn) {
   };
   S.servers.push(newSv); persist(); renderSvs();
   btn.textContent='Joined'; btn.classList.add('joined');
+  playSound('server_join');
   toast('✅ Joined "'+sv.name+'"');
   wsSend({type:'join_server',serverId:sv.id,user:S.user.name,userName:S.user.name,color:S.user.color,pfp:S.user.pfp||null});
   selectSv(sv.id);
@@ -3031,7 +3042,7 @@ function recvDM(msg) {
   if (curDM !== from) dm.unread = true;
   persist(); renderDMs();
   if (curDM === from) renderDMMessages(from);
-  else { toast('💬 DM from ' + from); addNotif('💬', 'DM from ' + from, () => { renderDMs(); openDMChat(from); }); }
+  else { playSound('dm'); toast('💬 DM from ' + from); addNotif('💬', 'DM from ' + from, () => { renderDMs(); openDMChat(from); }); }
 }
 
 function recvDMHistory(msg) {
@@ -4014,10 +4025,11 @@ function sendFriendReq() {
 }
 
 function recvFriendReq(msg) {
-  if (S.friends.find(f => f.name === msg.from)) return; // already friends
+  if (S.friends.find(f => f.name === msg.from)) return;
   if (!S.friendReqs.find(r => r.name === msg.from)) {
     S.friendReqs.push({ name: msg.from, direction: 'in', pfp: msg.fromPfp||null, color: msg.fromColor||null });
     persist(); if(document.getElementById('friends-view').style.display!=='none') renderFriends();
+    playSound('friend_request');
     addNotif('👥', msg.from + ' sent you a friend request', () => showFriends());
     const badge = document.getElementById('fr-badge');
     badge.style.display = '';
@@ -4048,6 +4060,7 @@ function recvFriendAccept(msg) {
     S.friends.push({ name: msg.from, pfp: msg.fromPfp||null });
     S.friendReqs = S.friendReqs.filter(r => r.name !== msg.from);
     persist(); if(document.getElementById('friends-view').style.display!=='none') renderFriends();
+    playSound('friend_accept');
     addNotif('✅', msg.from + ' accepted your friend request!', () => showFriends());
     toast('✅ ' + msg.from + ' accepted your friend request!');
   }
@@ -4967,6 +4980,45 @@ function ppDM(name) {
 function ppAddFriend(name) { sendFriendReqTo(name); }
 function ppCall(name) { startVoiceCall(name); }
 
+// ── SOUNDS ──────────────────────────────────────────────────────────────────
+// Drop any of these .mp3 files into the repo root and they'll play automatically.
+// Missing files are silently ignored — no errors, no console noise.
+const SOUNDS = {
+  message:       'sfx-message.mp3',       // incoming channel message (not your own)
+  mention:       'sfx-mention.mp3',       // someone @mentions you
+  dm:            'sfx-dm.mp3',            // incoming DM
+  dm_request:    'sfx-dm-request.mp3',    // DM request received
+  friend_request:'sfx-friend-request.mp3',// friend request received
+  friend_accept: 'sfx-friend-accept.mp3', // friend request accepted
+  notif:         'sfx-notif.mp3',         // generic notification / toast
+  server_join:   'sfx-server-join.mp3',   // you joined a server
+  member_join:   'sfx-member-join.mp3',   // someone joined your current server
+  member_leave:  'sfx-member-leave.mp3',  // someone left your current server
+  kick:          'sfx-kick.mp3',          // you got kicked
+  banned:        'sfx-banned.mp3',        // you got banned
+  voice_join:    'sfx-voice-join.mp3',    // someone joined a voice channel
+  voice_leave:   'sfx-voice-leave.mp3',   // someone left a voice channel
+  vcall_invite:  'sfx-vcall-invite.mp3',  // incoming voice call
+  vcall_accept:  'sfx-vcall-accept.mp3',  // your call was accepted
+  vcall_decline: 'sfx-vcall-decline.mp3', // your call was declined
+  vcall_end:     'sfx-vcall-end.mp3',     // call ended
+  error:         'sfx-error.mp3',         // error / banned
+};
+const _audioCache = {};
+function playSound(key) {
+  const file = SOUNDS[key]; if (!file) return;
+  try {
+    if (!_audioCache[key]) {
+      const a = new Audio(file);
+      a.onerror = () => { _audioCache[key] = null; }; // file missing — silence it
+      _audioCache[key] = a;
+    }
+    const a = _audioCache[key]; if (!a) return;
+    a.currentTime = 0;
+    a.play().catch(() => {}); // autoplay blocked? fine.
+  } catch {}
+}
+
 // ── BOOT ──
 initAuth();
 </script>
@@ -5052,6 +5104,65 @@ initAuth();
     </div>
   </div>
 </div>
+<!-- ── AUTO-UPDATE SERVICE WORKER ── -->
+<script>
+(function() {
+  if (!('serviceWorker' in navigator)) return;
+
+  // Derive relay HTTP base from the hardcoded WS URL
+  const RELAY_BASE = 'wss://nexus.dot-jms.deno.net'.replace(/^ws/, 'http').replace(/\/$/, '');
+  const CACHE_KEY = 'nexus-app-version';
+
+  function getStoredVersion() {
+    try { return localStorage.getItem(CACHE_KEY) || 'none'; } catch { return 'none'; }
+  }
+  function setStoredVersion(v) {
+    try { localStorage.setItem(CACHE_KEY, v); } catch {}
+  }
+
+  async function checkForUpdate() {
+    try {
+      const res = await fetch(RELAY_BASE + '/_version', { cache: 'no-store' });
+      if (!res.ok) return;
+      const { version } = await res.json();
+      const stored = getStoredVersion();
+      if (stored === 'none') {
+        setStoredVersion(version);
+        return;
+      }
+      if (version !== stored) {
+        console.log('[nexus] New deploy detected:', stored, '→', version);
+        setStoredVersion(version);
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        window.location.reload();
+      }
+    } catch { /* relay unreachable, skip */ }
+  }
+
+  // Minimal SW — just ensures network-first fetches so stale HTML never gets served
+  const swCode = `
+self.addEventListener('install', e => { self.skipWaiting(); });
+self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });
+self.addEventListener('fetch', e => {
+  if (e.request.mode === 'navigate') {
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+  }
+});`;
+  navigator.serviceWorker.register(
+    URL.createObjectURL(new Blob([swCode], { type: 'application/javascript' })),
+    { scope: '/' }
+  ).catch(() => {});
+
+  // Check on load (after 2s so main app has priority) and on tab focus
+  window.addEventListener('load', () => setTimeout(checkForUpdate, 2000));
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkForUpdate();
+  });
+})();
+</script>
 
 </body>
 </html>
