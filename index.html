@@ -1318,11 +1318,19 @@ function onAuthOk(resp) {
 
 function signOut() {
   if (!confirm('Sign out?')) return;
-  try { localStorage.removeItem('nx-session'); } catch(e) {}
+  // FIX #13: Clear per-user cached data (servers, messages, DMs) in addition to the
+  // session token. Without this, the next person using the device inherits all data
+  // until the relay overwrites it — a real privacy risk on shared devices.
+  try {
+    if (S.user?.name) localStorage.removeItem('nx-data-' + S.user.name.toLowerCase());
+    localStorage.removeItem('nx-session');
+    localStorage.removeItem('nx-pending-creates');
+  } catch(e) {}
   S.user = null; S.token = null;
   S.servers = []; S.messages = {}; S.dms = []; S.dmMessages = {};
   S.friends = []; S.friendReqs = []; S.members = {};
   S.curSv = null; S.curCh = null; S.wsConnecting = false; S.wsOk = false; curDM = null;
+  _wsQueue.length = 0; // FIX #9: also clear any unsent queued messages
   if (S.ws) { try { S.ws.onclose = null; S.ws.close(); } catch(e) {} S.ws = null; }
   document.getElementById('app').classList.remove('vis');
   document.getElementById('auth-screen').style.display = 'flex';
@@ -1592,14 +1600,11 @@ function connectWS() {
     if (S.ws !== ws) { ws.close(); return; }
     S.wsConnecting = false; S.wsOk = true; setWS('connected'); hideBanner();
     dbg('✓ WS connected', 'ok');
-    // Include locally-known servers so backend can recover any it lost (e.g. after KV wipe / Deno restart)
-    const _localSvSnapshot = (S.servers||[]).map(sv=>({
-      id:sv.id, name:sv.name, desc:sv.desc||'', color:sv.color||'#6c63ff',
-      icon:sv.icon||null, channels:sv.channels||[], memberCount:sv.memberCount||1,
-      createdAt:sv.createdAt||Date.now(), isPublic:sv.isPublic!==false, ownerId:sv.ownerId||S.user.name
-    }));
-    wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null,token:S.token,localServers:_localSvSnapshot});
-    dbg('→ identify sent, localServers=' + _localSvSnapshot.length, 'info');
+    // FIX #14: Removed the `localServers` snapshot that was being sent with identify.
+    // The server never reads localServers from the identify handler, so this was pure
+    // wasted bandwidth — especially painful for users with base64 server icons.
+    wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null,token:S.token});
+    dbg('→ identify sent', 'info');
     // Queue will be flushed after 'identified' response arrives
   };
   ws.onmessage = e => { try { handleIn(JSON.parse(e.data)); } catch(err) {} };
@@ -1666,7 +1671,33 @@ function _retryPending() {
   });
 }
 setInterval(_retryPending, 4000);
-function wsSend(o){ if(S.ws?.readyState===1){S.ws.send(JSON.stringify({...o,token:S.token}));return true;} return false; }
+// FIX #9: wsSend queues non-ephemeral messages when offline so nothing is
+// silently dropped during reconnects. Ephemeral events (typing, presence, etc.)
+// are intentionally not queued — they're irrelevant by the time we reconnect.
+const _EPHEMERAL_TYPES = new Set([
+  'typing','get_history','get_members','get_server_list','get_server_info',
+  'identify','join_channel','voice_join','voice_leave','voice_signal',
+  'vcall_signal','status_update',
+]);
+const _wsQueue = [];
+function wsSend(o) {
+  if (S.ws?.readyState === 1) {
+    S.ws.send(JSON.stringify({ ...o, token: S.token }));
+    return true;
+  }
+  // Queue important messages; drop ephemeral ones
+  if (!_EPHEMERAL_TYPES.has(o.type)) {
+    _wsQueue.push(o);
+    if (_wsQueue.length > 200) _wsQueue.shift(); // safety cap
+  }
+  return false;
+}
+function _flushWsQueue() {
+  while (_wsQueue.length && S.ws?.readyState === 1) {
+    const o = _wsQueue.shift();
+    S.ws.send(JSON.stringify({ ...o, token: S.token }));
+  }
+}
 
 function handleIn(msg) {
   switch(msg.type) {
@@ -1708,10 +1739,14 @@ function handleIn(msg) {
     case 'identified':
       // Server sends fresh account data — update role/pfp in case they changed
       dbg('← identified: backend sent ' + (msg.servers?.length||0) + ' server(s)', (msg.servers?.length ? 'ok' : 'warn'));
+      // FIX #9: Flush any messages that were queued while we were offline
+      setTimeout(_flushWsQueue, 100);
       if (msg.user) {
         S.user.systemRole = msg.user.systemRole || S.user.systemRole;
         S.user.coAdmin    = msg.user.coAdmin    ?? S.user.coAdmin;
-        S.user.pfp        = msg.user.pfp        || S.user.pfp;
+        // FIX #11: Use !== undefined (not ||) so an explicit null from the server
+        // correctly clears a profile picture rather than falling back to the cached one.
+        S.user.pfp        = msg.user.pfp !== undefined ? msg.user.pfp : S.user.pfp;
         S.user.tag        = msg.user.tag        || S.user.tag;
         S.user.bio        = msg.user.bio        || S.user.bio;
         S.user.socials    = msg.user.socials    || S.user.socials;
@@ -2475,6 +2510,9 @@ function discCard(sv) {
   const isOwned = (sv.ownerId||'').toLowerCase() === (S.user?.name||'').toLowerCase();
   const bannerStyle=sv.banner?`background-image:url('${sv.banner}');background-size:cover;background-position:center`:`background:linear-gradient(135deg,${sv.color||'#6c63ff'}22,${sv.color||'#6c63ff'}44)`;
   const iconHTML=sv.icon?`<img src="${sv.icon}" alt="">`:(svInit(sv.name||'?'));
+  // FIX #12: Store only the server ID in the button's data attribute instead of
+  // inlining the full JSON object. This prevents breakage (and potential XSS) when
+  // server names/descriptions contain single quotes, backticks, or HTML characters.
   return `<div class="disc-card">
     <div class="disc-card-banner" style="${bannerStyle}"></div>
     <div class="disc-card-body">
@@ -2485,10 +2523,18 @@ function discCard(sv) {
       <div class="disc-card-desc">${esc(sv.desc||'No description.')}</div>
       <div class="disc-card-footer">
         <div class="disc-card-members">${(sv.memberCount||0).toLocaleString()} members</div>
-        <button class="disc-join-btn${(joined||isOwned)?' joined':''}" onclick="joinDiscoverSv(${JSON.stringify(sv).replace(/"/g,'&quot;')},this)">${isOwned?'Your server':joined?'Joined':'Join'}</button>
+        <button class="disc-join-btn${(joined||isOwned)?' joined':''}" data-svid="${esc(sv.id)}" onclick="joinDiscoverSvById(this)">${isOwned?'Your server':joined?'Joined':'Join'}</button>
       </div>
     </div>
   </div>`;
+}
+
+function joinDiscoverSvById(btn) {
+  // FIX #12: Retrieve the server object from our local cache by ID — no inline data.
+  const svId = btn.dataset.svid;
+  const sv = S.discServers.find(s=>s.id===svId) || S.servers.find(s=>s.id===svId);
+  if (!sv) { toast('Server not found — try refreshing'); return; }
+  joinDiscoverSv(sv, btn);
 }
 
 function joinDiscoverSv(sv, btn) {
@@ -2798,13 +2844,16 @@ function toggleReact(id,emoji) {
 
 // ── TYPING ──
 function onType(){ if(!S.tySent&&S.curCh){S.tySent=true;wsSend({type:'typing',channelId:S.curCh.id,author:S.user.name});setTimeout(()=>{S.tySent=false;},3000);} }
+// FIX #10: Per-user typing timers. A single shared timer (the old S.tyTimer)
+// would reset for ALL users whenever anyone typed, causing stale "is typing" states.
 const typers = {};
+const _tyTimers = {}; // per-user timer handles
 function showTyping(who, channelId) {
   if (S.curCh?.id !== channelId) return;
   typers[who] = Date.now();
   renderTypingBar();
-  clearTimeout(S.tyTimer);
-  S.tyTimer = setTimeout(() => { delete typers[who]; renderTypingBar(); }, 3500);
+  clearTimeout(_tyTimers[who]);
+  _tyTimers[who] = setTimeout(() => { delete typers[who]; delete _tyTimers[who]; renderTypingBar(); }, 3500);
 }
 function renderTypingBar() {
   const el = document.getElementById('ty-bar');
@@ -5153,10 +5202,15 @@ self.addEventListener('fetch', e => {
     e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
   }
 });`;
+  // FIX #15: Log SW registration failures instead of silently swallowing them.
+  // Note: some browsers block blob: URL service workers or restrict their scope.
+  // If this fails consistently, serve sw.js as a real file from the same origin.
   navigator.serviceWorker.register(
     URL.createObjectURL(new Blob([swCode], { type: 'application/javascript' })),
     { scope: '/' }
-  ).catch(() => {});
+  ).catch((err) => {
+    console.warn('[nexus] ServiceWorker registration failed (auto-update disabled):', err?.message || err);
+  });
 
   // Check on load (2s delay so main app boots first) and on every tab focus
   window.addEventListener('load', () => setTimeout(checkForUpdate, 2000));
