@@ -1718,51 +1718,51 @@ function handleIn(msg) {
         lsSet('nx-session', { token: S.token, user: S.user });
         updateUser();
       }
-      // Merge server-side server list (survives cache wipes!)
-      if (msg.servers?.length) {
+      // Merge server-side server list into local state
+      {
         let svChanged = false;
-        msg.servers.forEach(ss => {
+        (msg.servers||[]).forEach(ss => {
           if (!S.servers.find(sv => sv.id === ss.id)) {
-            // Re-join a server we lost from cache
-            const rejoined = {
+            // Server exists in backend but not locally — restore it
+            S.servers.push({
               id: ss.id, name: ss.name, desc: ss.desc || '',
               color: ss.color || '#6c63ff', icon: ss.icon || null,
-              channels: ss.channels || [], isOwner: (ss.ownerId||"").toLowerCase() === (S.user.name||"").toLowerCase(),
+              channels: ss.channels || [],
+              isOwner: (ss.ownerId||'').toLowerCase() === (S.user.name||'').toLowerCase(),
               ownerId: ss.ownerId, memberCount: ss.memberCount || 1,
               createdAt: ss.createdAt || Date.now(), memberRoles: {}, roles: [], banned: [],
               isPublic: ss.isPublic !== false,
-            };
-            S.servers.push(rejoined);
+            });
             svChanged = true;
           } else {
-            // Update existing server with fresh data from server
+            // Update existing server with authoritative backend data
             const existing = S.servers.find(sv => sv.id === ss.id);
             if (existing) {
               if (ss.name) existing.name = ss.name;
               if (ss.channels?.length) existing.channels = ss.channels;
               if (ss.icon !== undefined) existing.icon = ss.icon;
-              if (ss.ownerId) existing.ownerId = ss.ownerId; // always trust backend for owner
-              existing.isOwner = (ss.ownerId||"").toLowerCase() === (S.user.name||"").toLowerCase();
+              // Always trust backend for ownerId — never let client-side value override
+              if (ss.ownerId) existing.ownerId = ss.ownerId;
+              existing.isOwner = (ss.ownerId||'').toLowerCase() === (S.user.name||'').toLowerCase();
               svChanged = true;
             }
           }
         });
         if (svChanged) {
           persist(); renderSvs();
-          // Fetch full server info (icon etc) for each restored server
           S.servers.forEach(sv => wsSend({type:'get_server_info', serverId:sv.id}));
-          // Auto-select first server if none currently selected (e.g. after cache clear)
+          if (!S.curSv && S.servers.length) selectSv(S.servers[0].id);
+        } else if (msg.servers?.length) {
+          // Nothing changed structurally but still re-render to ensure UI is current
+          renderSvs();
           if (!S.curSv && S.servers.length) selectSv(S.servers[0].id);
         }
       }
       // Retry any pending server creates that haven't been ACKed yet
       setTimeout(_retryPending, 200);
-      // Re-register any local servers the backend doesn't know about
-      // (handles case where server is in localStorage but was lost from KV)
-      // FIX: Only re-register servers where this user is the owner — members don't
-      // need to re-register servers they merely joined (the owner will do that).
-      // This prevents a flood of server_create messages from non-owners.
-      if (S.servers.length) {
+      // Re-register owned servers the backend doesn't know about
+      // (only owners do this — members don't need to re-register joined servers)
+      {
         const knownByServer = new Set((msg.servers||[]).map(s=>s.id));
         S.servers.forEach(sv => {
           const iAmOwner = (sv.ownerId||'').toLowerCase() === (S.user?.name||'').toLowerCase() || sv.isOwner === true;
@@ -1781,7 +1781,9 @@ function handleIn(msg) {
       }
       break;
     case 'auth_required':
-      dbg('✕ auth_required from server — token rejected', 'err');
+      dbg('✕ auth_required — session expired', 'err');
+      toast('⚠️ Session expired — please sign in again');
+      signOut();
       break;
     case 'server_create_ok':
       _pendingServerCreates.delete(msg.serverId);
@@ -1922,13 +1924,16 @@ function handleIn(msg) {
       const sv = S.servers.find(s => s.id === msg.server?.id);
       if (sv && msg.server) {
         if (msg.server.channels?.length) sv.channels = msg.server.channels;
-        if (msg.server.ownerId) sv.ownerId = msg.server.ownerId;
+        if (msg.server.ownerId) {
+          sv.ownerId = msg.server.ownerId;
+          // Only recompute isOwner when we have a definitive ownerId from backend
+          sv.isOwner = sv.ownerId.toLowerCase() === (S.user.name||'').toLowerCase();
+        }
         if (msg.server.icon !== undefined) sv.icon = msg.server.icon;
         if (msg.server.name) sv.name = msg.server.name;
         if (msg.server.desc !== undefined) sv.desc = msg.server.desc;
         if (msg.server.color) sv.color = msg.server.color;
         if (msg.server.isPublic !== undefined) sv.isPublic = msg.server.isPublic;
-        sv.isOwner = (msg.server.ownerId||"").toLowerCase() === (S.user.name||"").toLowerCase();
         persist();
         renderSvs();
         if (S.curSv?.id === sv.id) { renderChs(); document.getElementById('sv-nm').textContent = sv.name; }
@@ -2135,11 +2140,6 @@ function handleIn(msg) {
       }
       break;
     }
-    case 'auth_required':
-      // Token rejected — force re-login
-      toast('⚠️ Session expired — please sign in again');
-      signOut();
-      break;
     case 'banned': {
       const until = msg.until === -1 ? 'permanently' : 'until ' + new Date(msg.until).toLocaleString();
       playSound('banned');
@@ -2313,6 +2313,8 @@ function createSv() {
   const sv={ id:uid(), name, desc:document.getElementById('sv-desc').value.trim(),
     color:COLORS[Math.floor(Math.random()*COLORS.length)], icon:svIconData||null,
     ownerId: S.user.name,
+    ownerIdLower: S.user.name.toLowerCase(),
+    isOwner: true,
     memberRoles: {},
     roles: [],
     banned: [],
@@ -2320,10 +2322,11 @@ function createSv() {
       {id:uid(),name:'general',type:'text',desc:'General chat'},
       {id:uid(),name:'random',type:'text',desc:'Anything goes'},
       {id:uid(),name:'announcements',type:'text',desc:'News'},
-    ], isOwner:true, isPublic:true, memberCount:1, createdAt:Date.now(),
+    ], isPublic:true, memberCount:1, createdAt:Date.now(),
   };
   S.servers.push(sv); persist(); closeM('csv'); renderSvs(); selectSv(sv.id);
   toast('🎉 "'+name+'" created');
+  playSound('server_join');
   const _createMsg = {type:'server_create',serverId:sv.id,name,desc:sv.desc,icon:null,color:sv.color,isPublic:true,memberCount:1,createdAt:sv.createdAt||Date.now(),channels:sv.channels,ownerId:sv.ownerId};
   _pendingServerCreates.set(sv.id, _createMsg);
   _savePending();
@@ -5109,8 +5112,6 @@ initAuth();
 (function() {
   if (!('serviceWorker' in navigator)) return;
 
-  // Derive relay HTTP base from the hardcoded WS URL
-  const RELAY_BASE = 'wss://nexus.dot-jms.deno.net'.replace(/^ws/, 'http').replace(/\/$/, '');
   const CACHE_KEY = 'nexus-app-version';
 
   function getStoredVersion() {
@@ -5122,6 +5123,7 @@ initAuth();
 
   async function checkForUpdate() {
     try {
+      const RELAY_BASE = 'wss://nexus.dot-jms.deno.net'.replace(/^ws/, 'http');
       const res = await fetch(RELAY_BASE + '/_version', { cache: 'no-store' });
       if (!res.ok) return;
       const { version } = await res.json();
@@ -5131,7 +5133,7 @@ initAuth();
         return;
       }
       if (version !== stored) {
-        console.log('[nexus] New deploy detected:', stored, '→', version);
+        console.log('[nexus] New version detected:', stored, '→', version);
         setStoredVersion(version);
         if ('caches' in window) {
           const keys = await caches.keys();
@@ -5139,10 +5141,10 @@ initAuth();
         }
         window.location.reload();
       }
-    } catch { /* relay unreachable, skip */ }
+    } catch { /* fetch failed — offline or file missing, skip */ }
   }
 
-  // Minimal SW — just ensures network-first fetches so stale HTML never gets served
+  // Minimal SW — network-first for navigation so stale HTML never gets served
   const swCode = `
 self.addEventListener('install', e => { self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });
@@ -5156,7 +5158,7 @@ self.addEventListener('fetch', e => {
     { scope: '/' }
   ).catch(() => {});
 
-  // Check on load (after 2s so main app has priority) and on tab focus
+  // Check on load (2s delay so main app boots first) and on every tab focus
   window.addEventListener('load', () => setTimeout(checkForUpdate, 2000));
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') checkForUpdate();
