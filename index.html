@@ -1377,15 +1377,16 @@ function onSuPfp(e) {
   reader.readAsDataURL(f);
 }
 
-function onSvIcon(e) {
+async function onSvIcon(e) {
   const f=e.target.files[0]; if(!f) return;
-  const reader=new FileReader();
-  reader.onload=ev=>{
-    svIconData=ev.target.result;
-    const p=document.getElementById('sv-icon-preview');
-    p.innerHTML=`<img src="${svIconData}" style="width:100%;height:100%;object-fit:cover">`;
-  };
-  reader.readAsDataURL(f);
+  const raw = await toUrl(f);
+  try {
+    svIconData = await compressImage(raw, IMG_LIMITS.icon);
+  } catch(err) {
+    toast('⚠️ Server icon is too large. Try a simpler image.'); return;
+  }
+  const p=document.getElementById('sv-icon-preview');
+  p.innerHTML=`<img src="${svIconData}" style="width:100%;height:100%;object-fit:cover">`;
 }
 
 function switchTab(tab) {
@@ -1530,7 +1531,7 @@ function initCropEvents() {
   }, {passive:false});
 }
 
-function commitPfpCrop() {
+async function commitPfpCrop() {
   const canvas = document.createElement('canvas');
   const size = 256; canvas.width = size; canvas.height = size;
   const ctx = canvas.getContext('2d');
@@ -1545,7 +1546,16 @@ function commitPfpCrop() {
   const clipW = Math.min(natW - clipX, ww / z);
   const clipH = Math.min(natH - clipY, wh / z);
   ctx.drawImage(img, clipX, clipY, clipW, clipH, 0, 0, size, size);
-  const data = canvas.toDataURL('image/jpeg', 0.88);
+  // Re-encode at pfp quality limit (0.80) — the raw 256px canvas at 0.88 can still
+  // be ~120–180 KB from a high-detail source image. compressImage also enforces the
+  // 150 KB hard cap with a retry at half-quality.
+  let data;
+  try {
+    data = await compressImage(canvas.toDataURL('image/jpeg', 1.0), IMG_LIMITS.pfp);
+  } catch(err) {
+    toast('⚠️ PFP image is too complex to compress within limits. Try a simpler image.');
+    return;
+  }
 
   if (_pfpCropTarget === 'signup') {
     suPfpData = data;
@@ -2878,11 +2888,28 @@ function renderTypingBar() {
 // ── FILES ──
 async function onFiles(e) {
   for (const f of [...e.target.files]) {
-    const url = await toUrl(f);
+    let url = await toUrl(f);
     let mt = 'file';
-    if (f.type.startsWith('image/')) mt = 'image';
-    else if (f.type.startsWith('video/')) mt = 'video';
-    else if (f.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|aac)$/i.test(f.name)) mt = 'audio';
+    if (f.type.startsWith('image/')) {
+      mt = 'image';
+      try {
+        url = await compressImage(url, IMG_LIMITS.chat);
+      } catch(err) {
+        if (err.message === 'too_large') {
+          toast('⚠️ Image is too large even after compression (max ~700 KB). Please resize it first.');
+          continue;
+        }
+      }
+    } else if (f.type.startsWith('video/')) {
+      mt = 'video';
+      // Hard cap for non-image files — base64 video over WS will OOM the relay
+      if (f.size > 8 * 1024 * 1024) { toast('⚠️ Videos must be under 8 MB.'); continue; }
+    } else if (f.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|aac)$/i.test(f.name)) {
+      mt = 'audio';
+      if (f.size > 4 * 1024 * 1024) { toast('⚠️ Audio files must be under 4 MB.'); continue; }
+    } else {
+      if (f.size > 2 * 1024 * 1024) { toast('⚠️ Files must be under 2 MB.'); continue; }
+    }
     S.files.push({ name: f.name, size: f.size, url, mt });
   }
   renderPrev(); updSnd(); e.target.value='';
@@ -2901,6 +2928,45 @@ function renderPrev() {
 }
 function rmF(i){S.files.splice(i,1);renderPrev();updSnd();}
 function toUrl(f){return new Promise(res=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.readAsDataURL(f);});}
+
+// ── IMAGE LIMITS ──────────────────────────────────────────────────────────────
+// Chat attachments: compress to max 800px, JPEG 0.82, hard-reject if still >700KB
+// Server icons:     compress to max 128px, JPEG 0.80
+// Profile pics:     already run through the crop canvas (256px) — re-compress to 0.80
+// These limits protect the WS relay from getting OOM-killed by a single large image.
+const IMG_LIMITS = {
+  chat:   { maxPx: 800,  quality: 0.82, maxBytes: 700 * 1024  },
+  icon:   { maxPx: 128,  quality: 0.80, maxBytes: 150 * 1024  },
+  pfp:    { maxPx: 256,  quality: 0.80, maxBytes: 150 * 1024  },
+};
+
+async function compressImage(dataUrl, opts) {
+  const { maxPx, quality, maxBytes } = opts;
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (w > maxPx || h > maxPx) {
+        const ratio = Math.min(maxPx / w, maxPx / h);
+        w = Math.round(w * ratio); h = Math.round(h * ratio);
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      const out = c.toDataURL('image/jpeg', quality);
+      if (out.length > maxBytes) {
+        // Try once more at half quality before giving up
+        const retry = c.toDataURL('image/jpeg', quality * 0.55);
+        if (retry.length > maxBytes) { rej(new Error('too_large')); return; }
+        res(retry);
+      } else {
+        res(out);
+      }
+    };
+    img.onerror = () => rej(new Error('bad_image'));
+    img.src = dataUrl;
+  });
+}
 function openLB(url){document.getElementById('lb-img').src=url;document.getElementById('lightbox').classList.add('open');}
 
 // ── MEMBERS (real, from WS) ──
@@ -3593,9 +3659,16 @@ function svStgTab(tab) {
   document.getElementById('pane-'+tab).classList.add('active');
 }
 
-function onStgIcon(e) {
+async function onStgIcon(e) {
   const f=e.target.files[0]; if(!f) return;
-  const r=new FileReader(); r.onload=ev=>{ stgIconData=ev.target.result; const el=document.getElementById('stg-sv-icon'); el.innerHTML=`<img src="${stgIconData}" style="width:100%;height:100%;object-fit:cover">`; }; r.readAsDataURL(f);
+  const raw = await toUrl(f);
+  try {
+    stgIconData = await compressImage(raw, IMG_LIMITS.icon);
+  } catch(err) {
+    toast('⚠️ Server icon is too large. Try a simpler image.'); return;
+  }
+  const el=document.getElementById('stg-sv-icon');
+  el.innerHTML=`<img src="${stgIconData}" style="width:100%;height:100%;object-fit:cover">`;
 }
 
 function setSvVis(v, silent=false) {
