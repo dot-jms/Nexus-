@@ -1854,6 +1854,306 @@ function handleIn(msg) {
         if (s) s.value = '';
       }
       break;
+
+    case 'admin_servers_list':
+      _adminServers = msg.servers || [];
+      renderAdminServers(_adminServers);
+      break;
+
+    case 'admin_bans_list':
+      renderAdminBans(msg.bans || []);
+      break;
+
+    case 'admin_channel_history': {
+      const viewBox = document.getElementById('admin-ch-view-result');
+      if (!viewBox) break;
+      const chMsgs = msg.messages || [];
+      if (!chMsgs.length) {
+        viewBox.innerHTML = '<div style="font-size:11px;color:var(--t3)">No messages in this channel.</div>';
+      } else {
+        viewBox.innerHTML = chMsgs.slice(-80).map(m => {
+          const ts = m.ts ? new Date(m.ts).toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'}) : '';
+          const hasImg = (m.attachments||[]).some(a => a.type === 'image');
+          return `<div style="padding:3px 0;border-bottom:1px solid var(--border);font-size:11px;display:flex;gap:4px;flex-wrap:wrap">
+            <span style="color:${esc(m.authorColor||'var(--accent)')};font-weight:700">${esc(m.author||'?')}</span>
+            <span style="color:var(--t3);font-size:10px">${ts}</span>
+            ${m.text ? `<span>${esc(m.text.slice(0,200))}</span>` : ''}
+            ${hasImg ? `<span style="color:var(--t3);font-size:10px">[image]</span>` : ''}
+          </div>`;
+        }).join('');
+      }
+      viewBox.style.display = 'block';
+      const mrEl = document.getElementById('admin-msgs-result');
+      if (mrEl) { mrEl.textContent = `Showing last ${Math.min(chMsgs.length,80)} of ${chMsgs.length} message(s).`; mrEl.style.color='var(--t3)'; }
+      break;
+    }
+
+    case 'channel_wiped':
+      if (msg.channelId && S.messages[msg.channelId]) {
+        S.messages[msg.channelId] = [];
+        if (S.curCh?.id === msg.channelId) renderMsgs(msg.channelId);
+        toast(`🧹 Channel wiped by ${msg.by}`);
+      }
+      { const mrEl = document.getElementById('admin-msgs-result'); if (mrEl) { mrEl.textContent = '✅ Channel wiped.'; mrEl.style.color='var(--green)'; } }
+      break;
+
+    case 'channel_lock_update': {
+      // Show/hide lock badge on current channel header
+      if (S.curCh?.id === msg.channelId) {
+        let lockBadge = document.getElementById('ch-lock-badge');
+        if (msg.locked) {
+          if (!lockBadge) {
+            lockBadge = document.createElement('span');
+            lockBadge.id = 'ch-lock-badge';
+            lockBadge.style.cssText = 'font-size:10px;background:rgba(248,113,113,.15);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:middle';
+            lockBadge.textContent = '🔒 Locked';
+            document.getElementById('ch-name')?.appendChild(lockBadge);
+          }
+        } else {
+          lockBadge?.remove();
+        }
+        // Block the message input when locked (unless admin)
+        const inp = document.getElementById('msg-in');
+        if (inp) { inp.disabled = msg.locked && !isPlatformPower(); inp.placeholder = msg.locked ? '🔒 Channel is locked' : 'Message #' + (S.curCh?.name||''); }
+      }
+      { const mrEl = document.getElementById('admin-msgs-result'); if (mrEl) { mrEl.textContent = `✅ Channel ${msg.locked?'locked':'unlocked'}.`; mrEl.style.color='var(--green)'; } }
+      break;
+    }
+
+    case 'admin_purge':
+      // Remove purged user's messages from local cache
+      if (msg.target && msg.serverId === S.curSv?.id) {
+        Object.keys(S.messages).forEach(chId => {
+          if (S.messages[chId]) S.messages[chId] = S.messages[chId].filter(m => m.author !== msg.target);
+        });
+        if (S.curCh) renderMsgs(S.curCh.id);
+        toast(`🧹 Messages from ${msg.target} purged by admin`);
+      }
+      { const mrEl = document.getElementById('admin-msgs-result'); if (mrEl) { mrEl.textContent='✅ Messages purged.'; mrEl.style.color='var(--green)'; } }
+      break;
+
+    case 'kicked_from_server':
+      if (msg.serverId) {
+        S.servers = S.servers.filter(s => s.id !== msg.serverId);
+        persist();
+        if (S.curSv?.id === msg.serverId) {
+          S.curSv = null; S.curCh = null;
+          renderSvs();
+          if (S.servers.length) selectSv(S.servers[0].id);
+          else document.getElementById('ch-area').style.display = 'none';
+        } else { renderSvs(); }
+        toast('👢 You were removed from a server by an admin');
+      }
+      break;
+
+    case 'server_ownership_transfer': {
+      const toSv = S.servers.find(sv => sv.id === msg.serverId);
+      if (toSv) {
+        toSv.ownerId = msg.newOwner;
+        toSv.isOwner = (msg.newOwner||'').toLowerCase() === (S.user?.name||'').toLowerCase();
+        persist(); renderSvs();
+      }
+      if (msg.by === S.user?.name) toast(`✅ Ownership transferred to ${msg.newOwner}`);
+      break;
+    }
+
+    case 'admin_frozen_list':
+      renderAdminFrozen(msg.frozen || []);
+      break;
+
+    case 'admin_online_list':
+      renderAdminOnline(msg.users || []);
+      break;
+
+    case 'admin_stats':
+      renderAdminStats(msg.stats || {});
+      break;
+
+    case 'server_renamed': {
+      const rnSv = S.servers.find(sv => sv.id === msg.serverId);
+      if (rnSv) { rnSv.name = msg.name; persist(); renderSvs(); }
+      if (S.curSv?.id === msg.serverId) {
+        S.curSv.name = msg.name;
+        const nh = document.getElementById('sv-name-header');
+        if (nh) nh.textContent = msg.name;
+      }
+      const svRes = document.getElementById('admin-sv-result');
+      if (svRes) { svRes.textContent = `✅ Server renamed to "${msg.name}".`; svRes.style.color='var(--green)'; }
+      break;
+    }
+
+    case 'server_channel_added': {
+      const acSv = S.servers.find(sv => sv.id === msg.serverId);
+      if (acSv) {
+        if (!acSv.channels) acSv.channels = [];
+        acSv.channels.push(msg.channel);
+        persist();
+        if (S.curSv?.id === msg.serverId) { S.curSv.channels = acSv.channels; renderChannels(); }
+      }
+      const svRes = document.getElementById('admin-sv-result');
+      if (svRes) { svRes.textContent = `✅ Channel added.`; svRes.style.color='var(--green)'; }
+      break;
+    }
+
+    case 'server_channel_deleted': {
+      const dcSv = S.servers.find(sv => sv.id === msg.serverId);
+      if (dcSv && dcSv.channels) {
+        dcSv.channels = dcSv.channels.filter(c => c.id !== msg.channelId);
+        persist();
+        if (S.curSv?.id === msg.serverId) { S.curSv.channels = dcSv.channels; renderChannels(); }
+        if (S.curCh?.id === msg.channelId) { S.curCh = null; document.getElementById('ch-area').style.display = 'none'; }
+      }
+      const svRes = document.getElementById('admin-sv-result');
+      if (svRes) { svRes.textContent = `✅ Channel deleted.`; svRes.style.color='var(--green)'; }
+      break;
+    }
+
+    case 'server_updated': {
+      const upSv = S.servers.find(sv => sv.id === msg.serverId);
+      if (upSv) {
+        if (msg.name !== undefined) upSv.name = msg.name;
+        if (msg.desc !== undefined) upSv.desc = msg.desc;
+        if (msg.icon !== undefined) upSv.icon = msg.icon;
+        persist(); renderSvs();
+      }
+      break;
+    }
+
+    case 'account_frozen':
+      // Show a persistent frozen banner — user can still use app but can't post
+      {
+        let fb = document.getElementById('frozen-banner');
+        if (!fb) {
+          fb = document.createElement('div');
+          fb.id = 'frozen-banner';
+          fb.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999;background:rgba(96,165,250,.15);border-bottom:1px solid rgba(96,165,250,.3);padding:8px 16px;display:flex;align-items:center;gap:10px;font-size:13px';
+          document.body.prepend(fb);
+        }
+        fb.innerHTML = `🧊 <strong>Your account has been frozen</strong> by an admin. Reason: ${esc(msg.reason||'No reason given')}. You can read but cannot send messages.`;
+        S.frozen = true;
+      }
+      break;
+
+    case 'account_unfrozen':
+      document.getElementById('frozen-banner')?.remove();
+      S.frozen = false;
+      toast('✅ Your account has been unfrozen.');
+      break;
+
+    case 'force_logout':
+      toast('🚪 You have been logged out by an admin.');
+      setTimeout(() => signOut(), 1500);
+      break;
+
+    case 'motd_update':
+      if (msg.text) {
+        let motdBanner = document.getElementById('motd-banner');
+        if (!motdBanner) {
+          motdBanner = document.createElement('div');
+          motdBanner.id = 'motd-banner';
+          motdBanner.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:998;background:var(--s2);border:1px solid rgba(108,99,255,.4);border-radius:12px;padding:12px 16px;max-width:340px;box-shadow:0 4px 24px rgba(0,0,0,.4);font-size:13px';
+          document.body.appendChild(motdBanner);
+        }
+        motdBanner.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><strong style="color:var(--accent)">📢 Message of the Day</strong><button onclick="document.getElementById('motd-banner')?.remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:14px">✕</button></div><div style="color:var(--t2)">${esc(msg.text)}</div><div style="font-size:10px;color:var(--t3);margin-top:6px">— ${esc(msg.by||'Admin')}</div>`;
+      } else {
+        document.getElementById('motd-banner')?.remove();
+      }
+      break;
+
+    case 'added_to_server':
+      if (msg.server) {
+        const sv = msg.server;
+        if (!S.servers.find(s => s.id === sv.id)) {
+          S.servers.push(sv);
+          persist(); renderSvs();
+          toast(`➕ You were added to "${sv.name}" by an admin`);
+        }
+      }
+      break;
+
+    case 'maintenance':
+      // Server going into maintenance — show blocking screen
+      {
+        let mb = document.getElementById('maintenance-block');
+        if (!mb) {
+          mb = document.createElement('div');
+          mb.id = 'maintenance-block';
+          mb.style.cssText = 'position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px';
+          document.body.appendChild(mb);
+        }
+        mb.innerHTML = `<div style="font-size:48px">🔧</div><div style="font-size:22px;font-weight:800">Maintenance Mode</div><div style="font-size:14px;color:var(--t3);max-width:360px;text-align:center">${esc(msg.message||'Nexus is undergoing maintenance. Please try again soon.')}</div>`;
+      }
+      break;
+
+    case 'maintenance_update':
+      if (!msg.enabled) {
+        document.getElementById('maintenance-block')?.remove();
+        if (msg.by !== S.user?.name) toast('✅ Maintenance complete — platform is back online');
+      } else {
+        toast('⚠️ Maintenance mode enabled by admin');
+      }
+      break;
+
+    case 'slowmode_update': {
+      if (S.curCh?.id === msg.channelId) {
+        const inp = document.getElementById('msg-in');
+        let smBadge = document.getElementById('ch-slowmode-badge');
+        if (msg.seconds > 0) {
+          if (!smBadge) {
+            smBadge = document.createElement('span');
+            smBadge.id = 'ch-slowmode-badge';
+            smBadge.style.cssText = 'font-size:10px;background:rgba(251,146,60,.15);color:#fb923c;border:1px solid rgba(251,146,60,.3);border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:middle';
+            document.getElementById('ch-name')?.appendChild(smBadge);
+          }
+          smBadge.textContent = `🐌 ${msg.seconds}s slowmode`;
+        } else {
+          smBadge?.remove();
+        }
+      }
+      const mrEl = document.getElementById('admin-msgs-result');
+      if (mrEl) { mrEl.textContent = msg.seconds > 0 ? `✅ Slowmode set to ${msg.seconds}s.` : '✅ Slowmode disabled.'; mrEl.style.color='var(--green)'; }
+      break;
+    }
+
+    case 'admin_nuke':
+      // Remove nuked user from all local state
+      if (msg.target) {
+        S.servers = S.servers.filter(sv => sv.ownerId !== msg.target);
+        S.dms = (S.dms||[]).filter(d => d.name !== msg.target);
+        persist(); renderSvs();
+        if (msg.by === S.user?.name) toast(`💥 Account '${msg.target}' nuked.`);
+        else if (msg.target === S.user?.name) { toast('Your account has been deleted.'); setTimeout(() => signOut(), 2000); }
+      }
+      break;
+
+    case 'admin_notes_data':
+      renderAdminNotes(msg.target, msg.notes || []);
+      break;
+
+    case 'admin_audit_log':
+      renderAdminAuditLog(msg.entries || []);
+      break;
+
+    case 'admin_user_servers':
+      renderAdminUserServers(msg.target, msg.servers || []);
+      break;
+
+    case 'admin_channel_export':
+      adminDownloadExport(msg);
+      break;
+
+    case 'platform_announcement': {
+      // Show as a prominent toast + notification
+      let annBanner = document.getElementById('platform-announcement');
+      if (annBanner) annBanner.remove();
+      annBanner = document.createElement('div');
+      annBanner.id = 'platform-announcement';
+      annBanner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:9998;background:linear-gradient(135deg,rgba(108,99,255,.9),rgba(192,132,252,.9));border-radius:12px;padding:14px 20px;max-width:420px;box-shadow:0 4px 32px rgba(0,0,0,.5);font-size:14px;color:#fff;text-align:center';
+      annBanner.innerHTML = `<div style="font-weight:700;margin-bottom:4px">📢 Platform Announcement</div><div>${esc(msg.text)}</div><button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,.2);border:none;border-radius:6px;color:#fff;padding:4px 12px;margin-top:8px;cursor:pointer;font-size:12px">Dismiss</button>`;
+      document.body.appendChild(annBanner);
+      setTimeout(() => annBanner?.remove(), 30000);
+      break;
+    }
     case 'dm_stubs': {
       // Restore DM conversations after cache clear — backend sends partner names + last msg
       let dmChanged = false;
@@ -2265,10 +2565,10 @@ function handleIn(msg) {
         ['chpw-old','chpw-new','chpw-new2'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
         setTimeout(() => closeM('profile-edit-modal'), 1200);
       }
-      const ares = document.getElementById('admin-users-result');
-      const bres = document.getElementById('admin-ban-result');
-      if(ares) ares.textContent = msg.message || '';
-      if(bres) bres.textContent = msg.message || '';
+      { const ares = document.getElementById('admin-users-result'); if(ares) { ares.textContent = msg.message || ''; ares.style.color='var(--green)'; } }
+      { const bres = document.getElementById('admin-ban-result');   if(bres) { bres.textContent = msg.message || ''; bres.style.color='var(--green)'; } }
+      { const mres = document.getElementById('admin-msgs-result');  if(mres) { mres.textContent = msg.message || ''; mres.style.color='var(--green)'; } }
+      { const sres = document.getElementById('admin-sv-result');    if(sres) { sres.textContent = msg.message || ''; sres.style.color='var(--green)'; } }
       break;
     case 'platform_alert': {
       // Show a prominent banner to all users
@@ -3458,13 +3758,18 @@ function openAdminPanel() {
 }
 
 function adminTab(tab) {
+  const tabs = ['users','accounts','servers','bans','messages','dms','online','audit','stats','alert','danger'];
   document.querySelectorAll('#admin-panel-modal .sv-stg-tab').forEach((el, i) => {
-    const tabs = ['users','accounts','bans','dms','alert'];
     el.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('#admin-panel-modal .sv-stg-pane').forEach(el => el.classList.remove('active'));
   document.getElementById('admin-pane-' + tab).classList.add('active');
   if (tab === 'accounts') adminLoadAccounts();
+  if (tab === 'servers')  adminLoadServers();
+  if (tab === 'bans')   { adminLoadBans(); adminLoadFrozen(); }
+  if (tab === 'online')   adminLoadOnline();
+  if (tab === 'audit')    adminLoadAuditLog();
+  if (tab === 'stats')    adminLoadStats();
 }
 
 let _adminAccounts = [];
@@ -4757,19 +5062,19 @@ function onAdminPfpChange(e) {
 
 // Admin panel: rename via input field
 function adminRenameUser() {
-  const target = document.getElementById('admin-rename-user').value.trim();
-  if (!target) { document.getElementById('admin-users-result').textContent = 'Enter a username.'; return; }
+  const target = document.getElementById('admin-user-in').value.trim();
+  if (!target) { _adminResult('Enter a username.', 'var(--red)'); return; }
   const newName = prompt(`New username for ${target}:`);
   if (!newName || newName === target) return;
-  if (!/^[a-zA-Z0-9_.\-]{2,24}$/.test(newName)) { document.getElementById('admin-users-result').textContent = '⚠️ Invalid username format.'; return; }
+  if (!/^[a-zA-Z0-9_.\-]{2,24}$/.test(newName)) { _adminResult('⚠️ Invalid username format.', 'var(--red)'); return; }
   wsSend({ type: 'admin_rename_user', target, newName });
-  document.getElementById('admin-users-result').textContent = '⏳ Sending rename request...';
+  _adminResult('⏳ Sending rename request…');
 }
 
 // Admin panel: set PFP via input field
 function adminSetPfp() {
-  const target = document.getElementById('admin-rename-user').value.trim();
-  if (!target) { document.getElementById('admin-users-result').textContent = 'Enter a username first.'; return; }
+  const target = document.getElementById('admin-user-in').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
   _pfpCropTarget = 'admin_target';
   _adminPfpTarget = target;
   document.getElementById('admin-pfp-file').click();
@@ -4841,6 +5146,562 @@ function adminSendAlert() {
   resEl.textContent = '✅ Alert sent to everyone!';
   document.getElementById('admin-alert-title').value = '';
   document.getElementById('admin-alert-body').value = '';
+}
+
+// ── NEW ADMIN FUNCTIONS ──────────────────────────────────────────────────────
+
+function _adminResult(text, color) {
+  const el = document.getElementById('admin-users-result');
+  if (el) { el.textContent = text; el.style.color = color || 'var(--t3)'; }
+}
+function _adminMsgResult(text, color) {
+  const el = document.getElementById('admin-msgs-result');
+  if (el) { el.textContent = text; el.style.color = color || 'var(--t3)'; }
+}
+function _adminSvResult(text, color) {
+  const el = document.getElementById('admin-sv-result');
+  if (el) { el.textContent = text; el.style.color = color || 'var(--t3)'; }
+}
+
+// ── Users tab ─────────────────────────────────────────────────────────────────
+function adminPickColor() {
+  const target = document.getElementById('admin-user-in').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
+  document.getElementById('admin-color-pick').click();
+}
+function adminApplyColor(hex) {
+  const target = document.getElementById('admin-user-in').value.trim();
+  if (!target) return;
+  wsSend({ type: 'admin_set_color', target, color: hex });
+  _adminResult(`⏳ Setting color for ${target}…`);
+}
+function adminResetPassword() {
+  const target = document.getElementById('admin-user-in').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
+  const newPw = prompt(`New password for ${target} (min 4 chars):`);
+  if (!newPw) return;
+  if (newPw.length < 4) { _adminResult('⚠️ Password must be at least 4 characters.', 'var(--red)'); return; }
+  if (!confirm(`Reset password for ${target}?`)) return;
+  wsSend({ type: 'admin_reset_password', target, newPassword: newPw });
+  _adminResult(`⏳ Resetting password for ${target}…`);
+}
+function adminForceLogout() {
+  const target = document.getElementById('admin-user-in').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
+  if (!confirm(`Force logout ${target}? Their sessions will be invalidated immediately.`)) return;
+  wsSend({ type: 'admin_force_logout', target });
+  _adminResult(`⏳ Force-logging out ${target}…`);
+}
+function adminFreezeUser() {
+  const target = document.getElementById('admin-user-in').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
+  const reason = prompt(`Reason for freezing ${target} (they can still connect but can't send messages):`);
+  if (reason === null) return;
+  wsSend({ type: 'admin_freeze_user', target, reason: reason || 'No reason given' });
+  _adminResult(`⏳ Freezing ${target}…`);
+}
+function adminUnfreezeUser() {
+  const target = document.getElementById('admin-user-in').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_unfreeze_user', target });
+  _adminResult(`⏳ Unfreezing ${target}…`);
+}
+function adminSetBio() {
+  const target = document.getElementById('admin-user-in').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
+  const bio = prompt(`New bio for ${target} (leave blank to clear):`);
+  if (bio === null) return;
+  wsSend({ type: 'admin_set_bio', target, bio });
+  _adminResult(`⏳ Setting bio for ${target}…`);
+}
+function adminWipeUserPfp() {
+  const target = document.getElementById('admin-user-in').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
+  if (!confirm(`Wipe PFP for ${target}?`)) return;
+  wsSend({ type: 'admin_wipe_user_pfp', target });
+  _adminResult(`⏳ Wiping PFP for ${target}…`);
+}
+function adminKickFromServer() {
+  const target = document.getElementById('admin-user-in').value.trim();
+  const serverId = document.getElementById('admin-server-id-in').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
+  if (!serverId) { _adminResult('Enter a Server ID.', 'var(--red)'); return; }
+  if (!confirm(`Kick ${target} from server ${serverId}?`)) return;
+  wsSend({ type: 'admin_kick_from_server', target, serverId });
+  _adminResult(`⏳ Kicking ${target}…`);
+}
+function adminAddMember() {
+  const target = document.getElementById('admin-user-in').value.trim();
+  const serverId = document.getElementById('admin-server-id-in').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
+  if (!serverId) { _adminResult('Enter a Server ID.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_add_member', target, serverId });
+  _adminResult(`⏳ Adding ${target} to server…`);
+}
+function adminSendSystemDM() {
+  const target = document.getElementById('admin-user-in').value.trim();
+  const text   = document.getElementById('admin-sysdm-text').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
+  if (!text)   { _adminResult('Enter a message.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_broadcast_dm', target, text });
+  document.getElementById('admin-sysdm-text').value = '';
+  _adminResult(`✅ System DM sent to ${target}.`, 'var(--green)');
+}
+
+// ── Servers tab ───────────────────────────────────────────────────────────────
+let _adminServers = [];
+function adminLoadServers() {
+  const box = document.getElementById('admin-sv-list');
+  if (box) box.innerHTML = '<div style="font-size:12px;color:var(--t3);padding:8px 0">Loading…</div>';
+  wsSend({ type: 'admin_list_servers' });
+}
+function adminFilterServers() {
+  const q = (document.getElementById('admin-sv-search')?.value || '').toLowerCase();
+  const filtered = q ? _adminServers.filter(s =>
+    s.name.toLowerCase().includes(q) || (s.ownerId||'').toLowerCase().includes(q)
+  ) : _adminServers;
+  renderAdminServers(filtered);
+}
+function renderAdminServers(servers) {
+  const box = document.getElementById('admin-sv-list');
+  if (!box) return;
+  if (!servers.length) { box.innerHTML = '<div style="font-size:12px;color:var(--t3);padding:8px 0">No servers found.</div>'; return; }
+  box.innerHTML = servers.map(s => {
+    const created = s.createdAt ? new Date(s.createdAt).toLocaleDateString('en',{month:'short',day:'numeric',year:'numeric'}) : '?';
+    return `<div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div>
+          <div style="font-size:10px;color:var(--t3);font-family:'DM Mono',monospace;margin-top:1px;cursor:pointer" onclick="navigator.clipboard?.writeText('${esc(s.id)}').then(()=>toast('ID copied!'))" title="Click to copy">${esc(s.id)}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px">Owner: <strong>${esc(s.ownerId||'?')}</strong> · ${s.memberCount||0} members · ${s.channelCount||0} channels · ${created}</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
+          <button class="btn-g" style="font-size:10px;padding:3px 7px" onclick="adminTransferOwnership('${esc(s.id)}')">↗ Transfer</button>
+          <button class="btn-g" style="font-size:10px;padding:3px 7px;color:var(--red)" onclick="adminForceDeleteServer('${esc(s.id)}')">🗑 Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function adminTransferOwnership(serverId) {
+  const newOwner = prompt('Transfer ownership to (username):');
+  if (!newOwner) return;
+  if (!confirm(`Transfer server ${serverId} to ${newOwner}?`)) return;
+  wsSend({ type: 'admin_transfer_ownership', serverId, newOwner });
+}
+function adminAddChannel() {
+  const svId = document.getElementById('admin-ac-svid').value.trim();
+  const name = document.getElementById('admin-ac-name').value.trim();
+  const chType = document.getElementById('admin-ac-type').value;
+  if (!svId || !name) { _adminSvResult('Server ID and channel name required.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_add_channel', serverId: svId, name, chType });
+  _adminSvResult(`⏳ Adding channel #${name}…`);
+}
+function adminDeleteChannel() {
+  const svId = document.getElementById('admin-dc-svid').value.trim();
+  const chId = document.getElementById('admin-dc-chid').value.trim();
+  if (!svId || !chId) { _adminSvResult('Server ID and Channel ID required.', 'var(--red)'); return; }
+  if (!confirm(`Delete channel ${chId} and all its history? Cannot be undone.`)) return;
+  wsSend({ type: 'admin_delete_channel', serverId: svId, channelId: chId });
+  _adminSvResult(`⏳ Deleting channel…`);
+}
+function adminRenameServer() {
+  const svId = document.getElementById('admin-edit-sv-id').value.trim();
+  const name = document.getElementById('admin-rn-name').value.trim();
+  if (!svId || !name) { _adminSvResult('Server ID and new name required.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_rename_server', serverId: svId, name });
+  _adminSvResult(`⏳ Renaming server…`);
+}
+
+// ── New admin functions added in latest expansion ────────────────────────────
+
+function adminSetUserTag() {
+  const target = document.getElementById('admin-user-in').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
+  const tag = prompt(`New 4-digit tag for ${target} (e.g. 1337):`);
+  if (tag === null) return;
+  if (!/^\d{4}$/.test(tag)) { _adminResult('⚠️ Tag must be exactly 4 digits.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_set_tag', target, tag });
+  _adminResult(`⏳ Setting tag for ${target}…`);
+}
+
+function adminImpersonateSend() {
+  const target = document.getElementById('admin-user-in').value.trim();
+  const chId   = document.getElementById('admin-imp-ch').value.trim();
+  const text   = document.getElementById('admin-sysdm-text').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
+  if (!chId)   { _adminResult('Enter a Channel ID in the impersonate field.', 'var(--red)'); return; }
+  if (!text)   { _adminResult('Enter message text in the System DM textarea.', 'var(--red)'); return; }
+  if (!confirm(`Post as ${target} in channel ${chId}?\n\n"${text.slice(0,100)}"`)) return;
+  wsSend({ type: 'admin_impersonate_send', asUser: target, channelId: chId, text });
+  _adminResult(`⏳ Posting as ${target}…`);
+}
+
+function adminViewUserServers() {
+  const target = document.getElementById('admin-user-in').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_list_user_servers', target });
+  _adminResult(`⏳ Loading servers for ${target}…`);
+}
+function renderAdminUserServers(target, servers) {
+  const box = document.getElementById('admin-notes-display');
+  if (!box) return;
+  if (!servers.length) {
+    box.innerHTML = `<div style="font-size:11px;color:var(--t3)">${esc(target)} is not in any servers.</div>`;
+    return;
+  }
+  box.innerHTML = `<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">${esc(target)}'s Servers (${servers.length})</div>` +
+    servers.map(s =>
+      `<div style="background:var(--s3);border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:11px;display:flex;align-items:center;justify-content:space-between;gap:6px">
+        <div><strong>${esc(s.name)}</strong><span style="font-size:10px;color:var(--t3);margin-left:6px;font-family:'DM Mono',monospace;cursor:pointer" onclick="navigator.clipboard?.writeText('${esc(s.id)}');toast('ID copied!')">${esc(s.id)}</span></div>
+        <span style="font-size:10px;color:var(--t3)">${esc(s.ownerId||'?')}</span>
+      </div>`
+    ).join('');
+}
+
+function adminGetNotes() {
+  const target = document.getElementById('admin-user-in').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_get_notes', target });
+  _adminResult(`⏳ Loading notes for ${target}…`);
+}
+function adminAddNote() {
+  const target = document.getElementById('admin-user-in').value.trim();
+  const note   = document.getElementById('admin-note-text').value.trim();
+  if (!target) { _adminResult('Enter a username first.', 'var(--red)'); return; }
+  if (!note)   { _adminResult('Enter a note.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_add_note', target, note });
+  document.getElementById('admin-note-text').value = '';
+  _adminResult(`⏳ Saving note for ${target}…`);
+}
+function renderAdminNotes(target, notes) {
+  const box = document.getElementById('admin-notes-display');
+  if (!box) return;
+  if (!notes.length) {
+    box.innerHTML = `<div style="font-size:11px;color:var(--t3)">No notes for ${esc(target)}.</div>`;
+    return;
+  }
+  box.innerHTML = `<div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Notes for ${esc(target)}</div>` +
+    notes.map((n, i) => {
+      const ts = n.at ? new Date(n.at).toLocaleString('en',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '?';
+      return `<div style="background:rgba(251,146,60,.07);border:1px solid rgba(251,146,60,.2);border-radius:6px;padding:7px 9px;font-size:11px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:10px;color:var(--t3)">by ${esc(n.by||'?')} · ${ts}</span>
+          <button class="btn-g" style="font-size:9px;padding:2px 6px;color:var(--red)" onclick="adminDeleteNote('${esc(target)}',${i})">✕</button>
+        </div>
+        <div>${esc(n.text||'')}</div>
+      </div>`;
+    }).join('');
+}
+function adminDeleteNote(target, index) {
+  if (!confirm('Delete this note?')) return;
+  wsSend({ type: 'admin_delete_note', target, index });
+}
+
+// ── Danger tab ────────────────────────────────────────────────────────────────
+function adminNukeAccount() {
+  const target = document.getElementById('admin-nuke-user').value.trim();
+  if (!target) { toast('⚠️ Enter a username to nuke.'); return; }
+  if (target.toLowerCase() === 'puck') { toast('⚠️ Cannot nuke Puck.'); return; }
+  const conf = prompt(`Type DELETE to permanently nuke account '${target}'. THIS CANNOT BE UNDONE.`);
+  if (conf !== 'DELETE') { toast('Nuke cancelled.'); return; }
+  wsSend({ type: 'admin_nuke_account', target });
+  toast(`💥 Nuking ${target}…`);
+}
+
+function adminSetMaintenance(enabled) {
+  const badge = document.getElementById('admin-maint-badge');
+  if (enabled) {
+    if (!confirm('Enable maintenance mode? ALL non-admin users will be kicked immediately and cannot reconnect.')) return;
+    if (badge) badge.style.display = 'inline-block';
+  } else {
+    if (badge) badge.style.display = 'none';
+  }
+  wsSend({ type: 'admin_set_maintenance', enabled });
+  toast(enabled ? '⏳ Enabling maintenance mode…' : '⏳ Disabling maintenance mode…');
+}
+
+// ── Alert tab ─────────────────────────────────────────────────────────────────
+function adminSendAnnouncement() {
+  const text = document.getElementById('admin-announce-text').value.trim();
+  if (!text) { toast('⚠️ Enter announcement text.'); return; }
+  if (!confirm(`Send this announcement to all connected users?\n\n"${text.slice(0,100)}"`)) return;
+  wsSend({ type: 'admin_send_unread_announce', text });
+  document.getElementById('admin-announce-text').value = '';
+  toast('📣 Announcement sent.');
+}
+
+function adminMassDm() {
+  const text = document.getElementById('admin-massdm-text').value.trim();
+  if (!text) { toast('⚠️ Enter a message for the mass DM.'); return; }
+  if (!confirm(`Send this DM to EVERY registered user?\n\n"${text.slice(0,100)}"\n\nThis will create a system DM conversation with every account.`)) return;
+  wsSend({ type: 'admin_mass_dm', text });
+  document.getElementById('admin-massdm-text').value = '';
+  toast('⏳ Sending mass DM…');
+}
+
+// ── Servers tab new actions ────────────────────────────────────────────────────
+function adminSetServerDesc() {
+  const svId = document.getElementById('admin-edit-sv-id').value.trim();
+  const desc = document.getElementById('admin-sv-desc-text').value.trim();
+  if (!svId) { _adminSvResult('Enter a Server ID.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_set_server_desc', serverId: svId, desc });
+  _adminSvResult('⏳ Updating description…');
+}
+
+function adminSetServerPublic(isPublic) {
+  const svId = document.getElementById('admin-edit-sv-id').value.trim();
+  if (!svId) { _adminSvResult('Enter a Server ID.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_set_server_public', serverId: svId, isPublic });
+  _adminSvResult(`⏳ Setting server to ${isPublic ? 'public' : 'private'}…`);
+}
+
+function adminCloneServer() {
+  const svId = prompt('Server ID to clone:');
+  if (!svId) return;
+  const name = prompt('Name for the cloned server:');
+  if (!name) return;
+  wsSend({ type: 'admin_clone_server', serverId: svId, name });
+  toast(`⏳ Cloning server as "${name}"…`);
+}
+
+// ── Messages tab new actions ───────────────────────────────────────────────────
+function adminSetSlowmode() {
+  const chId = document.getElementById('admin-slow-ch-id').value.trim();
+  const secs = parseInt(document.getElementById('admin-slow-secs').value) || 0;
+  if (!chId) { _adminMsgResult('Enter a Channel ID.', 'var(--red)'); return; }
+  if (secs < 0 || secs > 3600) { _adminMsgResult('Seconds must be 0–3600.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_set_slowmode', channelId: chId, seconds: secs });
+  _adminMsgResult(`⏳ Setting slowmode to ${secs}s…`);
+}
+
+function adminExportChannel() {
+  const chId = document.getElementById('admin-view-ch-id').value.trim();
+  if (!chId) { _adminMsgResult('Enter a Channel ID.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_export_channel', channelId: chId });
+  _adminMsgResult('⏳ Requesting export…');
+}
+function adminDownloadExport(msg) {
+  const data = JSON.stringify(msg.messages || [], null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `nexus-channel-${msg.channelId}-export.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  _adminMsgResult(`✅ Exported ${(msg.messages||[]).length} messages.`, 'var(--green)');
+}
+
+// ── Audit log ─────────────────────────────────────────────────────────────────
+function adminLoadAuditLog() {
+  const box = document.getElementById('admin-audit-list');
+  if (box) box.innerHTML = '<div style="font-size:12px;color:var(--t3)">Loading…</div>';
+  wsSend({ type: 'admin_get_audit_log', limit: 100 });
+}
+function adminClearAuditLog() {
+  if (!confirm('Clear the entire audit log? This cannot be undone.')) return;
+  wsSend({ type: 'admin_clear_audit_log' });
+  const box = document.getElementById('admin-audit-list');
+  if (box) box.innerHTML = '<div style="font-size:12px;color:var(--t3)">Audit log cleared.</div>';
+}
+function renderAdminAuditLog(entries) {
+  const box = document.getElementById('admin-audit-list');
+  if (!box) return;
+  if (!entries.length) { box.innerHTML = '<div style="font-size:12px;color:var(--t3)">No audit entries found.</div>'; return; }
+  const actionColors = {
+    ban: '#f87171', nuke_account: '#f87171', mass_dm: '#c084fc',
+    impersonate_send: '#fb923c', maintenance_toggle: '#f87171',
+    send_announcement: '#60a5fa', unban: 'var(--green)',
+  };
+  box.innerHTML = entries.map(e => {
+    const ts = e.at ? new Date(e.at).toLocaleString('en',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '?';
+    const color = actionColors[e.action] || 'var(--t2)';
+    const details = Object.entries(e)
+      .filter(([k]) => !['action','by','at'].includes(k))
+      .map(([k,v]) => `<span style="color:var(--t3)">${esc(k)}:</span> ${esc(String(v).slice(0,80))}`)
+      .join(' · ');
+    return `<div style="background:var(--s3);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:11px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:${details?'3':'0'}px">
+        <span style="font-weight:700;color:${color}">${esc(e.action||'?')}</span>
+        <span style="color:var(--t3)">by <strong style="color:var(--t2)">${esc(e.by||'?')}</strong></span>
+        <span style="font-size:10px;color:var(--t3);margin-left:auto;font-family:'DM Mono',monospace">${ts}</span>
+      </div>
+      ${details ? `<div style="font-size:10px;color:var(--t3)">${details}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── Bans tab ──────────────────────────────────────────────────────────────────
+function adminLoadBans() {
+  const box = document.getElementById('admin-bans-list');
+  if (box) box.innerHTML = '<div style="font-size:12px;color:var(--t3)">Loading…</div>';
+  wsSend({ type: 'admin_list_bans' });
+}
+function renderAdminBans(bans) {
+  const box = document.getElementById('admin-bans-list');
+  if (!box) return;
+  if (!bans.length) { box.innerHTML = '<div style="font-size:12px;color:var(--t3)">No active bans 🎉</div>'; return; }
+  box.innerHTML = bans.map(b => {
+    const until = b.until === -1 ? 'Permanent' : `Until ${new Date(b.until).toLocaleString()}`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;background:var(--s3);border:1px solid var(--border);border-radius:6px;padding:7px 10px;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700">${esc(b.username)}</div>
+        <div style="font-size:10px;color:var(--t3)">${esc(b.reason||'No reason')} · ${until}</div>
+      </div>
+      <button class="btn-g" style="font-size:10px;padding:3px 8px;flex-shrink:0" onclick="adminQuickUnban('${esc(b.username)}')">Unban</button>
+    </div>`;
+  }).join('');
+}
+function adminQuickUnban(username) {
+  wsSend({ type: 'admin_unban', target: username });
+  toast(`Unbanning ${username}…`);
+  setTimeout(adminLoadBans, 800);
+}
+function adminLoadFrozen() {
+  const box = document.getElementById('admin-frozen-list');
+  if (box) box.innerHTML = '<div style="font-size:12px;color:var(--t3)">Loading…</div>';
+  wsSend({ type: 'admin_list_frozen' });
+}
+function renderAdminFrozen(frozen) {
+  const box = document.getElementById('admin-frozen-list');
+  if (!box) return;
+  if (!frozen.length) { box.innerHTML = '<div style="font-size:12px;color:var(--t3)">No frozen users 🎉</div>'; return; }
+  box.innerHTML = frozen.map(f => {
+    return `<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(96,165,250,.07);border:1px solid rgba(96,165,250,.2);border-radius:6px;padding:7px 10px;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700">🧊 ${esc(f.username)}</div>
+        <div style="font-size:10px;color:var(--t3)">${esc(f.reason||'No reason')} · by ${esc(f.by||'?')}</div>
+      </div>
+      <button class="btn-g" style="font-size:10px;padding:3px 8px;flex-shrink:0" onclick="adminQuickUnfreeze('${esc(f.username)}')">Unfreeze</button>
+    </div>`;
+  }).join('');
+}
+function adminQuickUnfreeze(username) {
+  wsSend({ type: 'admin_unfreeze_user', target: username });
+  toast(`Unfreezing ${username}…`);
+  setTimeout(adminLoadFrozen, 800);
+}
+
+// ── Messages tab ──────────────────────────────────────────────────────────────
+function adminViewChannel() {
+  const chId = document.getElementById('admin-view-ch-id').value.trim();
+  if (!chId) { _adminMsgResult('Enter a channel ID.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_view_channel', channelId: chId });
+  _adminMsgResult('Loading…');
+}
+function adminWipeChannel() {
+  const chId = document.getElementById('admin-wipe-ch-id').value.trim();
+  if (!chId) { _adminMsgResult('Enter a channel ID.', 'var(--red)'); return; }
+  if (!confirm(`Wipe ALL messages from channel ${chId}? This cannot be undone.`)) return;
+  wsSend({ type: 'admin_wipe_channel', channelId: chId });
+  _adminMsgResult(`⏳ Wiping channel ${chId}…`);
+}
+function adminLockChannel(locked) {
+  const chId = document.getElementById('admin-lock-ch-id').value.trim();
+  if (!chId) { _adminMsgResult('Enter a channel ID.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_lock_channel', channelId: chId, locked });
+  _adminMsgResult(`⏳ ${locked ? 'Locking' : 'Unlocking'} channel…`);
+}
+function adminPurgeUserMessages() {
+  const target   = document.getElementById('admin-purge-user').value.trim();
+  const serverId = document.getElementById('admin-purge-sv').value.trim();
+  if (!target || !serverId) { _adminMsgResult('Username and Server ID required.', 'var(--red)'); return; }
+  if (!confirm(`Delete ALL messages from ${target} in server ${serverId}? This cannot be undone.`)) return;
+  wsSend({ type: 'admin_purge_user_messages', target, serverId });
+  _adminMsgResult(`⏳ Purging messages from ${target}…`);
+}
+function adminDeleteMessage() {
+  const chId  = document.getElementById('admin-del-msg-ch').value.trim();
+  const msgId = document.getElementById('admin-del-msg-id').value.trim();
+  if (!chId || !msgId) { _adminMsgResult('Channel ID and Message ID required.', 'var(--red)'); return; }
+  if (!confirm('Delete this message?')) return;
+  wsSend({ type: 'admin_delete_message', channelId: chId, messageId: msgId });
+  _adminMsgResult('⏳ Deleting message…');
+}
+function adminEditMessage() {
+  const chId  = document.getElementById('admin-edit-msg-ch').value.trim();
+  const msgId = document.getElementById('admin-edit-msg-id').value.trim();
+  const text  = document.getElementById('admin-edit-msg-text').value.trim();
+  if (!chId || !msgId || !text) { _adminMsgResult('Channel ID, Message ID and new text required.', 'var(--red)'); return; }
+  wsSend({ type: 'admin_edit_message', channelId: chId, messageId: msgId, text });
+  _adminMsgResult('⏳ Editing message…');
+}
+function adminDeleteDmHistory() {
+  const userA = document.getElementById('admin-dmdel-a').value.trim();
+  const userB = document.getElementById('admin-dmdel-b').value.trim();
+  if (!userA || !userB) { _adminMsgResult('Both usernames required.', 'var(--red)'); return; }
+  if (!confirm(`Permanently delete all DMs between ${userA} and ${userB}?`)) return;
+  wsSend({ type: 'admin_delete_dm_history', userA, userB });
+  _adminMsgResult(`⏳ Deleting DM history between ${userA} and ${userB}…`);
+}
+
+// ── Online tab ────────────────────────────────────────────────────────────────
+function adminLoadOnline() {
+  const box = document.getElementById('admin-online-list');
+  if (box) box.innerHTML = '<div style="font-size:12px;color:var(--t3)">Loading…</div>';
+  wsSend({ type: 'admin_list_online' });
+}
+function renderAdminOnline(users) {
+  const box = document.getElementById('admin-online-list');
+  if (!box) return;
+  if (!users.length) { box.innerHTML = '<div style="font-size:12px;color:var(--t3)">No users online.</div>'; return; }
+  box.innerHTML = `<div style="font-size:11px;color:var(--t3);margin-bottom:8px">${users.length} user(s) connected right now</div>` +
+    users.map(u => {
+      const role = u.systemRole==='admin' ? `<span style="font-size:9px;background:rgba(108,99,255,.2);color:var(--accent);border:1px solid rgba(108,99,255,.3);border-radius:99px;padding:1px 5px">⚡ Admin</span>`
+        : u.coAdmin ? `<span style="font-size:9px;background:rgba(52,211,153,.15);color:var(--green);border:1px solid rgba(52,211,153,.3);border-radius:99px;padding:1px 5px">★ Co-Admin</span>` : '';
+      const frozen = u.frozen ? `<span style="font-size:9px;background:rgba(96,165,250,.15);color:#60a5fa;border:1px solid rgba(96,165,250,.3);border-radius:99px;padding:1px 5px">🧊 Frozen</span>` : '';
+      return `<div style="display:flex;align-items:center;gap:8px;background:var(--s3);border:1px solid var(--border);border-radius:6px;padding:7px 10px">
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;flex-wrap:wrap">${esc(u.name||'?')}<span style="font-size:10px;color:var(--t3)">#${u.tag||'0000'}</span>${role}${frozen}</div>
+        </div>
+        <button class="btn-g" style="font-size:10px;padding:3px 7px;flex-shrink:0" onclick="document.getElementById('admin-user-in').value='${esc(u.name)}';adminTab('users')">Target →</button>
+      </div>`;
+    }).join('');
+}
+
+// ── Stats tab ─────────────────────────────────────────────────────────────────
+function adminLoadStats() {
+  const grid = document.getElementById('admin-stats-grid');
+  if (grid) grid.innerHTML = '<div style="font-size:12px;color:var(--t3)">Loading…</div>';
+  wsSend({ type: 'admin_get_stats' });
+}
+function renderAdminStats(stats) {
+  const grid = document.getElementById('admin-stats-grid');
+  if (!grid) return;
+  const items = [
+    { label: 'Online Now',       value: stats.onlineNow,      icon: '🟢', color: 'var(--green)' },
+    { label: 'Total Accounts',   value: stats.totalAccounts,  icon: '👥', color: 'var(--accent)' },
+    { label: 'Total Servers',    value: stats.totalServers,   icon: '🌐', color: '#60a5fa' },
+    { label: 'Total Messages',   value: stats.totalMessages,  icon: '💬', color: '#c084fc' },
+    { label: 'DM Conversations', value: stats.totalDmConvos,  icon: '📨', color: '#f472b6' },
+    { label: 'Active Bans',      value: stats.activeBans,     icon: '🔨', color: '#f87171' },
+    { label: 'Frozen Users',     value: stats.frozenUsers,    icon: '🧊', color: '#93c5fd' },
+    { label: 'Locked Channels',  value: stats.lockedChannels, icon: '🔒', color: '#fb923c' },
+  ];
+  grid.innerHTML = items.map(it =>
+    `<div style="background:var(--s3);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center">
+      <div style="font-size:20px;margin-bottom:4px">${it.icon}</div>
+      <div style="font-size:20px;font-weight:800;color:${it.color}">${(it.value||0).toLocaleString()}</div>
+      <div style="font-size:10px;color:var(--t3);margin-top:2px">${it.label}</div>
+    </div>`
+  ).join('');
+  const meta = document.getElementById('admin-stats-meta');
+  if (meta) meta.textContent = `Deploy version: ${stats.deployVersion || '?'} · Loaded ${new Date().toLocaleTimeString()}`;
+}
+
+// ── Alert tab ─────────────────────────────────────────────────────────────────
+function adminSetMotd() {
+  const text = document.getElementById('admin-motd-text').value.trim();
+  wsSend({ type: 'admin_set_motd', text });
+  const el = document.getElementById('admin-motd-result');
+  if (el) { el.textContent = text ? '✅ MOTD saved.' : '✅ MOTD cleared.'; el.style.color='var(--green)'; }
+}
+function adminClearMotd() {
+  document.getElementById('admin-motd-text').value = '';
+  wsSend({ type: 'admin_set_motd', text: '' });
+  const el = document.getElementById('admin-motd-result');
+  if (el) { el.textContent = '✅ MOTD cleared.'; el.style.color='var(--green)'; }
 }
 
 // Store profile data when we receive profile_update broadcasts
@@ -5167,75 +6028,342 @@ initAuth();
 
 <!-- ADMIN PANEL MODAL -->
 <div class="overlay" id="admin-panel-modal" style="z-index:210">
-  <div class="modal" style="width:520px;max-height:85vh;overflow-y:auto">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div class="modal-t" style="margin-bottom:0">⚡ Admin Panel</div>
+  <div class="modal" style="width:700px;max-height:93vh;overflow-y:auto;padding:20px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#6c63ff,#c084fc);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">⚡</div>
+        <div>
+          <div class="modal-t" style="margin-bottom:0;font-size:18px">Admin Panel</div>
+          <div id="admin-maint-badge" style="display:none;font-size:10px;background:rgba(248,113,113,.2);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:99px;padding:1px 8px;margin-top:2px;display:inline-block">🔧 MAINTENANCE MODE ACTIVE</div>
+        </div>
+      </div>
       <button class="btn-g" style="padding:6px 12px;font-size:12px" onclick="closeM('admin-panel-modal')">✕</button>
     </div>
-    <div class="sv-stg-tabs" style="margin-bottom:14px">
-      <div class="sv-stg-tab active" onclick="adminTab('users')">Users</div>
+    <div class="sv-stg-tabs" style="margin-bottom:14px;flex-wrap:wrap;gap:3px">
+      <div class="sv-stg-tab active" onclick="adminTab('users')">👤 Users</div>
       <div class="sv-stg-tab" onclick="adminTab('accounts')">👥 Accounts</div>
-      <div class="sv-stg-tab" onclick="adminTab('bans')">Bans</div>
-      <div class="sv-stg-tab" onclick="adminTab('dms')">View DMs</div>
+      <div class="sv-stg-tab" onclick="adminTab('servers')">🌐 Servers</div>
+      <div class="sv-stg-tab" onclick="adminTab('bans')">🔨 Bans</div>
+      <div class="sv-stg-tab" onclick="adminTab('messages')">💬 Messages</div>
+      <div class="sv-stg-tab" onclick="adminTab('dms')">🔍 DMs</div>
+      <div class="sv-stg-tab" onclick="adminTab('online')">🟢 Online</div>
+      <div class="sv-stg-tab" onclick="adminTab('audit')">📋 Audit</div>
+      <div class="sv-stg-tab" onclick="adminTab('stats')">📊 Stats</div>
       <div class="sv-stg-tab" onclick="adminTab('alert')" style="color:#c084fc">📢 Alert</div>
+      <div class="sv-stg-tab" onclick="adminTab('danger')" style="color:#f87171">☢️ Danger</div>
     </div>
-    <!-- USERS -->
+
+    <!-- ── USERS ── -->
     <div id="admin-pane-users" class="sv-stg-pane active">
-      <div style="font-size:12px;color:var(--t3);margin-bottom:10px">Manage users, appoint co-admins, delete servers.</div>
-      <input class="m-inp" id="admin-user-in" placeholder="Username..." maxlength="24" style="margin-bottom:8px">
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn-p" style="font-size:12px" onclick="adminAppointCoadmin(true)">⭐ Make Co-Admin</button>
-        <button class="btn-g" style="font-size:12px" onclick="adminAppointCoadmin(false)">Remove Co-Admin</button>
-        <button class="btn-g" style="font-size:12px;color:var(--red)" onclick="adminDeleteServerByInput()">🗑 Delete Server ID</button>
+      <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:var(--t3)">Enter a target username, then use any action below.</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <input class="m-inp" id="admin-user-in" placeholder="Target username..." maxlength="24" style="flex:1">
+        <button class="btn-g" style="font-size:11px;padding:6px 10px;flex-shrink:0" onclick="adminViewUserServers()">🌐 Their Servers</button>
+        <button class="btn-g" style="font-size:11px;padding:6px 10px;flex-shrink:0" onclick="adminGetNotes()">📝 Notes</button>
       </div>
-      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
-        <div style="font-size:11px;font-weight:700;color:var(--t3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">Edit Any User (Admin Only)</div>
-        <input class="m-inp" id="admin-rename-user" placeholder="Username to edit..." maxlength="24" style="margin-bottom:6px">
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn-g" style="font-size:12px" onclick="adminRenameUser()">✏️ Change Username</button>
-          <button class="btn-g" style="font-size:12px" onclick="adminSetPfp()">🖼 Change PFP</button>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Role</div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <button class="btn-p" style="font-size:11px" onclick="adminAppointCoadmin(true)">⭐ Make Co-Admin</button>
+            <button class="btn-g" style="font-size:11px" onclick="adminAppointCoadmin(false)">✕ Remove Co-Admin</button>
+          </div>
         </div>
-        <input type="file" id="admin-pfp-file" accept="image/*" style="display:none" onchange="onAdminPfpChange(event)">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Identity</div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <button class="btn-g" style="font-size:11px" onclick="adminRenameUser()">✏️ Rename</button>
+            <button class="btn-g" style="font-size:11px" onclick="adminSetUserTag()">🏷 Set Tag</button>
+            <button class="btn-g" style="font-size:11px" onclick="adminSetPfp()">🖼 Change PFP</button>
+            <button class="btn-g" style="font-size:11px" onclick="adminWipeUserPfp()">🚫 Wipe PFP</button>
+            <button class="btn-g" style="font-size:11px" onclick="adminPickColor()">🎨 Set Color</button>
+            <button class="btn-g" style="font-size:11px" onclick="adminSetBio()">📝 Set Bio</button>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Security / Access</div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <button class="btn-g" style="font-size:11px;color:#f87171" onclick="adminResetPassword()">🔑 Reset Password</button>
+            <button class="btn-g" style="font-size:11px;color:#f87171" onclick="adminForceLogout()">🚪 Force Logout</button>
+            <button class="btn-g" style="font-size:11px;color:#fb923c" onclick="adminFreezeUser()">🧊 Freeze (mute)</button>
+            <button class="btn-g" style="font-size:11px" onclick="adminUnfreezeUser()">🔥 Unfreeze</button>
+          </div>
+        </div>
       </div>
-      <div id="admin-users-result" style="margin-top:10px;font-size:12px;color:var(--t3)"></div>
+
+      <div style="border-top:1px solid var(--border);padding-top:10px;margin-bottom:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Server Actions</div>
+        <input class="m-inp" id="admin-server-id-in" placeholder="Server ID..." maxlength="32" style="margin-bottom:6px;font-size:11px;font-family:'DM Mono',monospace">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn-g" style="font-size:11px;color:#f87171" onclick="adminKickFromServer()">👢 Kick from Server</button>
+          <button class="btn-g" style="font-size:11px" onclick="adminAddMember()">➕ Add to Server</button>
+          <button class="btn-g" style="font-size:11px;color:#f87171" onclick="adminDeleteServerByInput()">🗑 Delete Server</button>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:10px;margin-bottom:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">System DM + Impersonate</div>
+        <textarea class="m-inp" id="admin-sysdm-text" placeholder="Send a system message to this user's DMs..." maxlength="2000" rows="2" style="resize:vertical;margin-bottom:6px"></textarea>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+          <button class="btn-p" style="font-size:11px" onclick="adminSendSystemDM()">📨 Send System DM</button>
+          <button class="btn-g" style="font-size:11px;color:#c084fc" onclick="adminImpersonateSend()">🎭 Post as This User</button>
+        </div>
+        <input class="m-inp" id="admin-imp-ch" placeholder="Channel ID for impersonate post..." style="font-size:11px;font-family:'DM Mono',monospace">
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Admin Notes (internal, never shown to user)</div>
+        <textarea class="m-inp" id="admin-note-text" placeholder="Add a note about this user..." maxlength="1000" rows="2" style="resize:vertical;margin-bottom:6px"></textarea>
+        <button class="btn-g" style="font-size:11px" onclick="adminAddNote()">📌 Save Note</button>
+        <div id="admin-notes-display" style="margin-top:8px;display:flex;flex-direction:column;gap:5px;max-height:200px;overflow-y:auto"></div>
+      </div>
+
+      <div id="admin-users-result" style="margin-top:10px;font-size:12px;color:var(--t3);background:var(--s3);border-radius:6px;padding:8px 10px;min-height:26px;border:1px solid var(--border)"></div>
+      <input type="file" id="admin-pfp-file" accept="image/*" style="display:none" onchange="onAdminPfpChange(event)">
+      <input type="color" id="admin-color-pick" style="display:none" onchange="adminApplyColor(this.value)">
     </div>
-    <!-- ACCOUNTS -->
+
+    <!-- ── ACCOUNTS ── -->
     <div id="admin-pane-accounts" class="sv-stg-pane">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:12px;color:var(--t3)">All registered accounts on the platform.</div>
+        <div style="font-size:12px;color:var(--t3)">All registered accounts. Click any to view.</div>
         <button class="btn-g" style="font-size:11px;padding:5px 10px;flex-shrink:0" onclick="adminLoadAccounts()">↻ Refresh</button>
       </div>
       <input class="m-inp" id="admin-acct-search" placeholder="Search by username..." oninput="adminFilterAccounts()" style="margin-bottom:10px">
-      <div id="admin-acct-list" style="display:flex;flex-direction:column;gap:6px;max-height:380px;overflow-y:auto"></div>
+      <div id="admin-acct-list" style="display:flex;flex-direction:column;gap:6px;max-height:480px;overflow-y:auto"></div>
     </div>
-    <!-- BANS -->
-    <div id="admin-pane-bans" class="sv-stg-pane">
-      <div style="font-size:12px;color:var(--t3);margin-bottom:10px">Ban or unban users. Duration: 30m, 2h, 7d, permanent</div>
-      <input class="m-inp" id="admin-ban-user" placeholder="Username to ban..." maxlength="24" style="margin-bottom:8px">
-      <input class="m-inp" id="admin-ban-dur" placeholder="Duration (e.g. 24h, 7d, permanent)" maxlength="20" style="margin-bottom:8px">
-      <input class="m-inp" id="admin-ban-reason" placeholder="Reason..." maxlength="120" style="margin-bottom:8px">
-      <div style="display:flex;gap:8px">
-        <button class="btn-g" style="font-size:12px;color:var(--red);flex:1" onclick="adminBanUser()">🔨 Ban User</button>
-        <button class="btn-g" style="font-size:12px;flex:1" onclick="adminUnbanUser()">✅ Unban User</button>
+
+    <!-- ── SERVERS ── -->
+    <div id="admin-pane-servers" class="sv-stg-pane">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:12px;color:var(--t3)">All servers — manage, edit, clone.</div>
+        <div style="display:flex;gap:5px">
+          <button class="btn-g" style="font-size:11px;padding:5px 10px" onclick="adminCloneServer()">🧬 Clone</button>
+          <button class="btn-g" style="font-size:11px;padding:5px 10px" onclick="adminLoadServers()">↻ Refresh</button>
+        </div>
       </div>
-      <div id="admin-ban-result" style="margin-top:10px;font-size:12px;color:var(--t3)"></div>
+      <input class="m-inp" id="admin-sv-search" placeholder="Search by name or owner..." oninput="adminFilterServers()" style="margin-bottom:10px">
+      <div id="admin-sv-list" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;margin-bottom:12px">
+        <div style="font-size:12px;color:var(--t3);padding:8px 0">Click Refresh to load servers.</div>
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Add Channel</div>
+            <input class="m-inp" id="admin-ac-svid" placeholder="Server ID..." style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+            <div style="display:flex;gap:4px;margin-bottom:4px">
+              <input class="m-inp" id="admin-ac-name" placeholder="channel-name..." style="flex:1">
+              <select class="m-inp" id="admin-ac-type" style="padding:6px 8px;flex-shrink:0;width:72px"><option value="text">text</option><option value="voice">voice</option></select>
+            </div>
+            <button class="btn-p" style="font-size:11px;width:100%;margin-bottom:10px" onclick="adminAddChannel()">➕ Add Channel</button>
+
+            <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Delete Channel</div>
+            <input class="m-inp" id="admin-dc-svid" placeholder="Server ID..." style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+            <input class="m-inp" id="admin-dc-chid" placeholder="Channel ID..." style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+            <button class="btn-g" style="font-size:11px;color:var(--red);width:100%" onclick="adminDeleteChannel()">🗑 Delete Channel</button>
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Edit Server</div>
+            <input class="m-inp" id="admin-edit-sv-id" placeholder="Server ID..." style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+            <input class="m-inp" id="admin-rn-name" placeholder="New name..." style="margin-bottom:4px">
+            <textarea class="m-inp" id="admin-sv-desc-text" placeholder="Description..." rows="2" style="resize:vertical;margin-bottom:4px"></textarea>
+            <div style="display:flex;gap:4px;margin-bottom:4px;flex-wrap:wrap">
+              <button class="btn-g" style="font-size:11px;flex:1" onclick="adminRenameServer()">✏️ Rename</button>
+              <button class="btn-g" style="font-size:11px;flex:1" onclick="adminSetServerDesc()">📄 Set Desc</button>
+            </div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <button class="btn-g" style="font-size:11px;flex:1" onclick="adminSetServerPublic(true)">🌐 Make Public</button>
+              <button class="btn-g" style="font-size:11px;flex:1" onclick="adminSetServerPublic(false)">🔒 Make Private</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="admin-sv-result" style="margin-top:10px;font-size:12px;color:var(--t3)"></div>
     </div>
-    <!-- DMs -->
+
+    <!-- ── BANS ── -->
+    <div id="admin-pane-bans" class="sv-stg-pane">
+      <div style="font-size:11px;color:var(--t3);margin-bottom:8px">Duration: 30m, 2h, 7d, permanent</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:5px">
+        <input class="m-inp" id="admin-ban-user" placeholder="Username to ban..." maxlength="24">
+        <input class="m-inp" id="admin-ban-dur" placeholder="Duration (24h, 7d, permanent)" maxlength="20">
+      </div>
+      <input class="m-inp" id="admin-ban-reason" placeholder="Reason..." maxlength="120" style="margin-bottom:7px">
+      <div style="display:flex;gap:7px;margin-bottom:12px">
+        <button class="btn-g" style="font-size:12px;color:var(--red);flex:1" onclick="adminBanUser()">🔨 Ban</button>
+        <button class="btn-g" style="font-size:12px;flex:1" onclick="adminUnbanUser()">✅ Unban</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Active Bans</div>
+            <button class="btn-g" style="font-size:10px;padding:3px 7px" onclick="adminLoadBans()">↻</button>
+          </div>
+          <div id="admin-bans-list" style="display:flex;flex-direction:column;gap:4px;max-height:280px;overflow-y:auto"><div style="font-size:12px;color:var(--t3)">Click ↻ to load.</div></div>
+        </div>
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em">Frozen Users</div>
+            <button class="btn-g" style="font-size:10px;padding:3px 7px" onclick="adminLoadFrozen()">↻</button>
+          </div>
+          <div id="admin-frozen-list" style="display:flex;flex-direction:column;gap:4px;max-height:280px;overflow-y:auto"><div style="font-size:12px;color:var(--t3)">Click ↻ to load.</div></div>
+        </div>
+      </div>
+      <div id="admin-ban-result" style="margin-top:8px;font-size:12px;color:var(--t3)"></div>
+    </div>
+
+    <!-- ── MESSAGES ── -->
+    <div id="admin-pane-messages" class="sv-stg-pane">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">View Channel</div>
+          <input class="m-inp" id="admin-view-ch-id" placeholder="Channel ID..." style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+          <div style="display:flex;gap:4px;margin-bottom:8px">
+            <button class="btn-p" style="font-size:11px;flex:1" onclick="adminViewChannel()">👁 View</button>
+            <button class="btn-g" style="font-size:11px;flex:1" onclick="adminExportChannel()">⬇️ Export</button>
+          </div>
+
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Wipe Channel</div>
+          <input class="m-inp" id="admin-wipe-ch-id" placeholder="Channel ID..." style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+          <button class="btn-g" style="font-size:11px;color:var(--red);width:100%;margin-bottom:8px" onclick="adminWipeChannel()">🗑 Wipe History</button>
+
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Lock / Unlock Channel</div>
+          <input class="m-inp" id="admin-lock-ch-id" placeholder="Channel ID..." style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+          <div style="display:flex;gap:4px;margin-bottom:8px">
+            <button class="btn-g" style="font-size:11px;color:#f87171;flex:1" onclick="adminLockChannel(true)">🔒 Lock</button>
+            <button class="btn-g" style="font-size:11px;flex:1" onclick="adminLockChannel(false)">🔓 Unlock</button>
+          </div>
+
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Slowmode</div>
+          <input class="m-inp" id="admin-slow-ch-id" placeholder="Channel ID..." style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+          <input class="m-inp" id="admin-slow-secs" placeholder="Seconds (0 = disable)" type="number" min="0" max="3600" style="margin-bottom:4px">
+          <button class="btn-g" style="font-size:11px;width:100%" onclick="adminSetSlowmode()">🐌 Set Slowmode</button>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Delete Message</div>
+          <input class="m-inp" id="admin-del-msg-ch" placeholder="Channel ID..." style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+          <input class="m-inp" id="admin-del-msg-id" placeholder="Message ID..." style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+          <button class="btn-g" style="font-size:11px;color:var(--red);width:100%;margin-bottom:8px" onclick="adminDeleteMessage()">🗑 Delete Message</button>
+
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Edit Message</div>
+          <input class="m-inp" id="admin-edit-msg-ch" placeholder="Channel ID..." style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+          <input class="m-inp" id="admin-edit-msg-id" placeholder="Message ID..." style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+          <textarea class="m-inp" id="admin-edit-msg-text" placeholder="New text..." rows="2" style="resize:vertical;margin-bottom:4px"></textarea>
+          <button class="btn-g" style="font-size:11px;width:100%;margin-bottom:8px" onclick="adminEditMessage()">✏️ Edit Message</button>
+
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Purge User's Messages</div>
+          <input class="m-inp" id="admin-purge-user" placeholder="Username..." maxlength="24" style="margin-bottom:4px">
+          <input class="m-inp" id="admin-purge-sv" placeholder="Server ID..." style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+          <button class="btn-g" style="font-size:11px;color:var(--red);width:100%;margin-bottom:8px" onclick="adminPurgeUserMessages()">🧹 Purge All</button>
+
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Delete DM History</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px">
+            <input class="m-inp" id="admin-dmdel-a" placeholder="User A..." maxlength="24">
+            <input class="m-inp" id="admin-dmdel-b" placeholder="User B..." maxlength="24">
+          </div>
+          <button class="btn-g" style="font-size:11px;color:var(--red);width:100%" onclick="adminDeleteDmHistory()">🗑 Delete DM History</button>
+        </div>
+      </div>
+      <div id="admin-ch-view-result" style="max-height:220px;overflow-y:auto;margin-top:10px;display:none;background:var(--s3);border-radius:8px;padding:8px;border:1px solid var(--border)"></div>
+      <div id="admin-msgs-result" style="margin-top:8px;font-size:12px;color:var(--t3)"></div>
+    </div>
+
+    <!-- ── DMs ── -->
     <div id="admin-pane-dms" class="sv-stg-pane">
-      <div style="font-size:12px;color:var(--t3);margin-bottom:10px">View a user's DM conversations (safety moderation). Works even if they're offline.</div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:10px">View any user's DM conversations for safety moderation.</div>
       <input class="m-inp" id="admin-dm-user" placeholder="Username to inspect..." maxlength="24" style="margin-bottom:8px">
       <button class="btn-p" style="font-size:12px" onclick="adminViewDMs()">🔍 Request DM History</button>
-      <div id="admin-dm-result" style="margin-top:10px;font-size:12px;color:var(--t3);max-height:300px;overflow-y:auto"></div>
+      <div id="admin-dm-result" style="margin-top:10px;font-size:12px;color:var(--t3);max-height:420px;overflow-y:auto"></div>
     </div>
-    <!-- ALERT -->
+
+    <!-- ── ONLINE ── -->
+    <div id="admin-pane-online" class="sv-stg-pane">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:12px;color:var(--t3)">All currently connected users.</div>
+        <button class="btn-g" style="font-size:11px;padding:5px 10px;flex-shrink:0" onclick="adminLoadOnline()">↻ Refresh</button>
+      </div>
+      <div id="admin-online-list" style="display:flex;flex-direction:column;gap:5px;max-height:480px;overflow-y:auto"><div style="font-size:12px;color:var(--t3)">Click Refresh to load.</div></div>
+    </div>
+
+    <!-- ── AUDIT LOG ── -->
+    <div id="admin-pane-audit" class="sv-stg-pane">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:12px;color:var(--t3)">Recent admin actions. Most recent first.</div>
+        <div style="display:flex;gap:5px">
+          <button class="btn-g" style="font-size:11px;padding:5px 10px" onclick="adminLoadAuditLog()">↻ Refresh</button>
+          <button class="btn-g" style="font-size:11px;padding:5px 10px;color:var(--red)" onclick="adminClearAuditLog()">🗑 Clear</button>
+        </div>
+      </div>
+      <div id="admin-audit-list" style="display:flex;flex-direction:column;gap:4px;max-height:480px;overflow-y:auto"><div style="font-size:12px;color:var(--t3)">Click Refresh to load.</div></div>
+    </div>
+
+    <!-- ── STATS ── -->
+    <div id="admin-pane-stats" class="sv-stg-pane">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:12px;color:var(--t3)">Live platform statistics.</div>
+        <button class="btn-g" style="font-size:11px;padding:5px 10px;flex-shrink:0" onclick="adminLoadStats()">↻ Refresh</button>
+      </div>
+      <div id="admin-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"><div style="font-size:12px;color:var(--t3)">Click Refresh to load.</div></div>
+      <div style="margin-top:10px;font-size:10px;color:var(--t3);font-family:'DM Mono',monospace" id="admin-stats-meta"></div>
+    </div>
+
+    <!-- ── ALERT ── -->
     <div id="admin-pane-alert" class="sv-stg-pane">
-      <div style="font-size:12px;color:var(--t3);margin-bottom:10px">Send a platform-wide alert to <strong style="color:var(--t1)">all connected users</strong>. Use it for announcements, maintenance, etc.</div>
-      <div class="m-lbl">Alert Title</div>
-      <input class="m-inp" id="admin-alert-title" placeholder="e.g. Scheduled maintenance tonight" maxlength="80" style="margin-bottom:8px">
-      <div class="m-lbl">Message Body</div>
-      <textarea class="m-inp" id="admin-alert-body" placeholder="What do you want to tell everyone?" maxlength="500" rows="4" style="resize:vertical;margin-bottom:10px"></textarea>
-      <button class="btn-p" style="width:100%;background:rgba(168,85,247,.8);border:1px solid rgba(168,85,247,.4)" onclick="adminSendAlert()">📢 Send to Everyone</button>
-      <div id="admin-alert-result" style="margin-top:8px;font-size:12px;color:var(--t3)"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Platform-wide Alert</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:6px">Shown as a banner to all connected users.</div>
+          <input class="m-inp" id="admin-alert-title" placeholder="Alert title..." maxlength="80" style="margin-bottom:5px">
+          <textarea class="m-inp" id="admin-alert-body" placeholder="Message body..." maxlength="500" rows="3" style="resize:vertical;margin-bottom:6px"></textarea>
+          <button class="btn-p" style="width:100%;background:rgba(168,85,247,.8);border:1px solid rgba(168,85,247,.4);margin-bottom:4px" onclick="adminSendAlert()">📢 Send Alert</button>
+          <div id="admin-alert-result" style="font-size:11px;color:var(--t3)"></div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Announcement (Notification)</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:6px">Sends a prominent centered banner to everyone.</div>
+          <textarea class="m-inp" id="admin-announce-text" placeholder="Announcement text..." maxlength="500" rows="3" style="resize:vertical;margin-bottom:6px"></textarea>
+          <button class="btn-p" style="width:100%;margin-bottom:12px" onclick="adminSendAnnouncement()">📣 Send Announcement</button>
+
+          <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Mass DM (all users)</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:6px">Sends a system DM to every registered account.</div>
+          <textarea class="m-inp" id="admin-massdm-text" placeholder="Message for everyone..." maxlength="2000" rows="3" style="resize:vertical;margin-bottom:6px"></textarea>
+          <button class="btn-g" style="width:100%;color:#f87171" onclick="adminMassDm()">📨 Send Mass DM</button>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
+        <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Message of the Day (MOTD)</div>
+        <textarea class="m-inp" id="admin-motd-text" placeholder="Shown to every user when they connect. Clear to remove." maxlength="500" rows="2" style="resize:vertical;margin-bottom:6px"></textarea>
+        <div style="display:flex;gap:7px">
+          <button class="btn-p" style="font-size:12px;flex:1" onclick="adminSetMotd()">💾 Save MOTD</button>
+          <button class="btn-g" style="font-size:12px" onclick="adminClearMotd()">✕ Clear</button>
+        </div>
+        <div id="admin-motd-result" style="margin-top:6px;font-size:11px;color:var(--t3)"></div>
+      </div>
+    </div>
+
+    <!-- ── DANGER ── -->
+    <div id="admin-pane-danger" class="sv-stg-pane">
+      <div style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#f87171">⚠️ <strong>Danger Zone.</strong> These actions are irreversible or affect all users. Confirm every action carefully.</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="background:var(--s3);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:12px">
+          <div style="font-size:11px;font-weight:700;color:#f87171;margin-bottom:8px">💥 Nuke Account</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:8px">Permanently deletes an account, all their messages across all servers, DMs, sessions, memberships, bans, and notes. Cannot be undone.</div>
+          <input class="m-inp" id="admin-nuke-user" placeholder="Username to nuke..." maxlength="24" style="margin-bottom:6px">
+          <button class="btn-g" style="font-size:12px;color:#f87171;width:100%" onclick="adminNukeAccount()">💥 Nuke Account</button>
+        </div>
+
+        <div style="background:var(--s3);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:12px">
+          <div style="font-size:11px;font-weight:700;color:#f87171;margin-bottom:8px">🔧 Maintenance Mode</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:8px">When enabled, all non-admin users are kicked and cannot reconnect. Only Puck can connect during maintenance.</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn-g" style="font-size:12px;flex:1;color:#f87171" id="admin-maint-on-btn" onclick="adminSetMaintenance(true)">🔧 Enable</button>
+            <button class="btn-g" style="font-size:12px;flex:1" id="admin-maint-off-btn" onclick="adminSetMaintenance(false)">✅ Disable</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
