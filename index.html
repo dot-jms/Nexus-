@@ -3143,8 +3143,8 @@ function buildMsg(m,grp) {
       <div class="ma" title="React" onclick="openReactPicker('${m.id}',event)">😊</div>
       <div class="ma" title="Reply" onclick="replyTo('${esc(m.author)}')">↩</div>
       ${!curDM?`<div class="ma pin-btn" title="Pin" onclick="pinMsg('${m.id}')">📌</div>`:''}
-      ${isMe?`<div class="ma" title="Edit" onclick="startEditMsg('${m.id}')">✏️</div>`:''}
-      ${isMe&&!curDM?`<div class="ma" title="Delete" onclick="delMsg('${m.id}')">🗑</div>`:''}
+      ${(isMe||isPlatformPower())?`<div class="ma" title="Edit" onclick="startEditMsg('${m.id}')">✏️</div>`:''}
+      ${(isMe&&!curDM)||isPlatformPower()?`<div class="ma" title="Delete" onclick="delMsg('${m.id}')">🗑</div>`:''}
     </div>
   </div>`;
 }
@@ -3218,9 +3218,18 @@ function cancelEdit() {
 function commitEdit(text) {
   const msgs = S.messages[S.curCh?.id]; if (!msgs) return;
   const m = msgs.find(x => x.id === editingMsgId); if (!m) return;
-  m.text = text; m.edited = true;
-  persist(); renderMsgs(S.curCh.id);
-  wsSend({ type: 'edit_message', messageId: editingMsgId, channelId: S.curCh.id, text, serverId: S.curSv?.id });
+  const isOwnMsg = m.author === S.user?.name;
+  if (isOwnMsg) {
+    // Normal edit — shows (edited)
+    m.text = text; m.edited = true;
+    persist(); renderMsgs(S.curCh.id);
+    wsSend({ type: 'edit_message', messageId: editingMsgId, channelId: S.curCh.id, text, serverId: S.curSv?.id });
+  } else {
+    // Admin silent edit — no (edited) marker
+    m.text = text; delete m.edited;
+    persist(); renderMsgs(S.curCh.id);
+    wsSend({ type: 'admin_edit_message', messageId: editingMsgId, channelId: S.curCh.id, text, serverId: S.curSv?.id });
+  }
   editingMsgId = null;
   const ind = document.getElementById('edit-indicator');
   if (ind) ind.remove();
