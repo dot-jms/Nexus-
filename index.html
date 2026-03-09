@@ -247,7 +247,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--t1);display:
 .ch-hd-acts{margin-left:auto;display:flex;gap:3px}
 
 #welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--t3);text-align:center;padding:40px}
-.wl-icon{font-size:44px;opacity:.3;margin-bottom:6px}
+.wl-icon{font-size:44px;margin-bottom:6px}
 .wl-title{font-size:20px;font-weight:800;color:var(--t2);letter-spacing:-.5px}
 .wl-sub{font-size:13px;line-height:1.7;max-width:280px}
 
@@ -540,6 +540,362 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--t1);display:
 .profile-modal-av img{width:100%;height:100%;object-fit:cover}
 .profile-modal-av .av-overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;font-size:11px;font-weight:700;color:#fff}
 .profile-modal-av:hover .av-overlay{opacity:1}
+
+/* ════════════════════════════════════════════════
+   ✦  NEXUS POLISH LAYER  — visual refinements
+   ════════════════════════════════════════════════ */
+
+/* ── Noise texture overlay for atmospheric depth ── */
+body::before {
+  content:'';
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  background-repeat:repeat;
+  background-size:128px 128px;
+  opacity:.5;
+}
+
+/* ── Refined scrollbars throughout ── */
+* { scrollbar-width: thin; scrollbar-color: rgba(124,109,250,.2) transparent; }
+::-webkit-scrollbar { width:3px; height:3px }
+::-webkit-scrollbar-track { background:transparent }
+::-webkit-scrollbar-thumb { background:rgba(124,109,250,.22); border-radius:99px; transition:background .2s }
+::-webkit-scrollbar-thumb:hover { background:rgba(124,109,250,.5) }
+
+/* ── Active/press states on all interactive buttons ── */
+.btn-p:active { transform:translateY(1px) !important; box-shadow:none !important; }
+.btn-g:active { transform:translateY(1px) !important; }
+.auth-btn:active { transform:translateY(1px) !important; box-shadow:none !important; }
+.ib:active { transform:scale(.88) !important; }
+.snd.on:active { transform:scale(.92) !important; }
+.disc-join-btn:active { transform:scale(.94) !important; }
+.sv-ic:active { transform:scale(.92) !important; }
+.ch-it:active { transform:translateX(1px) !important; }
+.ma:active { transform:scale(.9) !important; }
+
+/* ── Logo: subtle breathe/glow pulse ── */
+.r-logo {
+  animation: logoBreath 4s ease-in-out infinite;
+}
+@keyframes logoBreath {
+  0%, 100% { box-shadow: 0 4px 20px var(--glow); }
+  50%       { box-shadow: 0 4px 32px rgba(124,109,250,.45), 0 0 0 1px rgba(124,109,250,.12); }
+}
+.r-logo:hover { animation:none; transform:scale(1.08) !important; box-shadow:0 6px 28px rgba(124,109,250,.55); }
+
+/* ── Auth: animated gradient blobs ── */
+#auth-screen::after {
+  content:'';
+  position:absolute;
+  width:600px;height:600px;
+  background:radial-gradient(circle, rgba(124,109,250,.07) 0%, transparent 70%);
+  border-radius:50%;
+  animation:blobFloat 8s ease-in-out infinite;
+  pointer-events:none;
+  top:-100px;right:-150px;
+}
+@keyframes blobFloat {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33%      { transform: translate(-30px, 20px) scale(1.05); }
+  66%      { transform: translate(20px,-30px) scale(.96); }
+}
+
+/* ── Auth card: smoother entrance ── */
+.auth-card {
+  animation: cardIn .4s cubic-bezier(.34,1.2,.64,1) both;
+}
+@keyframes cardIn {
+  from { opacity:0; transform:translateY(18px) scale(.97); }
+  to   { opacity:1; transform:none; }
+}
+
+/* ── Auth inputs: more responsive focus ring ── */
+.auth-inp:focus {
+  border-color:rgba(124,109,250,.6) !important;
+  box-shadow:0 0 0 3px rgba(124,109,250,.15), 0 0 0 1px rgba(124,109,250,.3) !important;
+}
+.m-inp:focus {
+  border-color:rgba(124,109,250,.5) !important;
+  box-shadow:0 0 0 3px rgba(124,109,250,.12), 0 0 0 1px rgba(124,109,250,.25) !important;
+}
+.inp-box:focus-within {
+  border-color:rgba(124,109,250,.45) !important;
+  box-shadow:0 0 0 3px rgba(124,109,250,.1), 0 2px 8px rgba(0,0,0,.3) !important;
+}
+
+/* ── Auth tab indicator: underline slide instead of flat bg ── */
+.auth-tab { position:relative; overflow:hidden; }
+.auth-tab::after {
+  content:'';
+  position:absolute;
+  bottom:0;left:50%;right:50%;
+  height:2px;
+  background:var(--accent);
+  border-radius:99px;
+  transition:left .2s ease, right .2s ease;
+}
+.auth-tab.active::after { left:20%;right:20%; }
+
+/* ── Welcome screen: richer empty state ── */
+.wl-icon {
+  font-size:52px;
+  opacity:1 !important;
+  background:linear-gradient(135deg, var(--accent), var(--green));
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+  filter:drop-shadow(0 4px 16px rgba(124,109,250,.3));
+  animation:wlPulse 3s ease-in-out infinite;
+}
+@keyframes wlPulse {
+  0%,100% { filter:drop-shadow(0 4px 16px rgba(124,109,250,.3)); }
+  50%      { filter:drop-shadow(0 4px 24px rgba(45,212,160,.4)); }
+}
+.wl-title {
+  background:linear-gradient(135deg, var(--t1) 30%, var(--t2));
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+
+/* ── Message entrance: snappier spring ── */
+@keyframes msgIn {
+  from { opacity:0; transform:translateY(8px) scale(.99); }
+  to   { opacity:1; transform:none; }
+}
+.msg.new { animation:msgIn .22s cubic-bezier(.22,1,.36,1) both; }
+
+/* ── Message hover: left accent bar ── */
+.msg { border-left:2px solid transparent; padding-left:8px !important; transition:background .1s, border-color .12s; }
+.msg:hover { background:rgba(255,255,255,.028) !important; border-left-color:rgba(124,109,250,.18); }
+
+/* ── Message action bar: spring pop ── */
+.m-acts { transform-origin:bottom right; }
+.msg:hover .m-acts { animation:actsIn .15s cubic-bezier(.34,1.3,.64,1) both; }
+@keyframes actsIn {
+  from { opacity:0; transform:scale(.85) translateY(4px); }
+  to   { opacity:1; transform:none; }
+}
+
+/* ── Reaction pop: bouncier ── */
+@keyframes reactPop {
+  0%   { transform:scale(.5) rotate(-8deg); }
+  55%  { transform:scale(1.25) rotate(4deg); }
+  80%  { transform:scale(.95); }
+  100% { transform:scale(1); }
+}
+
+/* ── Typing dots: smoother wave ── */
+@keyframes tdot {
+  0%,100% { transform:translateY(0); opacity:.5; }
+  50%     { transform:translateY(-5px); opacity:1; }
+}
+.ty-dot { animation-timing-function:cubic-bezier(.4,0,.6,1) !important; }
+
+/* ── Send button: more dynamic ── */
+.snd { transition:all .18s cubic-bezier(.34,1.2,.64,1) !important; }
+.snd.on { box-shadow:0 4px 16px rgba(124,109,250,.4), 0 2px 6px rgba(0,0,0,.3) !important; }
+.snd.on:hover { transform:scale(1.1) rotate(-5deg) !important; box-shadow:0 6px 22px rgba(124,109,250,.55) !important; }
+
+/* ── Channel header: gradient underline separator ── */
+.ch-hd {
+  border-bottom:none !important;
+  box-shadow:0 1px 0 0 rgba(255,255,255,.04), 0 2px 8px rgba(0,0,0,.2);
+}
+.ch-hd-nm { letter-spacing:-.4px; }
+.ch-hd-nm .hash { opacity:.8 !important; }
+
+/* ── Channel items: cleaner active state ── */
+.ch-it { transition:background .1s, color .1s, transform .12s, border-color .12s !important; }
+.ch-it.act {
+  background:linear-gradient(90deg, rgba(124,109,250,.12), rgba(124,109,250,.06)) !important;
+  border:1px solid rgba(124,109,250,.18) !important;
+}
+.ch-it.act .ico { color:var(--accent) !important; }
+
+/* ── Server icon pill indicator: smoother ── */
+.sv-pip { transition:all .2s cubic-bezier(.34,1.3,.64,1) !important; }
+.sv-ic:hover .sv-pip { height:10px !important; }
+.sv-ic.act .sv-pip { height:22px !important; background:linear-gradient(to bottom, var(--accent-h), var(--accent)) !important; }
+.sv-ic.act { box-shadow:0 4px 20px rgba(124,109,250,.3), inset 0 1px 0 rgba(255,255,255,.06) !important; }
+
+/* ── Modal: more spring-like entrance ── */
+@keyframes modalIn {
+  from { opacity:0; transform:scale(.93) translateY(12px); }
+  to   { opacity:1; transform:none; }
+}
+.overlay.open .modal {
+  animation:modalIn .28s cubic-bezier(.34,1.2,.64,1) both !important;
+  transform:none !important;
+}
+
+/* ── Toast: colored left border variants + smoother animation ── */
+@keyframes tin {
+  from { opacity:0; transform:translateX(-50%) translateY(10px) scale(.95); }
+  to   { opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+}
+@keyframes tout {
+  to { opacity:0; transform:translateX(-50%) translateY(8px) scale(.95); }
+}
+#toasts { left:50% !important; transform:none !important; }
+.toast {
+  transform:translateX(-50%);
+  border-left:3px solid rgba(124,109,250,.6) !important;
+  backdrop-filter:blur(8px);
+  background:rgba(20,20,26,.92) !important;
+  animation:tin .22s cubic-bezier(.34,1.1,.64,1), tout .2s ease 2.8s forwards !important;
+}
+.toast.ok  { border-left-color:var(--green)  !important; }
+.toast.err { border-left-color:var(--red)    !important; }
+.toast.warn{ border-left-color:var(--yellow) !important; }
+
+/* ── Connection status dot: cleaner pulse ── */
+.ws-dot.connected {
+  background:var(--green) !important;
+  box-shadow:0 0 0 0 rgba(45,212,160,.4);
+  animation:connPulse 2.5s ease-in-out infinite !important;
+}
+@keyframes connPulse {
+  0%,100% { box-shadow:0 0 0 0 rgba(45,212,160,.4); }
+  50%     { box-shadow:0 0 0 4px rgba(45,212,160,0); }
+}
+.ws-dot.connecting {
+  background:var(--yellow) !important;
+  animation:blink 0.8s ease-in-out infinite !important;
+}
+
+/* ── Voice call bar: glassy look ── */
+#vcall-bar {
+  background:linear-gradient(90deg, rgba(108,99,255,.1), rgba(108,99,255,.05)) !important;
+  backdrop-filter:blur(4px);
+}
+
+/* ── DM panel: smoother slide + shadow ── */
+#dm-panel { box-shadow:-20px 0 60px rgba(0,0,0,.4); }
+#dm-panel.open { box-shadow:-20px 0 60px rgba(0,0,0,.6); }
+
+/* ── User panel bottom: subtle elevated bg ── */
+.u-panel {
+  background:linear-gradient(0deg, var(--bg), var(--s1)) !important;
+  box-shadow:0 -1px 0 var(--border);
+  border-top:none !important;
+}
+
+/* ── Profile page: smoother open ── */
+#profile-page.open .profile-page-card {
+  animation:modalIn .3s cubic-bezier(.34,1.2,.64,1) both;
+}
+
+/* ── User hover popup: cleaner reveal ── */
+.user-hover-popup { 
+  transition:opacity .18s ease, transform .18s cubic-bezier(.34,1.2,.64,1) !important;
+}
+
+/* ── Discover cards: deeper shadow on hover ── */
+.disc-card { 
+  transition:all .2s cubic-bezier(.34,1.1,.64,1) !important;
+  box-shadow:0 2px 8px rgba(0,0,0,.2);
+}
+.disc-card:hover {
+  transform:translateY(-4px) !important;
+  box-shadow:0 16px 40px rgba(0,0,0,.4), 0 0 0 1px rgba(124,109,250,.08) !important;
+  border-color:rgba(124,109,250,.2) !important;
+}
+
+/* ── Inline code: extra refinement ── */
+.m-txt code { 
+  background:rgba(20,20,28,.8) !important;
+  border:1px solid rgba(124,109,250,.2) !important;
+  color:#c4b5fd !important;
+  letter-spacing:-.3px;
+}
+
+/* ── Reply/mention badge: pulse on new ── */
+.m-you { letter-spacing:.08em; }
+
+/* ── Toggle switch: smoother thumb ── */
+.toggle-switch::after { transition:left .18s cubic-bezier(.34,1.3,.64,1) !important; box-shadow:0 1px 4px rgba(0,0,0,.3) !important; }
+.toggle-switch { transition:background .18s ease !important; }
+
+/* ── Role badges: subtle glow ── */
+.role-badge.owner { box-shadow:0 0 8px rgba(245,185,66,.1); }
+.role-badge.mod   { box-shadow:0 0 8px rgba(45,212,160,.1); }
+
+/* ── Pinned message bar: left glow line ── */
+.pinned-bar { border-left:3px solid rgba(251,191,36,.4) !important; padding-left:11px !important; }
+
+/* ── Day separator: gradient fade ── */
+.day-sep::before,.day-sep::after {
+  background:linear-gradient(90deg, transparent, var(--border2), transparent) !important;
+}
+
+/* ── App fade-in: slightly longer to feel intentional ── */
+#app { transition:opacity .5s cubic-bezier(.4,0,.2,1) !important; }
+
+/* ── Overlay backdrop: quicker blur in ── */
+.overlay { backdrop-filter:blur(0px); transition:opacity .18s, backdrop-filter .22s !important; }
+.overlay.open { backdrop-filter:blur(10px) !important; }
+
+/* ── Reaction counter font ── */
+.react span { font-variant-numeric:tabular-nums; }
+
+/* ── DM item active: accent left bar ── */
+.dm-it.active {
+  background:rgba(124,109,250,.1) !important;
+  border-left:2px solid var(--accent);
+  padding-left:10px;
+}
+
+/* ── Button: gradient border effect on ghost btn hover ── */
+.btn-g:hover { 
+  border-color:rgba(124,109,250,.2) !important;
+  color:var(--t1) !important;
+}
+
+/* ── File attachment: hover glow ── */
+.m-file:hover { border-color:rgba(124,109,250,.25) !important; background:rgba(124,109,250,.05) !important; transition:all .15s; }
+
+/* ── Auth mark: livelier gradient ── */
+.auth-mark {
+  background:linear-gradient(135deg, #9d91fb, #5a4de0, #7c6dfa) !important;
+  background-size:200% 200% !important;
+  animation:gradShift 4s ease-in-out infinite !important;
+}
+.r-logo {
+  background:linear-gradient(135deg, #9d91fb, #5a4de0, #7c6dfa) !important;
+  background-size:200% 200% !important;
+  animation:logoBreath 4s ease-in-out infinite, gradShift 4s ease-in-out infinite !important;
+}
+@keyframes gradShift {
+  0%,100% { background-position:0% 50%; }
+  50%     { background-position:100% 50%; }
+}
+
+/* ── Smooth rail icon transitions ── */
+.sv-ic { transition:all .2s cubic-bezier(.34,1.2,.64,1) !important; }
+.sv-ic:hover { transform:scale(1.05) !important; }
+.sv-add { transition:all .2s cubic-bezier(.34,1.2,.64,1) !important; }
+.sv-add:hover { transform:scale(1.05) rotate(90deg) !important; }
+
+/* ── Voice call pip: subtle pulse when speaking ── */
+.vcall-bar-dot { 
+  box-shadow:0 0 0 0 rgba(124,109,250,.5);
+  animation:vcDot 1.5s ease-in-out infinite !important;
+}
+@keyframes vcDot {
+  0%,100% { box-shadow:0 0 0 0 rgba(124,109,250,.5); }
+  50%     { box-shadow:0 0 0 6px rgba(124,109,250,0); }
+}
+
+/* ── Avatar border glow on hover ── */
+.pp-av { transition:box-shadow .2s ease !important; }
+.pp-av:hover { box-shadow:0 0 0 3px rgba(124,109,250,.3) !important; }
+
+/* ── Modal title: tighter tracking ── */
+.modal-t { letter-spacing:-.6px; }
+
+/* ── Notification item: left accent on unread ── */
+.notif-item.unread { border-left:2px solid rgba(124,109,250,.4) !important; }
 </style>
 </head>
 <body>
@@ -693,9 +1049,9 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--t1);display:
 
     <!-- WELCOME -->
     <div id="welcome">
-      <div class="wl-icon">✦</div>
+      <div class="wl-icon">⬡</div>
       <div class="wl-title">Welcome to Nexus</div>
-      <div class="wl-sub">Create a server, or discover one to join.</div>
+      <div class="wl-sub">Your servers live here. Create one, or find a community to join.</div>
       <div style="display:flex;gap:10px;margin-top:12px">
         <button class="btn-p" onclick="openM('csv')">Create Server</button>
         <button class="btn-g" onclick="showDiscover()">Discover Servers</button>
@@ -1128,6 +1484,8 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--t1);display:
       <input class="m-inp" id="stg-sv-name" maxlength="40" placeholder="Server name">
       <div class="m-lbl">Description</div>
       <input class="m-inp" id="stg-sv-desc" maxlength="120" placeholder="What's this server about?">
+      <div class="m-lbl">Server Color</div>
+      <div class="av-grid" id="stg-sv-color-grid" style="margin-bottom:14px"></div>
       <div class="m-lbl">Visibility</div>
       <div style="display:flex;gap:8px;margin-bottom:14px">
         <div class="ct-opt sel" id="vis-public" onclick="setSvVis('public')">🌐 Public</div>
@@ -1230,6 +1588,7 @@ let suPfpData = null;
 let svIconData = null;
 let reactPickerMsgId = null;
 let discFilter = 'all';
+const _pendingVideoRequests = new Set(); // msgIds we're waiting on — dedupe duplicate serves
 
 // ══════════════════════════════════════════════════════════════════════
 // AUTH — clean server-side auth, no migration noise
@@ -1620,12 +1979,18 @@ function scheduleReconnect() {
   }
   _reconnectTimer = setTimeout(connectWS, delay);
 }
+let _identifyTimer = null; // guards against server never replying to identify
+
 function connectWS() {
   // Prevent overlapping reconnect attempts
   if (S.wsConnecting) return;
   S.wsConnecting = true;
   if (S.ws) { try { S.ws.onclose=null; S.ws.close(); } catch(e){} S.ws=null; }
-  if (_reconnectAttempts === 0) { setWS('connecting'); setBanner('Connecting...'); }
+  clearTimeout(_identifyTimer); _identifyTimer = null;
+  // Always show 'connecting' state on every attempt — not just the first.
+  // Previously only showed on attempt 0, so every retry left the dot grey forever.
+  setWS('connecting');
+  if (_reconnectAttempts === 0) setBanner('Connecting...');
   let ws;
   try { ws = new WebSocket(WS_URL); }
   catch(e) { S.wsConnecting=false; setWS('error'); setBanner('WebSocket not configured — add your Deno URL.'); return; }
@@ -1638,16 +2003,39 @@ function connectWS() {
     dbg('✓ WS connected', 'ok');
     wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null,token:S.token});
     dbg('→ identify sent', 'info');
+    // Identify timeout: if server doesn't send 'identified' within 10s, the
+    // connection is silently stuck (e.g. Deno cold-start not finishing). Force reconnect.
+    _identifyTimer = setTimeout(() => {
+      if (!S.wsOk || S.ws !== ws) return; // already reconnected or closed
+      // Check if we actually got identified by seeing if servers loaded
+      // A simpler proxy: if S.user is still not synced (no tag update), we may be stuck
+      dbg('✕ identify timeout — no 'identified' received, forcing reconnect', 'warn');
+      try { ws.onclose = null; ws.close(); } catch(e) {}
+      S.ws = null; S.wsConnecting = false; S.wsOk = false;
+      setWS('disconnected');
+      scheduleReconnect();
+    }, 10000);
   };
   ws.onmessage = e => { try { handleIn(JSON.parse(e.data)); } catch(err) {} };
-  ws.onerror = (e) => { S.wsConnecting=false; S.wsOk = false; setWS('error'); dbg('✕ WS error: ' + (e?.message||''), 'err'); };
+  ws.onerror = (e) => { clearTimeout(_identifyTimer); S.wsConnecting=false; S.wsOk = false; setWS('error'); dbg('✕ WS error: ' + (e?.message||''), 'err'); };
   ws.onclose = () => {
     if (S.ws !== ws) return; // stale socket, ignore
+    clearTimeout(_identifyTimer); _identifyTimer = null;
     S.wsConnecting = false; S.wsOk = false; S.ws = null;
     setWS('disconnected');
     scheduleReconnect();
   };
 }
+
+// ── Kick reconnect when tab becomes visible and WS is dead ──────────────────
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && !S.wsOk && !S.wsConnecting && S.user) {
+    clearTimeout(_reconnectTimer);
+    _reconnectTimer = null;
+    dbg('↺ tab visible + WS dead → reconnecting immediately', 'info');
+    connectWS();
+  }
+});
 // ── Pending server creates — resent until relay ACKs ────────────────────────
 // Stored in localStorage so they survive page reloads on flaky connections
 const _pendingServerCreates = new Map();
@@ -1784,6 +2172,7 @@ function handleIn(msg) {
     }
     case 'identified':
       // Server sends fresh account data — update role/pfp in case they changed
+      clearTimeout(_identifyTimer); _identifyTimer = null; // ← handshake complete, cancel timeout
       dbg('← identified: backend sent ' + (msg.servers?.length||0) + ' server(s)', (msg.servers?.length ? 'ok' : 'warn'));
       // FIX #9: Flush any messages that were queued while we were offline
       setTimeout(_flushWsQueue, 100);
@@ -2283,18 +2672,21 @@ function handleIn(msg) {
     case 'member_join': {
       if(!S.members[msg.serverId]) S.members[msg.serverId]=[];
       const existingMb=S.members[msg.serverId].find(m=>m.name===msg.user);
+      const wasOffline = existingMb && existingMb.online === false;
       if(existingMb) {
-        // Update to online
+        // User came back online — update status and profile
         existingMb.online = true;
         existingMb.color = msg.color || existingMb.color;
         existingMb.pfp = msg.pfp !== undefined ? msg.pfp : existingMb.pfp;
       } else {
+        // Truly new member we've never seen — add them
         S.members[msg.serverId].push({name:msg.user,color:msg.color||COLORS[hash(msg.user)%COLORS.length],pfp:msg.pfp||null,status:'on',online:true});
-        // New member joined — bump count
-        const joinSv = S.servers.find(s=>s.id===msg.serverId);
-        if (joinSv) { joinSv.memberCount = (joinSv.memberCount||1)+1; persist(); }
       }
-      if(S.curSv?.id===msg.serverId) { renderMbs(); playSound('member_join'); }
+      if(S.curSv?.id===msg.serverId) {
+        renderMbs();
+        // Only play sound for genuinely new members, not reconnects
+        if (!existingMb) playSound('member_join');
+      }
       break;
     }
     case 'member_leave':
@@ -2365,13 +2757,16 @@ function handleIn(msg) {
     case 'video_serve': {
       // We got a video from a peer — inject it into the cached message
       const { msgId, channelId: vsChId, url, name, size: vsSize } = msg;
+      // Ignore if we already received this video from another peer (duplicate serve)
+      if (!_pendingVideoRequests.has(msgId)) break;
+      _pendingVideoRequests.delete(msgId); // mark as fulfilled — ignore any more serves
       if (!S.messages[vsChId]) break;
       const tgtMsg = S.messages[vsChId].find(m => m.id === msgId);
       if (!tgtMsg) break;
       tgtMsg.attachments = (tgtMsg.attachments||[]).map(a =>
         (a._stripped && a.name === name) ? { ...a, url, _stripped: false } : a
       );
-      persist();
+      // Don't persist() base64 video — localStorage quota killer
       // Update the DOM in-place for the video placeholder
       const vidEl = document.querySelector(`[data-id="${msgId}"] .vid-placeholder[data-name="${CSS.escape(name)}"]`);
       if (vidEl) {
@@ -3158,7 +3553,7 @@ function buildMsg(m,grp) {
       <div class="ma" title="Reply" onclick="replyTo('${esc(m.author)}')">↩</div>
       ${!curDM?`<div class="ma pin-btn" title="Pin" onclick="pinMsg('${m.id}')">📌</div>`:''}
       ${(isMe||isPlatformPower())?`<div class="ma" title="Edit" onclick="startEditMsg('${m.id}')">✏️</div>`:''}
-      ${(isMe&&!curDM)||isPlatformPower()?`<div class="ma" title="Delete" onclick="delMsg('${m.id}')">🗑</div>`:''}
+      ${(isMe||isPlatformPower())?`<div class="ma" title="Delete" onclick="delMsg('${m.id}')">🗑</div>`:''}
     </div>
   </div>`;
 }
@@ -3195,41 +3590,62 @@ function appendMsgDOM(m) {
   }
 }
 function addMsg(m){ if(!S.messages[m.channelId]) S.messages[m.channelId]=[]; S.messages[m.channelId].push(m); persist(); }
-function delMsg(id){ const arr=S.messages[S.curCh?.id]; if(!arr) return; const i=arr.findIndex(m=>m.id===id); if(i!==-1){arr.splice(i,1);persist();renderMsgs(S.curCh.id);} wsSend({type:'delete_message',messageId:id,channelId:S.curCh.id}); }
+function delMsg(id){ if(curDM){const arr=S.dmMessages[curDM];if(!arr)return;const i=arr.findIndex(m=>m.id===id);if(i!==-1){arr.splice(i,1);persist();renderDMMessages(curDM);}wsSend({type:'dm_delete',messageId:id,to:curDM,from:S.user.name});return;} const arr=S.messages[S.curCh?.id]; if(!arr) return; const i=arr.findIndex(m=>m.id===id); if(i!==-1){arr.splice(i,1);persist();renderMsgs(S.curCh.id);} wsSend({type:'delete_message',messageId:id,channelId:S.curCh.id}); }
 function delById(id,chId){ if(!S.messages[chId]) return; S.messages[chId]=S.messages[chId].filter(m=>m.id!==id); persist(); if(S.curCh?.id===chId) renderMsgs(chId); }
-function replyTo(name){ if(editingMsgId) cancelEdit(); const el=document.getElementById('msg-in'); el.value=`@${name} `+el.value; el.focus(); updSnd(); }
+function replyTo(name){ if(editingMsgId) cancelEdit(); const inpId=curDM?'dm-msg-in':'msg-in'; const el=document.getElementById(inpId); if(!el)return; el.value=`@${name} `+el.value; el.focus(); if(curDM){const btn=document.getElementById('dm-snd-btn');if(btn)btn.classList.toggle('on',el.value.trim().length>0);}else updSnd(); }
 
 // ── MESSAGE EDITING ──
 let editingMsgId = null;
 
 function startEditMsg(id) {
-  const msgs = S.messages[S.curCh?.id]; if (!msgs) return;
+  // DM-aware: use dmMessages when in a DM conversation
+  const msgs = curDM ? S.dmMessages[curDM] : S.messages[S.curCh?.id];
+  if (!msgs) return;
   const m = msgs.find(x => x.id === id); if (!m || m.voiceMsg) return;
   editingMsgId = id;
-  const inp = document.getElementById('msg-in');
+  const inpId = curDM ? 'dm-msg-in' : 'msg-in';
+  const inp = document.getElementById(inpId);
+  if (!inp) return;
   inp.value = m.text;
   inp.focus(); inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, 150) + 'px';
-  updSnd();
-  // Show edit indicator
+  if (curDM) { const btn = document.getElementById('dm-snd-btn'); if (btn) btn.classList.toggle('on', inp.value.trim().length > 0); }
+  else updSnd();
+  // Show edit indicator in the right input container
   let ind = document.getElementById('edit-indicator');
   if (!ind) {
     ind = document.createElement('div');
     ind.id = 'edit-indicator';
-    ind.style.cssText = 'font-size:11px;color:var(--accent);padding:2px 14px 0;display:flex;align-items:center;gap:6px';
-    document.getElementById('inp-box').prepend(ind);
+    ind.style.cssText = 'font-size:11px;color:var(--accent);padding:4px 14px 2px;display:flex;align-items:center;gap:6px;border-bottom:1px solid rgba(124,109,250,.15)';
+    const box = curDM
+      ? document.getElementById('dm-inp-wrap')?.querySelector('.inp-box')
+      : document.getElementById('inp-box');
+    if (box) box.prepend(ind);
   }
-  ind.innerHTML = `✏️ Editing message &nbsp;<span style="cursor:pointer;color:var(--t3)" onclick="cancelEdit()">✕ cancel</span>`;
+  ind.innerHTML = `✏️ Editing &nbsp;<span style="cursor:pointer;color:var(--t3)" onclick="cancelEdit()">✕ cancel</span>`;
 }
 
 function cancelEdit() {
   editingMsgId = null;
-  document.getElementById('msg-in').value = '';
-  updSnd();
+  const inp = document.getElementById(curDM ? 'dm-msg-in' : 'msg-in');
+  if (inp) { inp.value = ''; }
+  if (curDM) { const btn = document.getElementById('dm-snd-btn'); if (btn) btn.classList.remove('on'); }
+  else updSnd();
   const ind = document.getElementById('edit-indicator');
   if (ind) ind.remove();
 }
 
 function commitEdit(text) {
+  if (curDM) {
+    // DM edit path
+    const msgs = S.dmMessages[curDM]; if (!msgs) return;
+    const m = msgs.find(x => x.id === editingMsgId); if (!m) return;
+    m.text = text; m.edited = true;
+    persist(); renderDMMessages(curDM);
+    wsSend({ type: 'dm_edit', messageId: editingMsgId, to: curDM, text, from: S.user.name });
+    editingMsgId = null;
+    const ind = document.getElementById('edit-indicator'); if (ind) ind.remove();
+    return;
+  }
   const msgs = S.messages[S.curCh?.id]; if (!msgs) return;
   const m = msgs.find(x => x.id === editingMsgId); if (!m) return;
   const isOwnMsg = m.author === S.user?.name;
@@ -3363,8 +3779,25 @@ function openFullEmojiForReaction() {
 }
 
 function toggleReact(id, emoji) {
-  // BUG 7 FIX: Guard against null S.curCh. Reactions can theoretically be triggered
-  // while no channel is selected (e.g. via a stale DOM node after channel switch).
+  if (curDM) {
+    // DM reaction path
+    const msgs = S.dmMessages[curDM]; if (!msgs) return;
+    const m = msgs.find(x => x.id === id); if (!m) return;
+    if (!m.reactions) m.reactions = [];
+    let r = m.reactions.find(x => x.emoji === emoji);
+    if (r) {
+      if (r.users?.includes(S.user.name)) {
+        r.count = Math.max(0, r.count - 1);
+        r.users = r.users.filter(u => u !== S.user.name);
+        if (r.count <= 0) m.reactions = m.reactions.filter(x => x.emoji !== emoji);
+      } else { r.count++; r.users = [...(r.users || []), S.user.name]; }
+    } else {
+      m.reactions.push({ emoji, count: 1, users: [S.user.name] });
+    }
+    persist(); renderDMMessages(curDM);
+    wsSend({ type: 'dm_reaction', to: curDM, messageId: id, emoji, user: S.user.name });
+    return;
+  }
   if (!S.curCh) return;
   const msgs = S.messages[S.curCh.id]; if (!msgs) return;
   const m = msgs.find(x => x.id === id); if (!m) return;
@@ -3665,7 +4098,10 @@ function renderDMMessages(name) {
 
 function sendDMMsg() {
   const inp = document.getElementById('dm-msg-in');
-  const text = inp.value.trim(); if (!text || !curDM) return;
+  const text = inp.value.trim();
+  // Handle ongoing edit commit via DM input
+  if (editingMsgId) { if (text) commitEdit(text); else cancelEdit(); inp.value = ''; inp.style.height = 'auto'; const btn = document.getElementById('dm-snd-btn'); if (btn) btn.classList.remove('on'); return; }
+  if (!text || !curDM) return;
   let dm = S.dms.find(d => d.name === curDM); if (!dm) { dm = {id:uid(),name:curDM,last:'',status:'accepted',pfp:null,lastTs:0}; S.dms.push(dm); }
   const msg = { id: uid(), author: S.user.name, authorColor: S.user.color, authorPfp: S.user.pfp || null, text, ts: Date.now(), reactions: [], attachments: [] };
   if (!S.dmMessages[curDM]) S.dmMessages[curDM] = [];
@@ -3905,7 +4341,7 @@ function updateUser(){
     adminBtn.remove();
   }
 }
-function toast(msg){const c=document.getElementById('toasts'),t=document.createElement('div');t.className='toast';t.textContent=msg;c.appendChild(t);setTimeout(()=>t.remove(),3200);}
+function toast(msg,type){const c=document.getElementById('toasts'),t=document.createElement('div');t.className='toast'+(type?' '+type:'');const icons={ok:'✓ ',err:'✕ ',warn:'⚠ '};t.textContent=(icons[type]||'')+msg;c.appendChild(t);setTimeout(()=>t.remove(),3200);}
 
 // ── FORMATTERS ──
 function fmtTxt(t){if(!t)return'';return fmtCustomEmoji(esc(t).replace(/@(\w+)/g,'<span class="mention">@$1</span>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>'));}
@@ -4219,6 +4655,12 @@ function openSvSettings(tab) {
   stgIconData = null;
   document.getElementById('stg-sv-name').value = sv.name;
   document.getElementById('stg-sv-desc').value = sv.desc || '';
+  // Build color picker
+  const colorGrid = document.getElementById('stg-sv-color-grid');
+  colorGrid.innerHTML = COLORS.map(c =>
+    `<div style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;border:3px solid ${c===(sv._pendingColor||sv.color)?'#fff':'transparent'};transition:border .1s" onclick="selectSvColor('${c}',this)"></div>`
+  ).join('');
+  sv._pendingColor = sv.color; // init pending to current
   setSvVis(sv.isPublic ? 'public' : 'private', true);
   buildRolesPane();
   buildMembersPane();
@@ -4247,6 +4689,12 @@ async function onStgIcon(e) {
   el.innerHTML=`<img src="${stgIconData}" style="width:100%;height:100%;object-fit:cover">`;
 }
 
+function selectSvColor(color, el) {
+  if (S.curSv) S.curSv._pendingColor = color;
+  document.querySelectorAll('#stg-sv-color-grid div').forEach(d => d.style.border = '3px solid transparent');
+  el.style.border = '3px solid #fff';
+}
+
 function setSvVis(v, silent=false) {
   document.getElementById('vis-public').classList.toggle('sel', v==='public');
   document.getElementById('vis-private').classList.toggle('sel', v==='private');
@@ -4260,6 +4708,7 @@ function saveSvOverview() {
   sv.name = name;
   sv.desc = document.getElementById('stg-sv-desc').value.trim();
   sv.isPublic = sv._pendingVis !== 'private';
+  if (sv._pendingColor) sv.color = sv._pendingColor;
   if (stgIconData) sv.icon = stgIconData;
   persist(); renderSvs(); document.getElementById('sv-nm').textContent = sv.name;
   const visLabel = sv.isPublic ? '🌐 Public' : '🔒 Private';
@@ -4614,11 +5063,30 @@ function addNotif(icon, text, onClick) {
   _saveNotifs();
   updateNotifBadge();
   renderNotifPanel();
-  // Browser notification
-  if (Notification.permission === 'granted' && document.hidden) {
-    new Notification('Nexus', { body: text, icon: '/favicon.ico' });
+  // Browser notification + tab title badge (only when tab is hidden)
+  if (document.hidden) {
+    _updateTitleBadge();
+    if (Notification.permission === 'granted') {
+      const n = new Notification('Nexus', { body: text, icon: '/favicon.ico', tag: 'nexus-notif', renotify: true });
+      n.onclick = () => { window.focus(); if (onClick) onClick(); n.close(); };
+    }
   }
 }
+
+let _baseTitleBadge = 0;
+function _updateTitleBadge() {
+  const unread = notifications.filter(n => !n.read).length;
+  _baseTitleBadge = unread;
+  document.title = unread > 0 ? `(${unread}) Nexus` : 'Nexus';
+}
+
+// Clear title badge when tab becomes visible
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    document.title = 'Nexus';
+    _baseTitleBadge = 0;
+  }
+});
 
 function updateNotifBadge() {
   const unread = notifications.filter(n => !n.read).length;
@@ -4941,45 +5409,94 @@ function renderShorts() {
   let shorts = (sv?.shorts || []).slice().reverse();
   // Filter by channel if set
   if (curShortsChannelId) shorts = shorts.filter(s => s.channelId === curShortsChannelId || !s.channelId);
+
+  // Inject cached P2P videos from message history as ephemeral shorts
+  // Only include videos we actually have the data URL for (data:video/*)
+  const cachedShorts = [];
+  const channels = curShortsChannelId
+    ? [curShortsChannelId]
+    : (sv?.channels || []).filter(c => c.type === 'text').map(c => c.id);
+  const existingIds = new Set(shorts.map(s => s._msgId).filter(Boolean));
+  channels.forEach(chId => {
+    (S.messages[chId] || []).forEach(m => {
+      (m.attachments || []).forEach(a => {
+        if (!a.url || !a.url.startsWith('data:')) return;
+        // Accept any video-ish MIME type
+        const isVideo = /^data:video\//i.test(a.url) || /^data:audio\/mp4/i.test(a.url);
+        if (!isVideo) return;
+        const syntheticId = `_cached_${m.id}_${a.name}`;
+        if (existingIds.has(syntheticId)) return; // already in shorts list
+        cachedShorts.push({
+          id: syntheticId,
+          _msgId: syntheticId,
+          _cached: true,
+          url: a.url,
+          caption: a.name || '',
+          author: m.author,
+          channelId: chId,
+          ts: m.ts,
+          likes: [],
+          comments: [],
+        });
+      });
+    });
+  });
+
+  // Merge: posted shorts first (newest first), then cached videos (newest first)
+  const allShorts = [...shorts, ...cachedShorts.sort((a,b) => b.ts - a.ts)];
+
   const feed = document.getElementById('shorts-feed');
-  if (!shorts.length) {
+  if (!allShorts.length) {
     const chMsg = curShortsChannelId ? 'No shorts in this channel yet' : 'No Shorts Yet';
     feed.innerHTML = `<div class="short-card"><div style="text-align:center;color:var(--t2);padding:20px"><div style="font-size:48px;margin-bottom:16px">🎬</div><div style="font-size:18px;font-weight:700;margin-bottom:8px">${chMsg}</div><div style="font-size:14px;opacity:.7">Post one with the + Post Short button!</div></div></div>`;
     return;
   }
-  feed.innerHTML = shorts.map((s, i) => buildShortCard(s, i)).join('');
+  feed.innerHTML = allShorts.map((s, i) => buildShortCard(s, i)).join('');
 }
 
 function buildShortCard(s, i) {
-  const embedUrl = getEmbedUrl(s.url);
-  const mediaHTML = embedUrl
-    ? `<iframe src="${embedUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy"></iframe>`
-    : s.url.match(/\.mp4($|\?)/i)
-      ? `<video src="${esc(s.url)}" autoplay muted loop playsinline controls style="width:100%;height:100%;object-fit:cover"></video>`
-      : `<div style="color:var(--t2);text-align:center;padding:20px"><div style="font-size:40px">🔗</div><div style="font-size:13px;margin-top:8px;margin-bottom:12px">Unsupported URL</div><a href="${esc(s.url)}" target="_blank" style="color:var(--accent-h);font-size:13px;font-weight:600">Open Link ↗</a></div>`;
+  const embedUrl = s._cached ? null : getEmbedUrl(s.url);
+  let mediaHTML;
+  if (embedUrl) {
+    mediaHTML = `<iframe src="${embedUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy"></iframe>`;
+  } else if (s._cached || s.url.startsWith('data:') || s.url.match(/\.mp4($|\?)/i)) {
+    mediaHTML = `<video src="${esc(s.url)}" autoplay muted loop playsinline controls style="width:100%;height:100%;object-fit:cover"></video>`;
+  } else {
+    mediaHTML = `<div style="color:var(--t2);text-align:center;padding:20px"><div style="font-size:40px">🔗</div><div style="font-size:13px;margin-top:8px;margin-bottom:12px">Unsupported URL</div><a href="${esc(s.url)}" target="_blank" style="color:var(--accent-h);font-size:13px;font-weight:600">Open Link ↗</a></div>`;
+  }
   const likes = (s.likes||[]).length;
   const liked = (s.likes||[]).includes(S.user?.name);
   const comments = (s.comments||[]).length;
+  const cachedBadge = s._cached ? `<div style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,.55);border-radius:6px;padding:2px 8px;font-size:10px;color:#fff;font-weight:700;letter-spacing:.05em">📦 CACHED</div>` : '';
+  const actions = s._cached
+    ? `<div class="short-actions" style="z-index:5">
+        <div class="short-action-btn" onclick="event.stopPropagation();shareShort('${s.id}')">
+          <svg width="28" height="28" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          <div class="short-action-count">Share</div>
+        </div>
+      </div>`
+    : `<div class="short-actions" style="z-index:5">
+        <div class="short-action-btn" onclick="event.stopPropagation();toggleShortLike('${s.id}')">
+          <svg width="28" height="28" fill="${liked?'#ef4444':'none'}" stroke="${liked?'#ef4444':'#fff'}" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <div class="short-action-count">${likes}</div>
+        </div>
+        <div class="short-action-btn" onclick="event.stopPropagation();openShortComments('${s.id}')">
+          <svg width="28" height="28" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <div class="short-action-count">${comments}</div>
+        </div>
+        <div class="short-action-btn" onclick="event.stopPropagation();shareShort('${s.id}')">
+          <svg width="28" height="28" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          <div class="short-action-count">Share</div>
+        </div>
+      </div>`;
   return `<div class="short-card" data-short="${s.id}">
     ${mediaHTML}
+    ${cachedBadge}
     <div class="short-overlay" style="pointer-events:none">
       <div class="short-caption">${esc(s.caption||'')}</div>
       <div class="short-author">@${esc(s.author)}</div>
     </div>
-    <div class="short-actions" style="z-index:5">
-      <div class="short-action-btn" onclick="event.stopPropagation();toggleShortLike('${s.id}')">
-        <svg width="28" height="28" fill="${liked?'#ef4444':'none'}" stroke="${liked?'#ef4444':'#fff'}" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-        <div class="short-action-count">${likes}</div>
-      </div>
-      <div class="short-action-btn" onclick="event.stopPropagation();openShortComments('${s.id}')">
-        <svg width="28" height="28" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <div class="short-action-count">${comments}</div>
-      </div>
-      <div class="short-action-btn" onclick="event.stopPropagation();shareShort('${s.id}')">
-        <svg width="28" height="28" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-        <div class="short-action-count">Share</div>
-      </div>
-    </div>
+    ${actions}
   </div>`;
 }
 
@@ -6660,9 +7177,12 @@ function requestVideo(msgId, channelId, name) {
   if (el) {
     el.innerHTML = `<span style="font-size:20px;animation:blink 1s infinite">⏳</span><div style="font-size:12px;color:var(--t3);margin-left:8px">Requesting from peers…</div>`;
   }
-  wsSend({ type: 'video_request', msgId, channelId, requester: S.user.name });
+  // Track this as pending so we ignore duplicate serves
+  _pendingVideoRequests.add(msgId);
+  wsSend({ type: 'video_request', msgId, channelId, requester: S.user.name, serverId: S.curSv?.id });
   // If nobody responds in 8s, show error
   setTimeout(() => {
+    _pendingVideoRequests.delete(msgId);
     const still = document.querySelector(`[data-msg-id="${msgId}"].vid-placeholder`);
     if (still) still.innerHTML = `<span style="font-size:20px">🎬</span><div style="margin-left:10px"><div style="font-size:12px;font-weight:700;color:var(--t2)">${esc(name)}</div><div style="font-size:10px;color:var(--red);margin-top:2px">No one online has this video cached</div></div>`;
   }, 8000);
