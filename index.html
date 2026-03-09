@@ -2287,9 +2287,12 @@ function handleIn(msg) {
         // Update to online
         existingMb.online = true;
         existingMb.color = msg.color || existingMb.color;
-        existingMb.pfp = msg.pfp || existingMb.pfp;
+        existingMb.pfp = msg.pfp !== undefined ? msg.pfp : existingMb.pfp;
       } else {
         S.members[msg.serverId].push({name:msg.user,color:msg.color||COLORS[hash(msg.user)%COLORS.length],pfp:msg.pfp||null,status:'on',online:true});
+        // New member joined — bump count
+        const joinSv = S.servers.find(s=>s.id===msg.serverId);
+        if (joinSv) { joinSv.memberCount = (joinSv.memberCount||1)+1; persist(); }
       }
       if(S.curSv?.id===msg.serverId) { renderMbs(); playSound('member_join'); }
       break;
@@ -2310,9 +2313,9 @@ function handleIn(msg) {
       break;
     case 'member_list':
       S.members[msg.serverId]=msg.members||[];
-      // Keep member count in sync with actual list
+      // Always sync memberCount from actual member list — includes offline members
       { const mlSv = S.servers.find(s => s.id === msg.serverId);
-        if (mlSv && msg.members?.length) { mlSv.memberCount = msg.members.length; persist(); renderDiscover(); } }
+        if (mlSv) { mlSv.memberCount = (msg.members||[]).length; persist(); renderDiscover(); } }
       if(S.curSv?.id===msg.serverId) renderMbs();
       break;
     // Discover — server can push public server list
