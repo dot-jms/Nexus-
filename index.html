@@ -1817,9 +1817,13 @@ function handleIn(msg) {
             // Update existing server with authoritative backend data
             const existing = S.servers.find(sv => sv.id === ss.id);
             if (existing) {
-              if (ss.name) existing.name = ss.name;
-              if (ss.channels?.length) existing.channels = ss.channels;
-              if (ss.icon !== undefined) existing.icon = ss.icon;
+              if (ss.name)              existing.name        = ss.name;
+              if (ss.desc !== undefined) existing.desc       = ss.desc;
+              if (ss.color)             existing.color       = ss.color;
+              if (ss.channels?.length)  existing.channels   = ss.channels;
+              if (ss.icon !== undefined) existing.icon       = ss.icon;
+              if (ss.memberCount)       existing.memberCount = ss.memberCount;
+              if (ss.isPublic !== undefined) existing.isPublic = ss.isPublic;
               // Always trust backend for ownerId — never let client-side value override
               if (ss.ownerId) existing.ownerId = ss.ownerId;
               existing.isOwner = (ss.ownerId||'').toLowerCase() === (S.user.name||'').toLowerCase();
@@ -2001,11 +2005,11 @@ function handleIn(msg) {
 
     case 'server_renamed': {
       const rnSv = S.servers.find(sv => sv.id === msg.serverId);
-      if (rnSv) { rnSv.name = msg.name; persist(); renderSvs(); }
-      if (S.curSv?.id === msg.serverId) {
-        S.curSv.name = msg.name;
-        const nh = document.getElementById('sv-name-header');
-        if (nh) nh.textContent = msg.name;
+      if (rnSv) {
+        rnSv.name = msg.name;
+        if (S.curSv?.id === msg.serverId) S.curSv.name = msg.name;
+        persist(); renderSvs();
+        if (S.curSv?.id === msg.serverId) document.getElementById('sv-nm').textContent = msg.name;
       }
       const svRes = document.getElementById('admin-sv-result');
       if (svRes) { svRes.textContent = `✅ Server renamed to "${msg.name}".`; svRes.style.color='var(--green)'; }
@@ -2377,19 +2381,24 @@ function handleIn(msg) {
     case 'server_info': {
       const sv = S.servers.find(s => s.id === msg.server?.id);
       if (sv && msg.server) {
-        if (msg.server.channels?.length) sv.channels = msg.server.channels;
-        if (msg.server.ownerId) {
-          sv.ownerId = msg.server.ownerId;
-          sv.isOwner = sv.ownerId.toLowerCase() === (S.user.name||'').toLowerCase();
+        const si = msg.server;
+        if (si.channels?.length)      sv.channels    = si.channels;
+        if (si.ownerId) {
+          sv.ownerId = si.ownerId;
+          sv.isOwner = si.ownerId.toLowerCase() === (S.user.name||'').toLowerCase();
         }
-        if (msg.server.icon !== undefined) sv.icon = msg.server.icon;
-        if (msg.server.name) sv.name = msg.server.name;
-        if (msg.server.desc !== undefined) sv.desc = msg.server.desc;
-        if (msg.server.color) sv.color = msg.server.color;
-        if (msg.server.isPublic !== undefined) sv.isPublic = msg.server.isPublic;
-        // Restore roles and memberRoles from backend
-        if (msg.server.roles?.length) sv.roles = msg.server.roles;
-        if (msg.server.memberRoles && Object.keys(msg.server.memberRoles).length) sv.memberRoles = msg.server.memberRoles;
+        if (si.icon !== undefined)    sv.icon        = si.icon;
+        if (si.name)                  sv.name        = si.name;
+        if (si.desc !== undefined)    sv.desc        = si.desc;
+        if (si.color)                 sv.color       = si.color;
+        if (si.isPublic !== undefined) sv.isPublic   = si.isPublic;
+        if (si.memberCount)           sv.memberCount = si.memberCount;
+        // Restore roles and memberRoles from backend (always trust server even if empty)
+        if (si.roles !== undefined)        sv.roles       = si.roles;
+        if (si.memberRoles !== undefined)  sv.memberRoles = si.memberRoles;
+        if (si.banner !== undefined)       sv.banner      = si.banner;
+        // Keep S.curSv in sync if this is the active server
+        if (S.curSv?.id === sv.id) Object.assign(S.curSv, sv);
         persist();
         renderSvs();
         if (S.curSv?.id === sv.id) { renderChs(); document.getElementById('sv-nm').textContent = sv.name; buildSvDropdown(); }
@@ -2441,11 +2450,13 @@ function handleIn(msg) {
     case 'server_update': {
       const sv = S.servers.find(s => s.id === msg.serverId);
       if (sv) {
-        if (msg.name) sv.name = msg.name;
-        if (msg.desc !== undefined) sv.desc = msg.desc;
-        if (msg.icon !== undefined) sv.icon = msg.icon;
-        if (msg.color) sv.color = msg.color;
-        if (msg.channels) sv.channels = msg.channels;
+        if (msg.name !== undefined)    sv.name        = msg.name;
+        if (msg.desc !== undefined)    sv.desc        = msg.desc;
+        if (msg.icon !== undefined)    sv.icon        = msg.icon;
+        if (msg.color !== undefined)   sv.color       = msg.color;
+        if (msg.channels !== undefined) sv.channels   = msg.channels;
+        if (msg.isPublic !== undefined) sv.isPublic   = msg.isPublic;
+        if (msg.memberCount !== undefined) sv.memberCount = msg.memberCount;
         // FIX: Only update ownerId if the incoming message has one AND it doesn't overwrite an existing owner
         // (prevents a non-owner's server_update from wiping out ownership)
         if (msg.ownerId && !sv.ownerId) sv.ownerId = msg.ownerId;
