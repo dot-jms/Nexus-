@@ -1430,8 +1430,9 @@ function bootApp() {
   migrateServers();
   updateUser(); renderSvs(); buildFullEmoji(); buildReactPicker(); renderDMs();
   document.getElementById('dbg-overlay').style.display = S.user?.systemRole === 'admin' ? 'flex' : 'none';
-  _reconnectDelay = 1000; // always start fresh on boot — don't carry over backoff from prior session
-  S.wsConnecting = false;  // clear any stale connecting flag from prior session
+  _reconnectDelay = 1000;
+  _reconnectAttempts = 0;
+  S.wsConnecting = false;
   connectWS();
   checkInviteHash();
   reqNotifPermission();
@@ -1605,34 +1606,41 @@ function saveProfile() {
 // ══════════════════════════════════
 let _reconnectDelay = 1000;
 let _reconnectTimer = null;
+let _reconnectAttempts = 0;
 function scheduleReconnect() {
   clearTimeout(_reconnectTimer);
-  _reconnectTimer = setTimeout(() => {
-    _reconnectDelay = Math.min(_reconnectDelay * 1.5, 30000);
-    connectWS();
-  }, _reconnectDelay);
-  setBanner(`Disconnected — reconnecting in ${Math.round(_reconnectDelay/1000)}s…`);
+  _reconnectAttempts++;
+  // First 2 retries: immediate (handles Deno cold-start / deploy bounce)
+  // After that: exponential backoff up to 30s
+  const delay = _reconnectAttempts <= 2 ? 300 : Math.min(_reconnectDelay * 1.5, 30000);
+  if (_reconnectAttempts > 2) _reconnectDelay = delay;
+  // Only show the disconnected banner after the first fast retry fails
+  if (_reconnectAttempts > 1) {
+    setBanner(`Disconnected — reconnecting…`);
+  }
+  _reconnectTimer = setTimeout(connectWS, delay);
 }
 function connectWS() {
   // Prevent overlapping reconnect attempts
   if (S.wsConnecting) return;
   S.wsConnecting = true;
   if (S.ws) { try { S.ws.onclose=null; S.ws.close(); } catch(e){} S.ws=null; }
-  setWS('connecting'); setBanner('Connecting...');
+  if (_reconnectAttempts === 0) { setWS('connecting'); setBanner('Connecting...'); }
   let ws;
   try { ws = new WebSocket(WS_URL); }
   catch(e) { S.wsConnecting=false; setWS('error'); setBanner('WebSocket not configured — add your Deno URL.'); return; }
   S.ws = ws;
   ws.onopen = () => {
     if (S.ws !== ws) { ws.close(); return; }
-    _reconnectDelay = 1000; // reset backoff on success
+    _reconnectDelay = 1000;
+    _reconnectAttempts = 0;
     S.wsConnecting = false; S.wsOk = true; setWS('connected'); hideBanner();
     dbg('✓ WS connected', 'ok');
     wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null,token:S.token});
     dbg('→ identify sent', 'info');
   };
   ws.onmessage = e => { try { handleIn(JSON.parse(e.data)); } catch(err) {} };
-  ws.onerror = () => { S.wsConnecting=false; S.wsOk = false; setWS('error'); dbg('✕ WS error', 'err'); };
+  ws.onerror = (e) => { S.wsConnecting=false; S.wsOk = false; setWS('error'); dbg('✕ WS error: ' + (e?.message||''), 'err'); };
   ws.onclose = () => {
     if (S.ws !== ws) return; // stale socket, ignore
     S.wsConnecting = false; S.wsOk = false; S.ws = null;
@@ -2218,10 +2226,16 @@ function handleIn(msg) {
     case 'edit_message': {
       // BUG 6 FIX: Previously skipped edits where msg.author === S.user.name,
       // blocking multi-device edits (edit on phone, not reflected on desktop).
+      // silent:true = admin stealth edit — update text but don't show (edited) marker.
       const arr = S.messages[msg.channelId];
       if (arr) {
         const m = arr.find(x => x.id === msg.messageId);
-        if (m) { m.text = msg.text; m.edited = true; persist(); }
+        if (m) {
+          m.text = msg.text;
+          if (!msg.silent) m.edited = true;
+          else delete m.edited; // scrub any prior edited flag too
+          persist();
+        }
       }
       if (S.curCh?.id === msg.channelId) renderMsgs(msg.channelId);
       break;
