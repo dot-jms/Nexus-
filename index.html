@@ -2009,7 +2009,7 @@ function connectWS() {
       if (!S.wsOk || S.ws !== ws) return; // already reconnected or closed
       // Check if we actually got identified by seeing if servers loaded
       // A simpler proxy: if S.user is still not synced (no tag update), we may be stuck
-      dbg('✕ identify timeout — no 'identified' received, forcing reconnect', 'warn');
+      dbg('✕ identify timeout — no identified received, forcing reconnect', 'warn');
       try { ws.onclose = null; ws.close(); } catch(e) {}
       S.ws = null; S.wsConnecting = false; S.wsOk = false;
       setWS('disconnected');
