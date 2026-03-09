@@ -2716,6 +2716,7 @@ function handleIn(msg) {
     case 'admin_calls_list':
       renderAdminCallsList(msg.calls || []);
       break;
+    case 'pong': break; // keepalive response, no action needed
     default: console.log('ws:',msg);
   }
 }
@@ -5112,9 +5113,20 @@ function renderGhostCallBar() {
 
 const RTC_CONFIG = {
   iceServers: [
+    // STUN — used for direct P2P when both peers are on open networks
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-  ]
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    // TURN — required when NAT/firewall blocks direct P2P (most real networks)
+    // Using free public TURN servers from Open Relay Project
+    { urls: 'turn:openrelay.metered.ca:80',      username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443',     username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+  ],
+  iceCandidatePoolSize: 10,
+  bundlePolicy: 'max-bundle',
+  rtcpMuxPolicy: 'require',
 };
 
 async function joinVoice(channelId) {
@@ -6146,6 +6158,7 @@ async function startVoiceCall(targetName) {
   showVcallBar('Calling ' + targetName + '...');
   renderVcallBar();
   startVcallTimer();
+  startWsPing();
   toast('📞 Calling ' + targetName + '...');
 }
 
@@ -6171,13 +6184,18 @@ function endVoiceCall() {
 
 function cleanupVcall() {
   clearInterval(vcallTimerInterval); vcallTimerInterval = null; vcallSeconds = 0;
-  Object.values(vcallParticipants).forEach(p => { try { p.pc?.close(); } catch(e){} });
+  Object.entries(vcallParticipants).forEach(([id, p]) => {
+    clearTimeout(p.pc?._disconnectTimer);
+    try { p.pc?.close(); } catch(e){}
+    delete _vcallIceBuffer[id];
+  });
   vcallParticipants = {};
   if (vcallLocalStream) { vcallLocalStream.getTracks().forEach(t => t.stop()); vcallLocalStream = null; }
   document.querySelectorAll('.vcall-audio-el').forEach(a => a.remove());
   vcallId = null; vcallMuted = false;
   document.getElementById('vcall-timer').textContent = '';
   hideVcallBar();
+  stopWsPing();
 }
 
 function toggleVoiceCallMute() {
@@ -6266,6 +6284,7 @@ async function acceptVcall(callId, from) {
   showVcallBar('In call with ' + from);
   renderVcallBar();
   startVcallTimer();
+  startWsPing(); // keep WS alive during call
 }
 
 function declineVcall(callId, from) {
@@ -6316,42 +6335,100 @@ function vcallCreatePeer(peerId) {
     audio.srcObject = e.streams[0];
     renderVcallBar();
   };
+  // 'disconnected' is transient — network blip, switching WiFi. Don't tear down.
+  // 'failed' is terminal — ICE gave up. Attempt a restart once before giving up.
+  // 'closed' means the PC was explicitly closed.
+  let _iceRestartAttempted = false;
   pc.onconnectionstatechange = () => {
-    if (['disconnected', 'failed', 'closed'].includes(pc.connectionState)) {
+    dbg(`vcall peer ${peerId}: ${pc.connectionState}`, pc.connectionState === 'connected' ? 'ok' : pc.connectionState === 'disconnected' ? 'warn' : 'info');
+    if (pc.connectionState === 'disconnected') {
+      // Give it 8 seconds to self-recover before we attempt a restart
+      pc._disconnectTimer = setTimeout(async () => {
+        if (pc.connectionState !== 'connected' && !_iceRestartAttempted) {
+          _iceRestartAttempted = true;
+          try {
+            const offer = await pc.createOffer({ iceRestart: true });
+            await pc.setLocalDescription(offer);
+            wsSend({ type: 'vcall_signal', callId: vcallId, from: S.user.name, to: peerId, signal: { sdp: offer } });
+            dbg(`vcall ICE restart sent to ${peerId}`, 'warn');
+          } catch(e) { dbg('ICE restart failed: ' + e, 'err'); }
+        }
+      }, 8000);
+    } else {
+      clearTimeout(pc._disconnectTimer);
+    }
+    if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+      clearTimeout(pc._disconnectTimer);
       delete vcallParticipants[peerId];
       document.getElementById('vcall-audio-' + peerId)?.remove();
       if (Object.keys(vcallParticipants).length === 0) cleanupVcall();
       else renderVcallBar();
     }
   };
+  pc.oniceconnectionstatechange = () => {
+    dbg(`vcall ICE ${peerId}: ${pc.iceConnectionState}`, 'info');
+  };
   return pc;
 }
 
+let _wsPingInterval = null;
+function startWsPing() {
+  clearInterval(_wsPingInterval);
+  _wsPingInterval = setInterval(() => {
+    if (S.wsOk) wsSend({ type: 'ping', ts: Date.now() });
+  }, 20000);
+}
+function stopWsPing() {
+  clearInterval(_wsPingInterval);
+  _wsPingInterval = null;
+}
+// Buffering them prevents the silent "no audio" failure caused by the race.
+const _vcallIceBuffer = {}; // peerId → RTCIceCandidate[]
+
 async function handleVcallSignal(msg) {
   const peerId = msg.from;
+  if (msg.callId !== vcallId) return; // stale signal from old call
+
   if (!vcallParticipants[peerId]) {
     const pc = vcallCreatePeer(peerId);
     vcallParticipants[peerId] = { pc, muted: false };
+    _vcallIceBuffer[peerId] = [];
   }
   const pc = vcallParticipants[peerId].pc;
+
   if (msg.signal.sdp) {
     const sdp = msg.signal.sdp;
     if (sdp.type === 'offer') {
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      // Drain any buffered ICE candidates now that we have remote desc
+      for (const c of (_vcallIceBuffer[peerId] || [])) {
+        try { await pc.addIceCandidate(c); } catch(e) {}
+      }
+      _vcallIceBuffer[peerId] = [];
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       wsSend({ type: 'vcall_signal', callId: vcallId, from: S.user.name, to: peerId, signal: { sdp: answer } });
-      // Caller side: we've answered — update status
       document.getElementById('vcall-status').textContent = 'In call';
       renderVcallBar();
     } else if (sdp.type === 'answer') {
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      // Callee side: answer received — update status
+      // Drain buffered ICE candidates
+      for (const c of (_vcallIceBuffer[peerId] || [])) {
+        try { await pc.addIceCandidate(c); } catch(e) {}
+      }
+      _vcallIceBuffer[peerId] = [];
       document.getElementById('vcall-status').textContent = 'In call';
       renderVcallBar();
     }
   } else if (msg.signal.ice) {
-    try { await pc.addIceCandidate(new RTCIceCandidate(msg.signal.ice)); } catch(e) {}
+    const candidate = new RTCIceCandidate(msg.signal.ice);
+    if (pc.remoteDescription) {
+      try { await pc.addIceCandidate(candidate); } catch(e) {}
+    } else {
+      // Buffer it — remote description not set yet
+      if (!_vcallIceBuffer[peerId]) _vcallIceBuffer[peerId] = [];
+      _vcallIceBuffer[peerId].push(candidate);
+    }
   }
 }
 
