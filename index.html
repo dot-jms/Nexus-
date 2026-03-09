@@ -1430,6 +1430,8 @@ function bootApp() {
   migrateServers();
   updateUser(); renderSvs(); buildFullEmoji(); buildReactPicker(); renderDMs();
   document.getElementById('dbg-overlay').style.display = S.user?.systemRole === 'admin' ? 'flex' : 'none';
+  _reconnectDelay = 1000; // always start fresh on boot — don't carry over backoff from prior session
+  S.wsConnecting = false;  // clear any stale connecting flag from prior session
   connectWS();
   checkInviteHash();
   reqNotifPermission();
@@ -1630,7 +1632,7 @@ function connectWS() {
     dbg('→ identify sent', 'info');
   };
   ws.onmessage = e => { try { handleIn(JSON.parse(e.data)); } catch(err) {} };
-  ws.onerror = () => { S.wsOk = false; setWS('error'); dbg('✕ WS error', 'err'); };
+  ws.onerror = () => { S.wsConnecting=false; S.wsOk = false; setWS('error'); dbg('✕ WS error', 'err'); };
   ws.onclose = () => {
     if (S.ws !== ws) return; // stale socket, ignore
     S.wsConnecting = false; S.wsOk = false; S.ws = null;
