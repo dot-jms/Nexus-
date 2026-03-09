@@ -1731,6 +1731,11 @@ function _flushWsQueue() {
 }
 
 function handleIn(msg) {
+  // BUG 2 FIX: Guard entire handler against unidentified state.
+  // WS messages can arrive before identify completes (e.g. server broadcasts during auth).
+  // Whitelisted types that are safe before S.user is populated:
+  const PRE_AUTH_SAFE = new Set(['auth_ok','auth_error','auth_required','maintenance','identified','user_pfp','pong','motd_update']);
+  if (!S.user && !PRE_AUTH_SAFE.has(msg.type)) return;
   switch(msg.type) {
     case 'message':
       if(msg.author!==S.user.name){
@@ -2209,23 +2214,40 @@ function handleIn(msg) {
       break;
     case 'delete_message': delById(msg.messageId,msg.channelId); break;
     case 'edit_message': {
-      if (msg.author !== S.user.name) {
-        const arr = S.messages[msg.channelId];
-        if (arr) { const m = arr.find(x=>x.id===msg.messageId); if(m){m.text=msg.text;m.edited=true;persist();} }
-        if (S.curCh?.id === msg.channelId) renderMsgs(msg.channelId);
+      // BUG 6 FIX: Previously skipped edits where msg.author === S.user.name,
+      // blocking multi-device edits (edit on phone, not reflected on desktop).
+      const arr = S.messages[msg.channelId];
+      if (arr) {
+        const m = arr.find(x => x.id === msg.messageId);
+        if (m) { m.text = msg.text; m.edited = true; persist(); }
       }
+      if (S.curCh?.id === msg.channelId) renderMsgs(msg.channelId);
       break;
     }
     case 'reaction': {
-      // Apply remote reaction to local message store
+      // BUG 1 FIX: Apply full toggle logic — same user toggling the same emoji removes it.
+      // Previously this only ever added, so counts grew without bound across clients.
       const rmsgs = S.messages[msg.channelId];
       if (rmsgs) {
         const rm = rmsgs.find(x => x.id === msg.messageId);
         if (rm) {
           if (!rm.reactions) rm.reactions = [];
           let rr = rm.reactions.find(x => x.emoji === msg.emoji);
-          if (rr) { if (!rr.users?.includes(msg.user)) { rr.count++; rr.users = [...(rr.users||[]), msg.user]; } }
-          else { rm.reactions.push({ emoji: msg.emoji, count: 1, users: [msg.user] }); }
+          if (rr) {
+            const alreadyReacted = rr.users?.includes(msg.user);
+            if (alreadyReacted) {
+              // Toggle off
+              rr.count = Math.max(0, (rr.count || 1) - 1);
+              rr.users = (rr.users || []).filter(u => u !== msg.user);
+              if (rr.count <= 0) rm.reactions = rm.reactions.filter(x => x.emoji !== msg.emoji);
+            } else {
+              // Toggle on
+              rr.count = (rr.count || 0) + 1;
+              rr.users = [...(rr.users || []), msg.user];
+            }
+          } else {
+            rm.reactions.push({ emoji: msg.emoji, count: 1, users: [msg.user] });
+          }
           persist();
         }
       }
@@ -3301,15 +3323,27 @@ function openFullEmojiForReaction() {
   picker.classList.add('open');
 }
 
-function toggleReact(id,emoji) {
-  const msgs=S.messages[S.curCh?.id]; if(!msgs) return;
-  const m=msgs.find(x=>x.id===id); if(!m) return;
-  if(!m.reactions) m.reactions=[];
-  let r=m.reactions.find(x=>x.emoji===emoji);
-  if(r){ if(r.users?.includes(S.user.name)){r.count--;r.users=r.users.filter(u=>u!==S.user.name);if(r.count<=0)m.reactions=m.reactions.filter(x=>x.emoji!==emoji);}else{r.count++;r.users=[...(r.users||[]),S.user.name];} }
-  else{ m.reactions.push({emoji,count:1,users:[S.user.name]}); }
+function toggleReact(id, emoji) {
+  // BUG 7 FIX: Guard against null S.curCh. Reactions can theoretically be triggered
+  // while no channel is selected (e.g. via a stale DOM node after channel switch).
+  if (!S.curCh) return;
+  const msgs = S.messages[S.curCh.id]; if (!msgs) return;
+  const m = msgs.find(x => x.id === id); if (!m) return;
+  if (!m.reactions) m.reactions = [];
+  let r = m.reactions.find(x => x.emoji === emoji);
+  if (r) {
+    if (r.users?.includes(S.user.name)) {
+      r.count = Math.max(0, r.count - 1);
+      r.users = r.users.filter(u => u !== S.user.name);
+      if (r.count <= 0) m.reactions = m.reactions.filter(x => x.emoji !== emoji);
+    } else {
+      r.count++; r.users = [...(r.users || []), S.user.name];
+    }
+  } else {
+    m.reactions.push({ emoji, count: 1, users: [S.user.name] });
+  }
   persist(); renderMsgs(S.curCh.id);
-  wsSend({type:'reaction',channelId:S.curCh.id,messageId:id,emoji,user:S.user.name});
+  wsSend({ type: 'reaction', channelId: S.curCh.id, messageId: id, emoji, user: S.user.name });
 }
 
 // ── TYPING ──
