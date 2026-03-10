@@ -1013,6 +1013,11 @@ body::before {
 .m-atts .m-vid, .m-atts .m-img, .m-atts .m-file, .m-atts .audio-att { margin-top: 0 !important; }
 .m-vid { max-width: 360px; }
 
+
+/* Attachment loading placeholder */
+.att-loading { opacity: 0.7; animation: attPulse 1.2s ease-in-out infinite; }
+@keyframes attPulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+
 /* NEXUS IDENTITY removed */
 
 /* New accent: teal not purple */
@@ -2979,7 +2984,7 @@ function handleIn(msg) {
         if (!acSv.channels) acSv.channels = [];
         acSv.channels.push(msg.channel);
         persist();
-        if (S.curSv?.id === msg.serverId) { S.curSv.channels = acSv.channels; renderChannels(); }
+        if (S.curSv?.id === msg.serverId) { S.curSv.channels = acSv.channels; renderChs(); }
       }
       const svRes = document.getElementById('admin-sv-result');
       if (svRes) { svRes.textContent = `✅ Channel added.`; svRes.style.color='var(--green)'; }
@@ -2991,7 +2996,7 @@ function handleIn(msg) {
       if (dcSv && dcSv.channels) {
         dcSv.channels = dcSv.channels.filter(c => c.id !== msg.channelId);
         persist();
-        if (S.curSv?.id === msg.serverId) { S.curSv.channels = dcSv.channels; renderChannels(); }
+        if (S.curSv?.id === msg.serverId) { S.curSv.channels = dcSv.channels; renderChs(); }
         if (S.curCh?.id === msg.channelId) { S.curCh = null; document.getElementById('ch-area').style.display = 'none'; }
       }
       const svRes = document.getElementById('admin-sv-result');
@@ -4055,11 +4060,12 @@ function markUnread(chId){ document.querySelector(`.ch-it[data-id="${chId}"]`)?.
 function addCh() {
   const raw=document.getElementById('ch-in').value.trim(); if(!raw||!S.curSv) return;
   const name=raw.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
-  S.curSv.channels.push({id:uid(),name,type:S.chType,desc:''}); persist(); closeM('ach'); renderChs();
-  selectCh(S.curSv.channels[S.curSv.channels.length-1].id);
+  const newCh = {id:uid(),name,type:S.chType,desc:''};
+  S.curSv.channels.push(newCh); persist(); closeM('ach'); renderChs();
+  selectCh(newCh.id);
   toast('✅ #'+name+' created'); document.getElementById('ch-in').value='';
-  // Broadcast updated channel list to all members
-  wsSend({type:'server_update', serverId:S.curSv.id, name:S.curSv.name, desc:S.curSv.desc, icon:S.curSv.icon||null, color:S.curSv.color, isPublic:S.curSv.isPublic, memberCount:S.curSv.memberCount||1, createdAt:S.curSv.createdAt||Date.now(), channels:S.curSv.channels, ownerId:S.curSv.ownerId});
+  // Use dedicated channel_add — writes directly to KV on server
+  wsSend({type:'channel_add', serverId:S.curSv.id, channel:newCh});
 }
 function deleteCh(id) {
   const sv = S.curSv; if (!sv) return;
@@ -4071,9 +4077,8 @@ function deleteCh(id) {
   persist(); renderChs();
   if (S.curCh?.id === id) { const first=(sv.channels||[]).find(c=>c.type==='text'); first?selectCh(first.id):showWelcome(); }
   toast('🗑 #'+ch.name+' deleted');
-  wsSend({type:'channel_delete', serverId:sv.id, channelId:id});
-  // Broadcast updated channel list
-  wsSend({type:'server_update', serverId:sv.id, name:sv.name, desc:sv.desc, icon:sv.icon||null, color:sv.color, isPublic:sv.isPublic, memberCount:sv.memberCount||1, createdAt:sv.createdAt||Date.now(), channels:sv.channels, ownerId:sv.ownerId});
+  // Use dedicated channel_remove — removes from KV directly
+  wsSend({type:'channel_remove', serverId:sv.id, channelId:id});
 }
 function setCT(t){ S.chType=t; document.getElementById('ct-txt').classList.toggle('sel',t==='text'); document.getElementById('ct-vox').classList.toggle('sel',t==='voice'); }
 
@@ -4428,33 +4433,52 @@ function renderTypingBar() {
 
 // ── FILES ──
 async function onFiles(e) {
-  for (const f of [...e.target.files]) {
-    let url = await toUrl(f);
+  const files = [...e.target.files];
+  e.target.value = '';
+  for (const f of files) {
     let mt = 'file';
-    if (f.type.startsWith('image/')) {
-      mt = 'image';
+    if (f.type.startsWith('image/')) { mt = 'image'; }
+    else if (f.type.startsWith('video/')) { mt = 'video'; if (f.size > 50*1024*1024) { toast('⚠️ Videos must be under 50 MB.'); continue; } }
+    else if (f.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|aac)$/i.test(f.name)) { mt = 'audio'; if (f.size > 4*1024*1024) { toast('⚠️ Audio files must be under 4 MB.'); continue; } }
+    else { if (f.size > 2*1024*1024) { toast('⚠️ Files must be under 2 MB.'); continue; } }
+
+    // Show a loading placeholder in the attachment preview immediately
+    const loadId = 'load-' + Math.random().toString(36).slice(2);
+    const loadEl = document.createElement('div');
+    loadEl.className = 'att-p att-loading'; loadEl.id = loadId;
+    loadEl.innerHTML = `<span>${mt==='video'?'🎬':mt==='audio'?'🎵':'📄'}</span><span style="color:var(--t2)">${esc(f.name)}</span><span style="color:var(--t3);font-size:10px;font-family:'DM Mono',monospace" id="${loadId}-pct">reading…</span>`;
+    const prevEl = document.getElementById('att-prev');
+    if (prevEl) { prevEl.appendChild(loadEl); prevEl.classList.add('show'); }
+
+    // Read file with progress for large files
+    let url;
+    try {
+      url = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onprogress = ev => { if (ev.lengthComputable) { const pct = Math.round(ev.loaded/ev.total*100); const el = document.getElementById(loadId+'-pct'); if (el) el.textContent = pct+'%'; } };
+        r.onload = ev => res(ev.target.result);
+        r.onerror = () => rej(new Error('read failed'));
+        r.readAsDataURL(f);
+      });
+    } catch(err) {
+      loadEl.remove(); toast('⚠️ Failed to read ' + f.name); continue;
+    }
+
+    if (mt === 'image') {
       try {
+        const pctEl = document.getElementById(loadId+'-pct'); if (pctEl) pctEl.textContent = 'compressing…';
         url = await compressImage(url, IMG_LIMITS.chat);
       } catch(err) {
-        if (err.message === 'too_large') {
-          toast('⚠️ Image is too large even after compression (max ~700 KB). Please resize it first.');
-          continue;
-        }
+        loadEl.remove();
+        if (err.message === 'too_large') { toast('⚠️ Image is too large even after compression (max ~700 KB).'); }
+        continue;
       }
-    } else if (f.type.startsWith('video/')) {
-      mt = 'video';
-      if (f.size > 50 * 1024 * 1024) { toast('⚠️ Videos must be under 50 MB.'); continue; }
-      // Show loading toast for large videos since FileReader can take a moment
-      if (f.size > 2 * 1024 * 1024) toast(`⏳ Loading ${f.name}…`, 'warn');
-    } else if (f.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|aac)$/i.test(f.name)) {
-      mt = 'audio';
-      if (f.size > 4 * 1024 * 1024) { toast('⚠️ Audio files must be under 4 MB.'); continue; }
-    } else {
-      if (f.size > 2 * 1024 * 1024) { toast('⚠️ Files must be under 2 MB.'); continue; }
     }
+
+    loadEl.remove();
     S.files.push({ name: f.name, size: f.size, url, mt });
+    renderPrev(); updSnd();
   }
-  renderPrev(); updSnd(); e.target.value='';
 }
 function renderPrev() {
   const el = document.getElementById('att-prev'); el.innerHTML = '';
