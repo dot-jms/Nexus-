@@ -2518,7 +2518,11 @@ function saveProfile() {
   Object.values(S.messages).forEach(arr => {
     arr.forEach(m => { if(m.author===S.user.name){m.authorColor=S.user.color;m.authorPfp=S.user.pfp||null;} });
   });
+  Object.values(S.dmMessages).forEach(arr => {
+    arr.forEach(m => { if(m.author===S.user.name){m.authorColor=S.user.color;m.authorPfp=S.user.pfp||null;} });
+  });
   if (S.curCh) renderMsgs(S.curCh.id);
+  if (curDM) renderDMMessages(curDM);
   wsSend({type:'profile_update', user:S.user.name, color:S.user.color, pfp:S.user.pfp||null, bio, socials:{website,twitter}});
 }
 
@@ -2762,6 +2766,9 @@ function handleIn(msg) {
               ownerId: ss.ownerId, memberCount: ss.memberCount || 1,
               createdAt: ss.createdAt || Date.now(), memberRoles: {}, roles: [], banned: [],
               isPublic: ss.isPublic !== false,
+              pins: ss.pins || {},
+              shorts: ss.shorts || [],
+              customEmojis: (ss.customEmojiNames||[]).map(n => ({ name: n, data: null })),
             });
             svChanged = true;
           } else {
@@ -2778,6 +2785,23 @@ function handleIn(msg) {
               // Always trust backend for ownerId — never let client-side value override
               if (ss.ownerId) existing.ownerId = ss.ownerId;
               existing.isOwner = (ss.ownerId||'').toLowerCase() === (S.user.name||'').toLowerCase();
+              // Merge persisted pins — server is authoritative, client may have stale cache
+              if (ss.pins) existing.pins = { ...(existing.pins||{}), ...ss.pins };
+              // Merge shorts — server is authoritative for metadata
+              if (ss.shorts?.length) {
+                if (!existing.shorts) existing.shorts = [];
+                const existingIds = new Set((existing.shorts||[]).map(s => s.id));
+                ss.shorts.forEach(s => { if (!existingIds.has(s.id)) existing.shorts.push(s); });
+              }
+              // Restore custom emoji names — data will be fetched p2p when needed
+              if (ss.customEmojiNames?.length) {
+                if (!existing.customEmojis) existing.customEmojis = [];
+                ss.customEmojiNames.forEach(name => {
+                  if (!existing.customEmojis.find(e => e.name === name)) {
+                    existing.customEmojis.push({ name, data: null }); // data=null means not yet loaded
+                  }
+                });
+              }
               svChanged = true;
             }
           }
@@ -2796,6 +2820,7 @@ function handleIn(msg) {
       setTimeout(_retryPending, 200);
       // Restore DM contact list from server — server now sends dm_contacts proactively on identify,
       // but also request explicitly here as a fallback in case the identify response was large.
+      _dmContactsLoading = true; renderDMs();
       wsSend({ type: 'fetch_dm_contacts' });
       // Re-register owned servers the backend doesn't know about
       // (only owners do this — members don't need to re-register joined servers)
@@ -3500,11 +3525,25 @@ function handleIn(msg) {
       }
       break;
     }
+    case 'unpin_message': {
+      const sv = S.servers.find(s => s.id === msg.serverId);
+      if (sv && sv.pins?.[msg.channelId]) {
+        sv.pins[msg.channelId] = sv.pins[msg.channelId].filter(p => p.id !== msg.msgId);
+        persist();
+        if (S.curCh?.id === msg.channelId) updatePinnedBar();
+      }
+      break;
+    }
     case 'friend_request': recvFriendReq(msg); break;
     case 'friend_accept': recvFriendAccept(msg); break;
     case 'friend_decline':
       S.friendReqs = S.friendReqs.filter(r => r.name !== msg.from);
       persist(); renderFriends(); toast(msg.from + ' declined your friend request');
+      break;
+    case 'friend_removed':
+      S.friends = S.friends.filter(f => f.name !== msg.by);
+      S.friendReqs = S.friendReqs.filter(r => r.name !== msg.by);
+      persist(); if (document.getElementById('friends-view').style.display !== 'none') renderFriends();
       break;
     case 'short_post': {
       const sv = S.servers.find(s => s.id === msg.serverId);
@@ -3526,6 +3565,22 @@ function handleIn(msg) {
       if (sv) { if(!sv.customEmojis)sv.customEmojis=[]; if(!sv.customEmojis.find(e=>e.name===msg.name)){sv.customEmojis.push({name:msg.name,data:msg.data});persist();} }
       break;
     }
+    case 'emoji_request': {
+      // Someone needs an emoji's image data — if we have it cached, serve it
+      const svEr = S.servers.find(s => s.id === msg.serverId);
+      const em = svEr?.customEmojis?.find(e => e.name === msg.name && e.data);
+      if (em) wsSend({ type: 'emoji_serve', serverId: msg.serverId, name: msg.name, data: em.data, to: msg.requester });
+      break;
+    }
+    case 'emoji_serve': {
+      // We received emoji data from a peer — cache it
+      const svEs = S.servers.find(s => s.id === msg.serverId);
+      if (svEs?.customEmojis) {
+        const emEs = svEs.customEmojis.find(e => e.name === msg.name);
+        if (emEs && !emEs.data) { emEs.data = msg.data; persist(); if (S.curCh) renderMsgs(S.curCh.id); }
+      }
+      break;
+    }
     case 'status_update': {
       // Update member status dot in member list
       if (S.members) {
@@ -3535,6 +3590,17 @@ function handleIn(msg) {
         });
       }
       if (S.curSv) renderMbs();
+      break;
+    }
+    case 'profile_update_confirm': {
+      // Server confirms the saved profile values (color may have been sanitized, bio truncated)
+      if (msg.color) S.user.color = msg.color;
+      if (msg.pfp !== undefined) S.user.pfp = msg.pfp || null;
+      if (msg.bio !== undefined) S.user.bio = msg.bio;
+      if (msg.socials) S.user.socials = msg.socials;
+      lsSet('nx-session', { token: S.token, user: S.user });
+      persist();
+      updateUser();
       break;
     }
     case 'profile_update': {
@@ -3569,8 +3635,17 @@ function handleIn(msg) {
         lsSet('nx-session', { token: S.token, user: S.user });
         updateUser();
       }
-      // Update stored messages
+      // Update stored messages (server channels)
       Object.values(S.messages).forEach(arr => {
+        arr.forEach(m => {
+          if (m.author === updUser) {
+            if (msg.color) m.authorColor = msg.color;
+            if (msg.pfp !== undefined) m.authorPfp = msg.pfp;
+          }
+        });
+      });
+      // Update stored DM messages (both sides of every conversation)
+      Object.values(S.dmMessages).forEach(arr => {
         arr.forEach(m => {
           if (m.author === updUser) {
             if (msg.color) m.authorColor = msg.color;
@@ -3581,6 +3656,7 @@ function handleIn(msg) {
       persist();
       if (S.curSv) renderMbs();
       if (S.curCh) renderMsgs(S.curCh.id);
+      if (curDM && (curDM === updUser || S.dmMessages[curDM]?.some(m => m.author === updUser))) renderDMMessages(curDM);
       break;
     }
     case 'channel_delete': {
@@ -4142,7 +4218,10 @@ function buildMsg(m,grp) {
   const ac=m.authorColor||COLORS[hash(m.author)%COLORS.length];
   const init=(m.author||'?')[0].toUpperCase();
   const isMe=m.author===S.user?.name;
-  const avInner=m.authorPfp?`<img src="${m.authorPfp}" alt="">`:`<span>${init}</span>`;
+  // Always use the latest known pfp — profileCache is updated on every profile_update broadcast.
+  // Falls back to the pfp snapshotted at send time, then to initials.
+  const livePfp = isMe ? (S.user.pfp||null) : (profileCache[m.author]?.pfp !== undefined ? profileCache[m.author].pfp : m.authorPfp);
+  const avInner=livePfp?`<img src="${livePfp}" alt="">`:`<span>${init}</span>`;
   let atts='';
   (m.attachments||[]).forEach(a=>{
     if(a.type==='image') atts+=`<div class="m-img"><img src="${a.url}" alt="${esc(a.name)}" loading="lazy" onclick="openLB('${a.url}')"></div>`;
@@ -4175,7 +4254,7 @@ function buildMsg(m,grp) {
   let reacts='';
   if((m.reactions||[]).length){ reacts='<div class="m-reacts">'+m.reactions.map(r=>`<div class="react${r.users?.includes(S.user?.name)?' me':''}" onclick="toggleReact('${m.id}','${r.emoji}')">${r.emoji}<span>${r.count}</span></div>`).join('')+'</div>'; }
   return `<div class="msg${grp?' grouped':''}" data-id="${m.id}">
-    <div class="m-av" style="background:${m.authorPfp?'transparent':ac};cursor:pointer" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${avInner}</div>
+    <div class="m-av" style="background:${livePfp?'transparent':ac};cursor:pointer" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${avInner}</div>
     <div class="m-body">
       ${!grp?`<div class="m-head"><span class="m-auth" style="cursor:pointer" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${esc(m.author)}${isMe?'<span class="m-you">you</span>':''}</span><span class="m-time">${fmtTime(m.ts)}</span></div>`:''}
       ${m.voiceMsg ? buildVoiceMsg(m) : `<div class="m-txt">${fmtTxt(m.text)}${m.edited?'<span class="m-edited">(edited)</span>':''}</div>`}${atts?`<div class="m-atts">${atts}</div>`:''}${reacts}
@@ -4634,6 +4713,7 @@ function toggleMb(){S.mbOpen=!S.mbOpen;document.getElementById('members').style.
 // DMs — Request / Accept / Chat
 // ══════════════════════════════════
 let curDM = null;        // currently open DM convo
+let _dmContactsLoading = false; // true while waiting for dm_contacts from server
 let pendingDMReq = null; // incoming request waiting for accept/decline
 
 function toggleDM() { document.getElementById('dm-panel').classList.toggle('open'); }
@@ -4687,7 +4767,18 @@ function renderDMs() {
       <div class="dm-unread"></div>
     </div>`;
   });
-  if (!html) html = `<div style="padding:24px 16px;font-size:12px;color:var(--t3);text-align:center">No conversations yet.<br>Click someone's profile to message them!</div>`;
+  if (!html) {
+    if (!S.wsOk) {
+      html = `<div style="padding:24px 16px;font-size:12px;color:var(--t3);text-align:center">Connecting…</div>`;
+    } else if (_dmContactsLoading) {
+      html = `<div style="padding:24px 16px;font-size:12px;color:var(--t3);text-align:center">
+        <div style="margin-bottom:8px;font-size:18px;animation:blink 1.2s infinite">💬</div>
+        Restoring conversations…
+      </div>`;
+    } else {
+      html = `<div style="padding:24px 16px;font-size:12px;color:var(--t3);text-align:center">No conversations yet.<br>Click someone's profile to message them!</div>`;
+    }
+  }
   el.innerHTML = html;
 }
 
@@ -4802,11 +4893,15 @@ function openDMChat(name) {
 }
 
 function recvDMContacts(msg) {
+  _dmContactsLoading = false;
   // Server sends a list of users we've exchanged DMs with.
   // Upsert every entry: add missing ones and refresh metadata on existing ones.
   const contacts = msg.contacts || [];
   let changed = false;
   contacts.forEach(c => {
+    // Seed profileCache with latest pfp so buildMsg always renders the current avatar
+    if (!profileCache[c.name]) profileCache[c.name] = {};
+    if (c.pfp !== undefined) profileCache[c.name].pfp = c.pfp || null;
     const existing = S.dms.find(d => d.name === c.name);
     if (existing) {
       // Update pfp and last-message preview in case they changed
@@ -5042,6 +5137,7 @@ function unpinMsg(msgId) {
   if (!S.curSv.pins[S.curCh.id]) return;
   S.curSv.pins[S.curCh.id] = S.curSv.pins[S.curCh.id].filter(p => p.id !== msgId);
   persist(); updatePinnedBar(); closeM('pins-modal'); showPinnedMessages(); toast('📌 Unpinned');
+  wsSend({ type: 'unpin_message', serverId: S.curSv.id, channelId: S.curCh.id, msgId });
 }
 
 // ══════════════════════════════════
@@ -6172,10 +6268,12 @@ function renderCustomEmojiList() {
   const el = document.getElementById('custom-emoji-list');
   const emojis = S.curSv?.customEmojis || [];
   if (!emojis.length) { el.innerHTML = '<div style="font-size:12px;color:var(--t3)">No custom emojis yet</div>'; return; }
-  el.innerHTML = emojis.map(e => `<div title=":${e.name}:" style="display:flex;flex-direction:column;align-items:center;gap:3px">
-    <img src="${e.data}" class="custom-em" title=":${e.name}:">
-    <div style="font-size:10px;color:var(--t3)">:${esc(e.name)}:</div>
-  </div>`).join('');
+  el.innerHTML = emojis.map(e => {
+    const img = e.data
+      ? `<img src="${e.data}" class="custom-em" title=":${e.name}:">`
+      : `<div style="width:36px;height:36px;background:var(--s3);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--t3)" title=":${e.name}:">?</div>`;
+    return `<div title=":${e.name}:" style="display:flex;flex-direction:column;align-items:center;gap:3px">${img}<div style="font-size:10px;color:var(--t3)">:${esc(e.name)}:</div></div>`;
+  }).join('');
 }
 
 function onCustomEmojiImg(ev) {
@@ -6209,7 +6307,11 @@ function fmtCustomEmoji(text) {
   const emojis = S.curSv?.customEmojis || [];
   return text.replace(/:([a-z0-9_]+):/g, (match, name) => {
     const e = emojis.find(x => x.name === name);
-    return e ? `<img src="${e.data}" style="width:32px;height:32px;vertical-align:middle;border-radius:4px;margin:0 1px" title=":${name}:">` : match;
+    if (!e) return match;
+    if (e.data) return `<img src="${e.data}" style="width:32px;height:32px;vertical-align:middle;border-radius:4px;margin:0 1px" title=":${name}:">`;
+    // Data not cached yet — request it p2p and show placeholder
+    if (S.curSv) wsSend({ type: 'emoji_request', serverId: S.curSv.id, name, requester: S.user.name });
+    return `<span style="display:inline-block;width:32px;height:32px;vertical-align:middle;background:var(--s3);border-radius:4px;font-size:10px;line-height:32px;text-align:center;margin:0 1px;color:var(--t3)" title=":${name}:">:${name.slice(0,3)}:</span>`;
   });
 }
 
