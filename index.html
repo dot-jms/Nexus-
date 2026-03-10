@@ -2794,8 +2794,9 @@ function handleIn(msg) {
       }
       // Retry any pending server creates that haven't been ACKed yet
       setTimeout(_retryPending, 200);
-      // Restore DM contact list from server (lost when cache is cleared)
-      if (!S.dms.length) wsSend({ type: 'fetch_dm_contacts' });
+      // Restore DM contact list from server — server now sends dm_contacts proactively on identify,
+      // but also request explicitly here as a fallback in case the identify response was large.
+      wsSend({ type: 'fetch_dm_contacts' });
       // Re-register owned servers the backend doesn't know about
       // (only owners do this — members don't need to re-register joined servers)
       {
@@ -4766,7 +4767,14 @@ function recvDMDecline(msg) { /* no-op — requests gone */ }
 
 // ── Opening a DM conversation ──
 function openDMChat(name) {
-  const dm = S.dms.find(d => d.name === name); if (!dm) return;
+  let dm = S.dms.find(d => d.name === name);
+  if (!dm) {
+    // Cache was cleared — create a stub entry so the chat can open while history loads
+    dm = { id: uid(), name, last: '', status: 'accepted', pfp: null, lastTs: 0 };
+    S.dms.push(dm);
+    // Ask server for this contact's profile info
+    wsSend({ type: 'fetch_dm_history', with: name });
+  }
   curDM = name;
   dm.unread = false;
   // Switch main view
@@ -4795,11 +4803,20 @@ function openDMChat(name) {
 
 function recvDMContacts(msg) {
   // Server sends a list of users we've exchanged DMs with.
-  // Restore any that aren't already in our local sidebar.
+  // Upsert every entry: add missing ones and refresh metadata on existing ones.
   const contacts = msg.contacts || [];
   let changed = false;
   contacts.forEach(c => {
-    if (!S.dms.find(d => d.name === c.name)) {
+    const existing = S.dms.find(d => d.name === c.name);
+    if (existing) {
+      // Update pfp and last-message preview in case they changed
+      if (c.pfp !== undefined && existing.pfp !== c.pfp) { existing.pfp = c.pfp || null; changed = true; }
+      if (c.lastTs && c.lastTs > (existing.lastTs || 0)) {
+        existing.last = c.last || existing.last;
+        existing.lastTs = c.lastTs;
+        changed = true;
+      }
+    } else {
       S.dms.push({ id: uid(), name: c.name, last: c.last || '', status: 'accepted', pfp: c.pfp || null, lastTs: c.lastTs || 0 });
       changed = true;
     }
