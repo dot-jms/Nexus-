@@ -541,6 +541,12 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--t1);display:
 .profile-modal-av .av-overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;font-size:11px;font-weight:700;color:#fff}
 .profile-modal-av:hover .av-overlay{opacity:1}
 
+/* ── DM VIEW: hide server chrome ── */
+body.in-dm #vcall-bar { display:none !important; }
+body.in-dm #banner:not(.show) { display:none !important; }
+body.in-dm #pinned-bar { display:none !important; }
+body.in-dm #voice-bar { display:none !important; }
+
 /* ════════════════════════════════════════════════
    ✦  NEXUS POLISH LAYER  — visual refinements
    ════════════════════════════════════════════════ */
@@ -856,15 +862,10 @@ body::before {
 .m-file:hover { border-color:rgba(124,109,250,.25) !important; background:rgba(124,109,250,.05) !important; transition:all .15s; }
 
 /* ── Auth mark: livelier gradient ── */
-.auth-mark {
-  background:linear-gradient(135deg, #9d91fb, #5a4de0, #7c6dfa) !important;
-  background-size:200% 200% !important;
-  animation:gradShift 4s ease-in-out infinite !important;
-}
+.auth-mark { background: #7c6dfa; animation: none; }
 .r-logo {
-  background:linear-gradient(135deg, #9d91fb, #5a4de0, #7c6dfa) !important;
-  background-size:200% 200% !important;
-  animation:logoBreath 4s ease-in-out infinite, gradShift 4s ease-in-out infinite !important;
+  background: #7c6dfa !important;
+  animation: none !important;
 }
 @keyframes gradShift {
   0%,100% { background-position:0% 50%; }
@@ -875,7 +876,7 @@ body::before {
 .sv-ic { transition:all .2s cubic-bezier(.34,1.2,.64,1) !important; }
 .sv-ic:hover { transform:scale(1.05) !important; }
 .sv-add { transition:all .2s cubic-bezier(.34,1.2,.64,1) !important; }
-.sv-add:hover { transform:scale(1.05) rotate(90deg) !important; }
+.sv-add:hover { transform:scale(1.08) !important; }
 
 /* ── Voice call pip: subtle pulse when speaking ── */
 .vcall-bar-dot { 
@@ -896,6 +897,157 @@ body::before {
 
 /* ── Notification item: left accent on unread ── */
 .notif-item.unread { border-left:2px solid rgba(124,109,250,.4) !important; }
+
+/* ══════════════════════════════════════════════════════════════
+   NEXUS IDENTITY — overrides that make it NOT Discord
+   ══════════════════════════════════════════════════════════════ */
+
+/* New accent: teal not purple */
+:root {
+  --accent: #7c6dfa;
+  --accent-h: #9d91fb;
+  --glow: rgba(124,109,250,0.2);
+  --glow2: rgba(124,109,250,0.08);
+}
+
+/* Rail: tighter, sharper */
+#rail { width:56px!important; padding:10px 0!important; gap:3px!important; background:#060608!important; }
+
+/* Server icons: square not squircle */
+.sv-ic { border-radius:5px!important; width:38px!important; height:38px!important; font-size:10px!important; font-weight:900!important; font-family:'DM Mono',monospace!important; border:1px solid transparent!important; background:rgba(255,255,255,0.04)!important; color:var(--t2)!important; }
+.sv-ic:hover { border-radius:5px!important; background:rgba(255,255,255,0.07)!important; border-color:var(--border2)!important; color:var(--t1)!important; }
+.sv-ic.act { border-radius:5px!important; background:rgba(124,109,250,0.1)!important; border-color:rgba(124,109,250,0.35)!important; color:var(--accent-h)!important; box-shadow:none!important; }
+
+/* Kill Discord pill, use left border on active */
+.sv-pip { display:none!important; }
+.sv-ic { position:relative; overflow:visible!important; }
+.sv-ic.act::after { content:''; position:absolute; left:-9px; top:22%; bottom:22%; width:3px; background:var(--accent); border-radius:0 3px 3px 0; }
+.sv-ic:hover::after { content:''; position:absolute; left:-9px; top:30%; bottom:30%; width:2px; background:rgba(255,255,255,0.2); border-radius:0 2px 2px 0; }
+
+/* Logo */
+.r-logo { width:38px!important; height:38px!important; border-radius:5px!important; background:var(--accent)!important; background-image:none!important; animation:none!important; box-shadow:none!important; }
+.r-logo:hover { transform:scale(1.05)!important; }
+
+/* Discover/friends/shorts */
+.r-discover { width:38px!important; height:38px!important; border-radius:5px!important; border:1px solid transparent!important; background:rgba(255,255,255,0.03)!important; }
+.r-discover:hover { border-radius:5px!important; background:rgba(255,255,255,0.07)!important; border-color:var(--border2)!important; }
+.r-discover.act { border-radius:5px!important; background:rgba(124,109,250,0.12)!important; border-color:rgba(124,109,250,0.3)!important; color:var(--accent-h)!important; box-shadow:none!important; }
+
+/* Create server */
+.sv-add { width:38px!important; height:38px!important; border-radius:5px!important; font-size:20px!important; }
+.sv-add:hover { border-radius:5px!important; background:rgba(124,109,250,0.06)!important; border-color:var(--accent)!important; color:var(--accent)!important; }
+
+/* Separator */
+.r-sep { width:22px!important; opacity:0.35!important; }
+
+/* Sidebar */
+#sidebar { width:216px!important; background:#090910!important; }
+
+/* Server header */
+.sv-hd { padding:16px 14px 14px!important; }
+.sv-hd-name { font-size:14px!important; font-weight:800!important; letter-spacing:-0.4px!important; }
+
+/* Channel items — no Discord pill, left bar on active */
+.ch-it { border-radius:3px!important; margin:1px 8px!important; padding:5px 10px!important; font-size:12.5px!important; font-weight:500!important; border:none!important; position:relative; }
+.ch-it::before { content:''; position:absolute; left:0; top:25%; bottom:25%; width:0; background:var(--accent); border-radius:0 2px 2px 0; transition:width 0.1s; }
+.ch-it:hover { background:rgba(255,255,255,0.035)!important; color:var(--t2)!important; transform:none!important; }
+.ch-it.act { background:rgba(124,109,250,0.07)!important; color:var(--t1)!important; border:none!important; transform:none!important; }
+.ch-it.act::before { width:2px; }
+.ch-it.unread { color:var(--t1)!important; }
+.ch-it .ico { font-size:10px!important; opacity:0.5!important; }
+.ch-it.act .ico { color:var(--accent)!important; opacity:0.7!important; }
+
+/* Category labels */
+.ch-cat { color:rgba(255,255,255,0.18)!important; font-size:9px!important; letter-spacing:0.12em!important; }
+
+/* User panel */
+.u-panel { background:#060608!important; border-top:1px solid var(--border)!important; }
+.u-av { border-radius:5px!important; }
+.u-dot { border-radius:2px!important; width:8px!important; height:8px!important; border-color:#060608!important; }
+
+/* Message avatars: square */
+.m-av { border-radius:5px!important; }
+.mb-av { border-radius:5px!important; }
+.mb-st { border-radius:2px!important; border-color:#090910!important; }
+
+/* Channel header */
+.ch-hd { background:#07070d!important; height:48px!important; border-bottom:1px solid var(--border)!important; }
+.ch-hd-nm .hash { color:var(--accent)!important; opacity:0.6!important; font-size:13px!important; }
+.ch-hd-nm { font-size:13px!important; font-weight:700!important; }
+
+/* Input box */
+.inp-box { border-radius:7px!important; background:rgba(255,255,255,0.035)!important; border:1px solid var(--border2)!important; }
+.inp-box:focus-within { border-color:rgba(124,109,250,0.3)!important; box-shadow:0 0 0 3px rgba(124,109,250,0.08)!important; }
+
+/* Send button */
+.snd { border-radius:5px!important; background:var(--accent)!important; background-image:none!important; }
+.snd.on { box-shadow:0 2px 12px rgba(124,109,250,0.35)!important; }
+.snd.on:hover { transform:scale(1.06) rotate(0deg)!important; box-shadow:0 4px 18px rgba(124,109,250,0.5)!important; }
+
+/* Buttons */
+.btn-p { background:var(--accent)!important; background-image:none!important; }
+.btn-p:hover { background:var(--accent-h)!important; }
+.auth-btn { background:var(--accent)!important; background-image:none!important; }
+.auth-btn:hover { background:var(--accent-h)!important; }
+.disc-join-btn { background:var(--accent)!important; }
+.disc-join-btn:hover { background:var(--accent-h)!important; }
+
+/* Auth */
+.auth-card { border-radius:10px!important; background:#0c0c11!important; }
+.auth-mark { background:var(--accent)!important; background-image:none!important; border-radius:7px!important; animation:none!important; box-shadow:0 4px 24px rgba(124,109,250,0.3)!important; }
+.auth-tab.active::after { background:var(--accent)!important; }
+.auth-inp:focus { border-color:rgba(124,109,250,0.4)!important; box-shadow:0 0 0 3px rgba(124,109,250,0.08)!important; }
+
+/* Modals */
+.modal { border-radius:10px!important; }
+
+/* Reactions */
+.react.me { background:rgba(124,109,250,0.12)!important; border-color:rgba(124,109,250,0.3)!important; }
+.react:hover { border-color:var(--accent)!important; background:rgba(124,109,250,0.08)!important; }
+
+/* Discover */
+.disc-card { border-radius:7px!important; }
+.disc-filter.active { background:rgba(124,109,250,0.1)!important; border-color:rgba(124,109,250,0.3)!important; color:var(--accent-h)!important; }
+
+/* Scrollbar */
+::-webkit-scrollbar-thumb { background:rgba(124,109,250,0.18)!important; }
+::-webkit-scrollbar-thumb:hover { background:rgba(124,109,250,0.38)!important; }
+
+/* Mentions & code */
+.m-txt .mention { color:var(--accent-h)!important; background:rgba(124,109,250,0.1)!important; }
+.m-txt code { color:var(--accent-h)!important; }
+
+/* Toast */
+.toast.ok { border-left-color:var(--accent)!important; }
+
+/* Reconnect banner */
+#banner { background:rgba(124,109,250,0.1)!important; color:var(--accent-h)!important; border-bottom-color:rgba(124,109,250,0.18)!important; }
+
+/* YOU badge */
+.m-you { background:rgba(124,109,250,0.15)!important; color:var(--accent-h)!important; border-color:rgba(124,109,250,0.2)!important; }
+
+/* DM active */
+.dm-it.active { border-left-color:var(--accent)!important; }
+
+/* Members panel */
+#members { width:188px!important; background:#07070d!important; }
+.mb-cat { color:rgba(255,255,255,0.18)!important; font-size:9px!important; letter-spacing:0.12em!important; }
+
+/* Connection dot */
+.ws-dot.connected { background:var(--accent)!important; }
+.ws-dot.connected::after { background:var(--accent)!important; }
+
+/* Day separator */
+.day-sep { color:rgba(255,255,255,0.15)!important; }
+.day-sep::before, .day-sep::after { background:rgba(255,255,255,0.05)!important; }
+
+/* Notif unread */
+.notif-item.unread { border-left-color:rgba(124,109,250,0.4)!important; }
+
+/* File attachment icon */
+.f-ico { background:rgba(124,109,250,0.1)!important; border-color:rgba(124,109,250,0.2)!important; }
+.f-nm { color:var(--accent-h)!important; }
+
 </style>
 </head>
 <body>
@@ -903,7 +1055,7 @@ body::before {
 <!-- ══════════ AUTH ══════════ -->
 <div id="auth-screen">
   <div class="auth-card">
-    <div class="auth-logo"><div class="auth-mark">N</div>Nexus</div>
+    <div class="auth-logo"><div class="auth-mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L21.5 7.5v9L12 22 2.5 16.5v-9L12 2z"/></svg></div>Nexus</div>
     <div class="auth-tabs">
       <div class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign in</div>
       <div class="auth-tab" id="tab-signup" onclick="switchTab('signup')">Create account</div>
@@ -963,7 +1115,7 @@ body::before {
 <!-- ══════════ APP ══════════ -->
 <div id="app">
   <div id="rail">
-    <div class="r-logo">N</div>
+    <div class="r-logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L21.5 7.5v9L12 22 2.5 16.5v-9L12 2z"/></svg></div>
     <div class="r-sep"></div>
     <div id="sv-list"></div>
     <div class="r-sep"></div>
@@ -2232,6 +2384,8 @@ function handleIn(msg) {
       }
       // Retry any pending server creates that haven't been ACKed yet
       setTimeout(_retryPending, 200);
+      // Restore DM contact list from server (lost when cache is cleared)
+      if (!S.dms.length) wsSend({ type: 'fetch_dm_contacts' });
       // Re-register owned servers the backend doesn't know about
       // (only owners do this — members don't need to re-register joined servers)
       {
@@ -2664,6 +2818,8 @@ function handleIn(msg) {
       break;
     }
     case 'dm': recvDM(msg); break;
+    case 'dm_typing': showDMTyping(msg.from); break;
+    case 'dm_contacts': recvDMContacts(msg); break;
     case 'dm_history': recvDMHistory(msg); break;
     case 'dm_request': recvDMRequest(msg); playSound('dm_request'); break;
     case 'dm_accept': recvDMAccept(msg); break;
@@ -4057,6 +4213,10 @@ function openDMChat(name) {
   hideAll();
   document.getElementById('dm-chat').classList.add('show');
   document.getElementById('ch-hd').style.display = 'none';
+  // Hide channel sidebar and members panel — they belong to servers, not DMs
+  document.getElementById('sidebar').style.display = 'none';
+  document.getElementById('members').style.display = 'none';
+  document.body.classList.add('in-dm');
   // Set header
   const bg = dm.pfp ? 'transparent' : COLORS[hash(name) % COLORS.length];
   const av = dm.pfp ? `<img src="${dm.pfp}" style="width:100%;height:100%;object-fit:cover">` : name[0].toUpperCase();
@@ -4073,9 +4233,35 @@ function openDMChat(name) {
   wsSend({ type: 'fetch_dm_history', with: name });
 }
 
+function recvDMContacts(msg) {
+  // Server sends a list of users we've exchanged DMs with.
+  // Restore any that aren't already in our local sidebar.
+  const contacts = msg.contacts || [];
+  let changed = false;
+  contacts.forEach(c => {
+    if (!S.dms.find(d => d.name === c.name)) {
+      S.dms.push({ id: uid(), name: c.name, last: c.last || '', status: 'accepted', pfp: c.pfp || null, lastTs: c.lastTs || 0 });
+      changed = true;
+    }
+  });
+  if (changed) { persist(); renderDMs(); }
+}
+
+function showDMTyping(who) {
+  if (curDM !== who) return; // not the open conversation
+  const bar = document.getElementById('dm-ty-bar');
+  if (!bar) return;
+  bar.innerHTML = `<div class="ty-dots"><div class="ty-dot"></div><div class="ty-dot"></div><div class="ty-dot"></div></div><span>${esc(who)} is typing…</span>`;
+  clearTimeout(bar._t);
+  bar._t = setTimeout(() => { bar.innerHTML = ''; }, 3500);
+}
+
 function closeDMChat() {
   curDM = null;
   document.getElementById('dm-chat').classList.remove('show');
+  document.getElementById('sidebar').style.display = '';
+  if (S.mbOpen) document.getElementById('members').style.display = '';
+  document.body.classList.remove('in-dm');
   showWelcome();
 }
 
@@ -4183,12 +4369,19 @@ function recvDMHistory(msg) {
   renderDMs();
 }
 
+let _dmTySent = false;
 function onDMType() {
   const inp = document.getElementById('dm-msg-in');
   inp.style.height = 'auto';
   inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
   const btn = document.getElementById('dm-snd-btn');
   if (btn) btn.classList.toggle('on', inp.value.trim().length > 0);
+  // Send DM typing indicator
+  if (curDM && !_dmTySent) {
+    _dmTySent = true;
+    wsSend({ type: 'dm_typing', to: curDM, from: S.user.name });
+    setTimeout(() => { _dmTySent = false; }, 3000);
+  }
 }
 
 // ══════════════════════════════════
@@ -4309,7 +4502,7 @@ function hideAll(){
   document.getElementById('rail-friends').classList.remove('act');
 }
 function showWelcome(){ hideAll(); document.getElementById('welcome').style.display=''; }
-function showChat(){ hideAll(); document.getElementById('chat-wrap').classList.add('show'); document.getElementById('ch-hd').style.display='flex'; }
+function showChat(){ hideAll(); document.getElementById('chat-wrap').classList.add('show'); document.getElementById('ch-hd').style.display='flex'; document.getElementById('sidebar').style.display=''; if (S.mbOpen) document.getElementById('members').style.display=''; document.body.classList.remove('in-dm'); }
 function scrollBot(){ requestAnimationFrame(()=>{const el=document.getElementById('msgs');el.scrollTop=el.scrollHeight;}); }
 function updSnd(){const ok=document.getElementById('msg-in').value.trim()||S.files.length;document.getElementById('snd-btn').classList.toggle('on',!!ok);}
 function openM(id){document.getElementById(id).classList.add('open');}
