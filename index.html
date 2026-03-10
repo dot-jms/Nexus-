@@ -210,20 +210,18 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--t1);display:
 /* notif badge */
 .notif-badge,.fr-badge{position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--red);border:2px solid var(--bg)}
 /* shorts feed */
-.short-card{width:100%;aspect-ratio:9/16;scroll-snap-align:start;position:relative;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;border-radius:0}
+.short-wrap{display:flex;scroll-snap-align:start;flex-shrink:0;width:100%;aspect-ratio:9/16;position:relative}
+.short-card{flex:1;position:relative;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:0}
 .short-card iframe,.short-card video{width:100%;height:100%;object-fit:cover;border:none;display:block}
-.short-overlay{position:absolute;bottom:0;left:0;right:60px;padding:16px 18px 20px;background:linear-gradient(transparent,rgba(0,0,0,.85));color:#fff;pointer-events:none}
-.short-caption{font-size:14px;font-weight:600;line-height:1.4;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+.short-overlay{position:absolute;bottom:0;left:0;right:0;padding:16px 18px 72px;background:linear-gradient(transparent,rgba(0,0,0,.85));color:#fff;pointer-events:none}
+.short-caption{font-size:14px;font-weight:600;line-height:1.4;margin-bottom:4px;text-shadow:0 1px 4px rgba(0,0,0,.8)}
 .short-author{font-size:12px;opacity:.75;font-family:'DM Mono',monospace;text-shadow:0 1px 3px rgba(0,0,0,.8)}
-.short-actions{position:absolute;right:12px;bottom:24px;display:flex;flex-direction:column;gap:18px;align-items:center}
-.short-action-btn{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;color:#fff;transition:transform .15s cubic-bezier(.34,1.4,.64,1)}
-.short-action-btn:hover{transform:scale(1.15)}
+/* Actions sidebar — OUTSIDE overflow:hidden, absolute relative to .short-wrap */
+.short-actions{position:absolute;right:-52px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:20px;align-items:center;z-index:20}
+.short-action-btn{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;color:var(--t1);transition:transform .15s cubic-bezier(.34,1.4,.64,1);background:rgba(0,0,0,.4);border-radius:50%;width:44px;height:44px;justify-content:center;border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(6px)}
+.short-action-btn:hover{transform:scale(1.12);background:rgba(255,255,255,.15)}
 .short-action-btn:active{transform:scale(.9)}
-.short-action-btn svg{filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
-.short-action-count{font-size:11px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.6);letter-spacing:.02em}
-.short-nav-btn{position:absolute;left:50%;transform:translateX(-50%);width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;transition:all .15s;z-index:10}
-.short-nav-btn:hover{background:rgba(255,255,255,.22)}
-.short-nav-up{top:8px}.short-nav-dn{bottom:8px}
+.short-action-count{font-size:10px;font-weight:700;color:var(--t2);letter-spacing:.02em;line-height:1;margin-top:2px;text-align:center;min-width:32px}
 /* Progress dots */
 .shorts-progress{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:4px;z-index:10}
 .shorts-prog-dot{width:3px;height:3px;border-radius:99px;background:rgba(255,255,255,.35);transition:all .2s;cursor:pointer}
@@ -1008,6 +1006,12 @@ body::before {
   from { opacity:0; transform:translateY(4px); }
   to   { opacity:1; transform:translateY(0); }
 }
+
+
+/* Video/attachment stacking fix */
+.m-atts { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.m-atts .m-vid, .m-atts .m-img, .m-atts .m-file, .m-atts .audio-att { margin-top: 0 !important; }
+.m-vid { max-width: 360px; }
 
 /* NEXUS IDENTITY removed */
 
@@ -1927,7 +1931,7 @@ body::before {
   </div>
   <!-- centered card feed -->
   <div style="position:absolute;inset:0;top:52px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent">
-    <div style="position:relative;width:min(340px,90vw);height:calc(100vh - 52px)">
+    <div style="position:relative;width:min(340px,90vw);height:calc(100vh - 52px);margin-right:56px">
       <div id="shorts-feed" style="width:100%;height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;border-radius:14px;position:relative"></div>
       <div class="shorts-progress" id="shorts-progress"></div>
     </div>
@@ -2923,11 +2927,22 @@ function handleIn(msg) {
       break;
 
     case 'server_ownership_transfer': {
-      const toSv = S.servers.find(sv => sv.id === msg.serverId);
+      let toSv = S.servers.find(sv => sv.id === msg.serverId);
+      const iAmNewOwner = (msg.newOwner||'').toLowerCase() === (S.user?.name||'').toLowerCase();
+      if (!toSv && iAmNewOwner && msg.server) {
+        // Server transferred to me and I didn't have it — add it now
+        toSv = { ...msg.server, ownerId: msg.newOwner, isOwner: true };
+        S.servers.push(toSv);
+      }
       if (toSv) {
         toSv.ownerId = msg.newOwner;
-        toSv.isOwner = (msg.newOwner||'').toLowerCase() === (S.user?.name||'').toLowerCase();
+        toSv.isOwner = iAmNewOwner;
         persist(); renderSvs();
+        if (iAmNewOwner) {
+          toast(`👑 You are now the owner of "${toSv.name}"!`);
+          // Fetch full server info so channels load
+          wsSend({ type: 'get_server_info', serverId: toSv.id });
+        }
       }
       if (msg.by === S.user?.name) toast(`✅ Ownership transferred to ${msg.newOwner}`);
       break;
@@ -4027,7 +4042,7 @@ function selectCh(id) {
     }
   } else {
     showChat(); hlCh();
-    requestAnimationFrame(() => { renderMsgs(ch.id); scrollBot(); if(msgsEl) msgsEl.classList.remove('switching'); });
+    requestAnimationFrame(() => { renderMsgs(ch.id); scrollBot(); if(msgsEl) msgsEl.classList.remove('switching'); autoRequestStrippedVideos(ch.id); });
   }
   Object.keys(typers).forEach(k=>delete typers[k]); renderTypingBar();
   wsSend({type:'join_channel',channelId:id,serverId:S.curSv?.id});
@@ -4116,7 +4131,7 @@ function buildMsg(m,grp) {
     <div class="m-av" style="background:${m.authorPfp?'transparent':ac};cursor:pointer" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${avInner}</div>
     <div class="m-body">
       ${!grp?`<div class="m-head"><span class="m-auth" style="cursor:pointer" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${esc(m.author)}${isMe?'<span class="m-you">you</span>':''}</span><span class="m-time">${fmtTime(m.ts)}</span></div>`:''}
-      ${m.voiceMsg ? buildVoiceMsg(m) : `<div class="m-txt">${fmtTxt(m.text)}${m.edited?'<span class="m-edited">(edited)</span>':''}</div>`}${atts}${reacts}
+      ${m.voiceMsg ? buildVoiceMsg(m) : `<div class="m-txt">${fmtTxt(m.text)}${m.edited?'<span class="m-edited">(edited)</span>':''}</div>`}${atts?`<div class="m-atts">${atts}</div>`:''}${reacts}
     </div>
     <div class="m-acts">
       <div class="ma" title="React" onclick="openReactPicker('${m.id}',event)">😊</div>
@@ -4428,8 +4443,9 @@ async function onFiles(e) {
       }
     } else if (f.type.startsWith('video/')) {
       mt = 'video';
-      // Hard cap for non-image files — base64 video over WS will OOM the relay
-      if (f.size > 8 * 1024 * 1024) { toast('⚠️ Videos must be under 8 MB.'); continue; }
+      if (f.size > 50 * 1024 * 1024) { toast('⚠️ Videos must be under 50 MB.'); continue; }
+      // Show loading toast for large videos since FileReader can take a moment
+      if (f.size > 2 * 1024 * 1024) toast(`⏳ Loading ${f.name}…`, 'warn');
     } else if (f.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|aac)$/i.test(f.name)) {
       mt = 'audio';
       if (f.size > 4 * 1024 * 1024) { toast('⚠️ Audio files must be under 4 MB.'); continue; }
@@ -4463,7 +4479,7 @@ function toUrl(f){return new Promise(res=>{const r=new FileReader();r.onload=e=>
 const IMG_LIMITS = {
   chat:   { maxPx: 800,  quality: 0.82, maxBytes: 700 * 1024  },
   icon:   { maxPx: 128,  quality: 0.80, maxBytes: 150 * 1024  },
-  pfp:    { maxPx: 256,  quality: 0.80, maxBytes: 150 * 1024  },
+  pfp:    { maxPx: 192,  quality: 0.72, maxBytes: 40 * 1024   },  // KV 64KB limit
 };
 
 async function compressImage(dataUrl, opts) {
@@ -6226,11 +6242,26 @@ function renderShorts() {
   if (prog) {
     prog.innerHTML = allShorts.map((_, i) => `<div class="shorts-prog-dot${i===0?' act':''}" onclick="shortsGoTo(${i})" data-idx="${i}"></div>`).join('');
   }
-  // Scroll listener for dot sync + autoplay
+  // Scroll handler: pause all videos, play+restart current, sync dots
+  let _shortsScrollTimer = null;
   feed.onscroll = () => {
-    const idx = Math.round(feed.scrollTop / feed.clientHeight);
-    document.querySelectorAll('.shorts-prog-dot').forEach((d,i) => d.classList.toggle('act', i===idx));
+    clearTimeout(_shortsScrollTimer);
+    _shortsScrollTimer = setTimeout(() => {
+      const h = feed.clientHeight;
+      const idx = Math.round(feed.scrollTop / h);
+      document.querySelectorAll('.shorts-prog-dot').forEach((d,i) => d.classList.toggle('act', i===idx));
+      // Pause + restart all videos, play only the current one
+      feed.querySelectorAll('video[data-short-video]').forEach((v, vi) => {
+        v.pause();
+        if (vi === idx) { v.currentTime = 0; v.play().catch(()=>{}); }
+      });
+    }, 80);
   };
+  // Autoplay first video after render
+  setTimeout(() => {
+    const firstVid = feed.querySelector('video[data-short-video]');
+    if (firstVid) { firstVid.currentTime = 0; firstVid.play().catch(()=>{}); }
+  }, 100);
 }
 
 function shortsGoTo(idx) {
@@ -6244,8 +6275,9 @@ function buildShortCard(s, i) {
   let mediaHTML;
   if (embedUrl) {
     mediaHTML = `<iframe src="${embedUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy"></iframe>`;
-  } else if (s._cached || s.url.startsWith('data:') || s.url.match(/\.mp4($|\?)/i)) {
-    mediaHTML = `<video src="${esc(s.url)}" autoplay muted loop playsinline controls style="width:100%;height:100%;object-fit:cover"></video>`;
+  } else if (s._cached || s.url.startsWith('data:') || s.url.match(/\.(mp4|webm|mov|ogg)($|\?)/i)) {
+    // NO muted — user wants sound. Loop + autoplay handled by JS scroll manager.
+    mediaHTML = `<video src="${esc(s.url)}" loop playsinline controls preload="metadata" style="width:100%;height:100%;object-fit:cover" data-short-video></video>`;
   } else {
     mediaHTML = `<div style="color:var(--t2);text-align:center;padding:20px"><div style="font-size:40px">🔗</div><div style="font-size:13px;margin-top:8px;margin-bottom:12px">Unsupported URL</div><a href="${esc(s.url)}" target="_blank" style="color:var(--accent-h);font-size:13px;font-weight:600">Open Link ↗</a></div>`;
   }
@@ -6253,32 +6285,26 @@ function buildShortCard(s, i) {
   const liked = (s.likes||[]).includes(S.user?.name);
   const comments = (s.comments||[]).length;
   const cachedBadge = s._cached ? `<div style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,.55);border-radius:6px;padding:2px 8px;font-size:10px;color:#fff;font-weight:700;letter-spacing:.05em">📦 CACHED</div>` : '';
-  // Cached shorts get full action bar (likes/comments stored locally)
-  const actions_content = `
+  const likeColor = liked ? '#ef4444' : 'currentColor';
+  const actions = `<div class="short-actions">
         <div class="short-action-btn" onclick="event.stopPropagation();toggleShortLike('${s.id}')">
-          <svg width="26" height="26" fill="${liked?'#ef4444':'none'}" stroke="${liked?'#ef4444':'#fff'}" stroke-width="2.2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-          <div class="short-action-count">${likes||''}</div>
-        </div>
+          <svg width="22" height="22" fill="${liked?'#ef4444':'none'}" stroke="${likeColor}" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </div><div class="short-action-count" style="margin-top:-14px;margin-bottom:4px">${likes||''}</div>
         <div class="short-action-btn" onclick="event.stopPropagation();openShortComments('${s.id}')">
-          <svg width="26" height="26" fill="none" stroke="#fff" stroke-width="2.2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          <div class="short-action-count">${comments||''}</div>
-        </div>
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div><div class="short-action-count" style="margin-top:-14px;margin-bottom:4px">${comments||''}</div>
         <div class="short-action-btn" onclick="event.stopPropagation();shareShort('${s.id}')">
-          <svg width="26" height="26" fill="none" stroke="#fff" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-          <div class="short-action-count"></div>
-        </div>`;
-  const actions = s._cached
-    ? `<div class="short-actions" style="z-index:5">${actions_content}</div>`
-    : `<div class="short-actions" style="z-index:5">${actions_content}</div>`;
-  return `<div class="short-card" data-short="${s.id}">
+          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        </div>
+      </div>`;
+  return `<div class="short-wrap" data-short="${s.id}" data-idx="${i}"><div class="short-card">
     ${mediaHTML}
     ${cachedBadge}
-    <div class="short-overlay" style="pointer-events:none">
+    <div class="short-overlay">
       <div class="short-caption">${esc(s.caption||'')}</div>
       <div class="short-author">@${esc(s.author)}</div>
     </div>
-    ${actions}
-  </div>`;
+  </div>${actions}</div>`;
 }
 
 function getEmbedUrl(url) {
@@ -7952,6 +7978,19 @@ function renderGhostVcallBar(participants) {
 }
 
 function adminListCalls() { wsSend({ type: 'admin_list_calls' }); }
+
+// Auto-request all stripped videos visible in current channel
+function autoRequestStrippedVideos(chId) {
+  if (!chId) return;
+  setTimeout(() => {
+    document.querySelectorAll('.vid-placeholder').forEach(el => {
+      const msgId = el.dataset.msgId;
+      const elChId = el.dataset.chId;
+      if (!msgId || _pendingVideoRequests.has(msgId)) return;
+      requestVideo(msgId, elChId || chId, el.dataset.name || '');
+    });
+  }, 600); // slight delay so DOM is settled
+}
 
 function requestVideo(msgId, channelId, name) {
   const el = document.querySelector(`[data-msg-id="${msgId}"].vid-placeholder`);
