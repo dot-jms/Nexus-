@@ -3191,6 +3191,45 @@ function handleIn(msg) {
       if (document.getElementById('friends-view').style.display !== 'none') renderFriends();
       break;
     case 'delete_message': delById(msg.messageId,msg.channelId); break;
+    case 'dm_delete': {
+      // Other party deleted a DM — remove it from our local store and re-render
+      const dmDelKey = msg.from?.toLowerCase() === S.user?.name?.toLowerCase() ? msg.to : msg.from;
+      const dmDelConvo = dmDelKey?.toLowerCase();
+      if (dmDelConvo && S.dmMessages[dmDelConvo]) {
+        const idx = S.dmMessages[dmDelConvo].findIndex(m => m.id === msg.messageId);
+        if (idx !== -1) { S.dmMessages[dmDelConvo].splice(idx, 1); persist(); }
+        if (curDM?.toLowerCase() === dmDelConvo) renderDMMessages(curDM);
+      }
+      break;
+    }
+    case 'dm_reaction': {
+      // Incoming DM reaction toggle from the other party
+      const dmrFrom = msg.from || (msg.user === S.user?.name ? msg.to : msg.user);
+      const dmrConvoKey = dmrFrom?.toLowerCase();
+      if (dmrConvoKey && S.dmMessages[dmrConvoKey]) {
+        const dmrMsg = S.dmMessages[dmrConvoKey].find(x => x.id === msg.messageId);
+        if (dmrMsg) {
+          if (!dmrMsg.reactions) dmrMsg.reactions = [];
+          let rr = dmrMsg.reactions.find(x => x.emoji === msg.emoji);
+          if (rr) {
+            const alreadyReacted = rr.users?.includes(msg.user);
+            if (alreadyReacted) {
+              rr.count = Math.max(0, (rr.count || 1) - 1);
+              rr.users = (rr.users || []).filter(u => u !== msg.user);
+              if (rr.count <= 0) dmrMsg.reactions = dmrMsg.reactions.filter(x => x.emoji !== msg.emoji);
+            } else {
+              rr.count = (rr.count || 0) + 1;
+              rr.users = [...(rr.users || []), msg.user];
+            }
+          } else {
+            dmrMsg.reactions.push({ emoji: msg.emoji, count: 1, users: [msg.user] });
+          }
+          persist();
+          if (curDM?.toLowerCase() === dmrConvoKey) renderDMMessages(curDM);
+        }
+      }
+      break;
+    }
     case 'edit_message': {
       // BUG 6 FIX: Previously skipped edits where msg.author === S.user.name,
       // blocking multi-device edits (edit on phone, not reflected on desktop).
