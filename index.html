@@ -211,17 +211,19 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--t1);display:
 .notif-badge,.fr-badge{position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--red);border:2px solid var(--bg)}
 /* shorts feed */
 .short-wrap{display:flex;scroll-snap-align:start;flex-shrink:0;width:100%;aspect-ratio:9/16;position:relative}
-.short-card{flex:1;position:relative;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:0}
+/* card clips only the media, not the actions */
+.short-card{flex:1;position:relative;background:#000;display:flex;align-items:center;justify-content:center;overflow:visible;border-radius:0}
+.short-card-media{position:absolute;inset:0;overflow:hidden;border-radius:inherit}
 .short-card iframe,.short-card video{width:100%;height:100%;object-fit:cover;border:none;display:block}
-.short-overlay{position:absolute;bottom:0;left:0;right:0;padding:16px 18px 72px;background:linear-gradient(transparent,rgba(0,0,0,.85));color:#fff;pointer-events:none}
+.short-overlay{position:absolute;bottom:0;left:0;right:0;padding:16px 18px 72px;background:linear-gradient(transparent,rgba(0,0,0,.85));color:#fff;pointer-events:none;z-index:2}
 .short-caption{font-size:14px;font-weight:600;line-height:1.4;margin-bottom:4px;text-shadow:0 1px 4px rgba(0,0,0,.8)}
 .short-author{font-size:12px;opacity:.75;font-family:'DM Mono',monospace;text-shadow:0 1px 3px rgba(0,0,0,.8)}
-/* Actions sidebar — OUTSIDE overflow:hidden, absolute relative to .short-wrap */
-.short-actions{position:absolute;right:-52px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:20px;align-items:center;z-index:20}
-.short-action-btn{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;color:var(--t1);transition:transform .15s cubic-bezier(.34,1.4,.64,1);background:rgba(0,0,0,.4);border-radius:50%;width:44px;height:44px;justify-content:center;border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(6px)}
-.short-action-btn:hover{transform:scale(1.12);background:rgba(255,255,255,.15)}
+/* Actions: inside card, absolutely right-edge, outside overflow */
+.short-actions{position:absolute;right:-60px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;align-items:center;z-index:30}
+.short-action-btn{display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .15s cubic-bezier(.34,1.4,.64,1);background:rgba(15,15,20,.75);border-radius:50%;width:46px;height:46px;border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px);color:#fff}
+.short-action-btn:hover{transform:scale(1.12);background:rgba(255,255,255,.18)}
 .short-action-btn:active{transform:scale(.9)}
-.short-action-count{font-size:10px;font-weight:700;color:var(--t2);letter-spacing:.02em;line-height:1;margin-top:2px;text-align:center;min-width:32px}
+.short-action-count{font-size:11px;font-weight:700;color:rgba(255,255,255,.8);letter-spacing:.02em;text-align:center;min-width:40px;margin-bottom:6px}
 /* Progress dots */
 .shorts-progress{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:4px;z-index:10}
 .shorts-prog-dot{width:3px;height:3px;border-radius:99px;background:rgba(255,255,255,.35);transition:all .2s;cursor:pointer}
@@ -1935,8 +1937,8 @@ body::before {
     <button class="btn-p" style="font-size:12px;padding:7px 14px" onclick="openAddShort()">+ Post Short</button>
   </div>
   <!-- centered card feed -->
-  <div style="position:absolute;inset:0;top:52px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent">
-    <div style="position:relative;width:min(340px,90vw);height:calc(100vh - 52px);margin-right:56px">
+  <div style="position:absolute;inset:0;top:52px;display:flex;align-items:center;justify-content:center;overflow:visible;background:transparent">
+    <div style="position:relative;width:min(340px,90vw);height:calc(100vh - 52px);margin-right:70px">
       <div id="shorts-feed" style="width:100%;height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;border-radius:14px;position:relative"></div>
       <div class="shorts-progress" id="shorts-progress"></div>
     </div>
@@ -6322,13 +6324,13 @@ function buildShortCard(s, i) {
         </div>
       </div>`;
   return `<div class="short-wrap" data-short="${s.id}" data-idx="${i}"><div class="short-card">
-    ${mediaHTML}
-    ${cachedBadge}
+    <div class="short-card-media">${mediaHTML}${cachedBadge}</div>
     <div class="short-overlay">
       <div class="short-caption">${esc(s.caption||'')}</div>
       <div class="short-author">@${esc(s.author)}</div>
     </div>
-  </div>${actions}</div>`;
+    ${actions}
+  </div></div>`;
 }
 
 function getEmbedUrl(url) {
