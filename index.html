@@ -210,13 +210,24 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--t1);display:
 /* notif badge */
 .notif-badge,.fr-badge{position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--red);border:2px solid var(--bg)}
 /* shorts feed */
-.short-card{width:100%;aspect-ratio:9/16;scroll-snap-align:start;position:relative;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+.short-card{width:100%;aspect-ratio:9/16;scroll-snap-align:start;position:relative;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;border-radius:0}
 .short-card iframe,.short-card video{width:100%;height:100%;object-fit:cover;border:none;display:block}
-.short-overlay{position:absolute;bottom:0;left:0;right:0;padding:20px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff}
-.short-actions{position:absolute;right:16px;bottom:80px;display:flex;flex-direction:column;gap:16px;align-items:center}
-.short-action-btn{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;color:#fff}
-.short-action-btn svg{filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))}
-.short-action-count{font-size:12px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.short-overlay{position:absolute;bottom:0;left:0;right:60px;padding:16px 18px 20px;background:linear-gradient(transparent,rgba(0,0,0,.85));color:#fff;pointer-events:none}
+.short-caption{font-size:14px;font-weight:600;line-height:1.4;margin-bottom:6px;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+.short-author{font-size:12px;opacity:.75;font-family:'DM Mono',monospace;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.short-actions{position:absolute;right:12px;bottom:24px;display:flex;flex-direction:column;gap:18px;align-items:center}
+.short-action-btn{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;color:#fff;transition:transform .15s cubic-bezier(.34,1.4,.64,1)}
+.short-action-btn:hover{transform:scale(1.15)}
+.short-action-btn:active{transform:scale(.9)}
+.short-action-btn svg{filter:drop-shadow(0 2px 6px rgba(0,0,0,.6))}
+.short-action-count{font-size:11px;font-weight:700;text-shadow:0 1px 3px rgba(0,0,0,.6);letter-spacing:.02em}
+.short-nav-btn{position:absolute;left:50%;transform:translateX(-50%);width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.15);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;transition:all .15s;z-index:10}
+.short-nav-btn:hover{background:rgba(255,255,255,.22)}
+.short-nav-up{top:8px}.short-nav-dn{bottom:8px}
+/* Progress dots */
+.shorts-progress{position:absolute;right:4px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:4px;z-index:10}
+.shorts-prog-dot{width:3px;height:3px;border-radius:99px;background:rgba(255,255,255,.35);transition:all .2s;cursor:pointer}
+.shorts-prog-dot.act{height:16px;background:#fff}
 .short-caption{font-size:14px;font-weight:600;margin-bottom:4px;text-shadow:0 1px 3px rgba(0,0,0,.5)}
 .short-author{font-size:12px;opacity:.8}
 /* search results */
@@ -898,9 +909,107 @@ body::before {
 /* ── Notification item: left accent on unread ── */
 .notif-item.unread { border-left:2px solid rgba(124,109,250,.4) !important; }
 
-/* ══════════════════════════════════════════════════════════════
-   NEXUS IDENTITY — overrides that make it NOT Discord
-   ══════════════════════════════════════════════════════════════ */
+
+/* ── Notification item: left accent on unread ── */
+.notif-item.unread { border-left:2px solid rgba(124,109,250,.4) !important; }
+
+
+/* ══ BUTTERY SMOOTH ANIMATIONS ══ */
+/* Consistent spring easing across all interactions */
+* { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+/* Message hover: smoother */
+.msg { transition: background .18s ease, transform .12s cubic-bezier(.34,1.2,.64,1) !important; }
+.msg:hover { transform: translateX(1px); }
+
+/* Channel item: spring hover */
+.ch-it { transition: background .14s ease, color .14s ease !important; }
+
+/* Server icons: spring scale */
+.sv-ic { transition: all .18s cubic-bezier(.34,1.2,.64,1) !important; }
+.r-discover { transition: all .18s cubic-bezier(.34,1.2,.64,1) !important; }
+
+/* Rail DMs: spring */
+.rail-dm-av { transition: all .2s cubic-bezier(.34,1.3,.64,1) !important; }
+.rail-dm-av:hover { transform: scale(1.08) !important; }
+
+/* Buttons: fast spring */
+.btn-p, .btn-g, .auth-btn { transition: all .16s cubic-bezier(.34,1.2,.64,1) !important; }
+.btn-p:hover, .auth-btn:hover { transform: translateY(-1px); }
+.btn-p:active, .auth-btn:active { transform: translateY(0) scale(.97); }
+
+/* Modal entrance */
+@keyframes modalSpring {
+  from { opacity:0; transform:translate(-50%,-50%) scale(.94) translateY(10px); }
+  to   { opacity:1; transform:translate(-50%,-50%) scale(1)   translateY(0); }
+}
+.modal { animation: modalSpring .22s cubic-bezier(.34,1.2,.64,1) both !important; }
+
+/* Message action bar: spring pop */
+@keyframes actsSpring {
+  from { opacity:0; transform:scale(.85) translateY(4px); }
+  to   { opacity:1; transform:scale(1) translateY(0); }
+}
+.m-acts { transition: opacity .12s ease !important; }
+.msg:hover .m-acts { animation: actsSpring .18s cubic-bezier(.34,1.4,.64,1) both !important; }
+
+/* Reaction pop: bouncier */
+@keyframes reactBounce {
+  0%   { transform:scale(0) rotate(-10deg); }
+  60%  { transform:scale(1.25) rotate(3deg); }
+  100% { transform:scale(1) rotate(0); }
+}
+.react.pop { animation: reactBounce .22s cubic-bezier(.34,1.5,.64,1) both !important; }
+
+/* Overlay open: fade+scale */
+.overlay.open { animation: overlayIn .18s ease both; }
+@keyframes overlayIn { from { opacity:0; } to { opacity:1; } }
+
+/* App visibility: smoother fade-in */
+#app { transition: opacity .4s cubic-bezier(.4,0,.2,1) !important; }
+
+/* Toasts: spring entrance */
+@keyframes toastIn {
+  from { opacity:0; transform:translateX(-50%) translateY(10px) scale(.94); }
+  to   { opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+}
+.toast { animation: toastIn .22s cubic-bezier(.34,1.3,.64,1) both !important; }
+
+/* Input box focus: smooth glow */
+.inp-box { transition: border-color .2s ease, box-shadow .2s ease !important; }
+
+/* Home screen cards */
+.home-card { transition: all .2s cubic-bezier(.34,1.2,.64,1) !important; }
+.home-card:hover { transform: translateY(-2px) scale(1.01) !important; }
+
+/* Home rows */
+.home-row { transition: background .14s ease !important; }
+
+/* Disc cards */
+.disc-card { transition: all .2s cubic-bezier(.34,1.2,.64,1) !important; }
+.disc-card:hover { transform: translateY(-3px) !important; box-shadow: 0 12px 32px rgba(0,0,0,.4) !important; }
+
+/* Member items */
+.mb-it { transition: background .14s ease, transform .14s cubic-bezier(.34,1.2,.64,1) !important; }
+.mb-it:hover { transform: translateX(2px) !important; }
+
+/* DM items */
+.dm-it { transition: background .14s ease, transform .14s cubic-bezier(.34,1.2,.64,1) !important; }
+.dm-it:hover { transform: translateX(2px) !important; }
+
+/* Scroll: smooth everywhere */
+#msgs, #dm-msgs, .ch-list, #members, #dm-list, .disc-body { scroll-behavior: smooth; }
+
+/* View transition */
+#home-screen, #chat-wrap, #dm-chat, #discover, #friends-view {
+  animation: viewIn .18s cubic-bezier(.4,0,.2,1) both;
+}
+@keyframes viewIn {
+  from { opacity:0; transform:translateY(4px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* NEXUS IDENTITY removed */
 
 /* New accent: teal not purple */
 :root {
@@ -1048,6 +1157,255 @@ body::before {
 .f-ico { background:rgba(124,109,250,0.1)!important; border-color:rgba(124,109,250,0.2)!important; }
 .f-nm { color:var(--accent-h)!important; }
 
+
+/* ══════════════════════════════════════════════════════════════
+   PASS 2 — Audio player, Rail DMs, Home screen, Butter animations
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Audio attachment player ── */
+.audio-att {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--s2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  max-width: 320px;
+  margin-top: 7px;
+  overflow: hidden;
+  transition: border-color .15s, transform .15s;
+}
+.audio-att:hover { border-color: rgba(124,109,250,.3); transform: translateY(-1px); }
+.audio-att-top {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px 10px;
+}
+.audio-att-icon {
+  width: 42px; height: 42px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(124,109,250,.25), rgba(90,77,224,.15));
+  border: 1px solid rgba(124,109,250,.2);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent-h);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+.audio-att-icon::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.08), transparent);
+}
+.audio-att-body { flex: 1; min-width: 0; }
+.audio-att-name {
+  font-size: 12.5px; font-weight: 700; color: var(--t1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-bottom: 3px; letter-spacing: -.1px;
+}
+.audio-att-meta {
+  font-size: 10px; color: var(--t3); font-family: 'DM Mono', monospace;
+}
+.audio-att-controls {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 14px 12px;
+}
+.audio-att-btn {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--accent); border: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: #fff; flex-shrink: 0;
+  transition: transform .12s, box-shadow .12s;
+  box-shadow: 0 2px 10px rgba(124,109,250,.4);
+}
+.audio-att-btn:hover { transform: scale(1.1); box-shadow: 0 4px 16px rgba(124,109,250,.55); }
+.audio-att-btn:active { transform: scale(0.95); }
+.audio-att-bar {
+  flex: 1; height: 4px; background: rgba(255,255,255,0.08);
+  border-radius: 99px; overflow: hidden; cursor: pointer;
+  position: relative;
+}
+.audio-att-bar:hover .audio-att-prog { background: var(--accent-h); }
+.audio-att-prog {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-h));
+  border-radius: 99px; transition: width .1s linear;
+}
+.audio-att-time {
+  font-size: 10px; color: var(--t3);
+  font-family: 'DM Mono', monospace; flex-shrink: 0; min-width: 36px; text-align: right;
+}
+
+/* ── Rail DM avatars ── */
+.rail-dm-av {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800; color: #fff;
+  cursor: pointer; flex-shrink: 0; overflow: hidden;
+  border: 1px solid transparent;
+  transition: all .18s cubic-bezier(.34,1.2,.64,1);
+  position: relative;
+}
+.rail-dm-av:hover {
+  border-radius: 12px;
+  border-color: var(--border2);
+  transform: scale(1.06);
+}
+.rail-dm-av.act {
+  border-color: rgba(124,109,250,0.4);
+  box-shadow: 0 0 0 2px rgba(124,109,250,0.15);
+}
+.rail-dm-av.unread::after {
+  content: '';
+  position: absolute; bottom: 1px; right: 1px;
+  width: 9px; height: 9px;
+  background: var(--accent); border-radius: 50%;
+  border: 2px solid var(--bg);
+}
+.rail-dm-badge {
+  position: absolute; bottom: 0; right: 0;
+  width: 9px; height: 9px;
+  background: var(--accent); border-radius: 50%;
+  border: 2px solid var(--bg);
+}
+
+/* ── Home screen ── */
+.home-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex; align-items: center; gap: 12px;
+  cursor: pointer;
+  transition: all .15s cubic-bezier(.34,1.2,.64,1);
+}
+.home-card:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.12);
+  transform: translateY(-1px);
+}
+.home-card-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.home-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 8px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.home-row:hover { background: rgba(255,255,255,0.04); }
+.home-row-av {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800; color: #fff; flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* ── Butter animations ── */
+
+/* Page-level view transitions */
+#welcome, #home-screen, #discover, #chat-wrap, #dm-chat, #friends-view {
+  animation: none;
+}
+.view-enter {
+  animation: viewIn .2s cubic-bezier(.22,1,.36,1) both !important;
+}
+@keyframes viewIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Channel items: smoother slide */
+.ch-it {
+  transition: background .12s, color .12s, transform .12s cubic-bezier(.34,1.3,.64,1) !important;
+}
+.ch-it:hover { transform: translateX(2px) !important; }
+.ch-it.act { transform: none !important; }
+
+/* DM items: spring */
+.dm-it {
+  transition: background .12s, transform .15s cubic-bezier(.34,1.3,.64,1) !important;
+}
+.dm-it:hover { transform: translateX(3px) !important; }
+
+/* Server icon pop */
+.sv-ic {
+  transition: all .18s cubic-bezier(.34,1.25,.64,1) !important;
+}
+.sv-ic:hover { transform: scale(1.08) !important; }
+.sv-ic.act { transform: scale(1.0) !important; }
+
+/* Modal entrance: springier */
+.overlay.open .modal {
+  animation: modalSpring .28s cubic-bezier(.34,1.35,.64,1) both !important;
+}
+@keyframes modalSpring {
+  from { opacity: 0; transform: translate(-50%,-50%) scale(.92); }
+  to   { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+}
+
+/* Message actions: faster pop */
+.msg:hover .m-acts {
+  animation: actsIn .14s cubic-bezier(.34,1.4,.64,1) both !important;
+}
+
+/* Reaction pop: bigger bounce */
+.react.pop { animation: reactBounce .22s cubic-bezier(.34,1.6,.64,1) both !important; }
+@keyframes reactBounce {
+  0%   { transform: scale(.6) rotate(-8deg); }
+  60%  { transform: scale(1.18) rotate(3deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+/* New message: subtle slide */
+.msg.new { animation: msgSlide .18s cubic-bezier(.22,1,.36,1) both !important; }
+@keyframes msgSlide {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Smooth scroll for message containers */
+#msgs, #dm-msgs { scroll-behavior: smooth; }
+
+/* Rail DM avatars spring in */
+.rail-dm-av {
+  animation: railDmIn .2s cubic-bezier(.34,1.3,.64,1) both;
+}
+
+/* Button press feel */
+.btn-p:active, .auth-btn:active, .snd:active {
+  transform: scale(.96) !important;
+}
+.ib:active { transform: scale(.92) !important; }
+
+/* Channel header: smooth name change */
+#ch-nm { transition: opacity .1s; }
+
+/* Input focus: smooth glow expand */
+.inp-box {
+  transition: border-color .15s, box-shadow .2s cubic-bezier(.34,1.2,.64,1) !important;
+}
+
+/* Toast: springier entrance */
+.toast {
+  animation: toastIn .25s cubic-bezier(.34,1.3,.64,1) !important;
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(.95); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
+
+/* Auth card entrance */
+.auth-card {
+  animation: authCardIn .35s cubic-bezier(.34,1.15,.64,1) both !important;
+}
+@keyframes authCardIn {
+  from { opacity: 0; transform: translateY(16px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 </style>
 </head>
 <body>
@@ -1115,8 +1473,10 @@ body::before {
 <!-- ══════════ APP ══════════ -->
 <div id="app">
   <div id="rail">
-    <div class="r-logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L21.5 7.5v9L12 22 2.5 16.5v-9L12 2z"/></svg></div>
+    <div class="r-logo" onclick="showHome()" title="Home"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L21.5 7.5v9L12 22 2.5 16.5v-9L12 2z"/></svg></div>
     <div class="r-sep"></div>
+    <div id="rail-dms" style="display:flex;flex-direction:column;align-items:center;gap:3px"></div>
+    <div class="r-sep" id="rail-dms-sep" style="display:none"></div>
     <div id="sv-list"></div>
     <div class="r-sep"></div>
     <div class="r-discover" id="rail-shorts" onclick="openShortsRail()" title="Shorts Feed" style="font-size:13px;font-weight:800;color:var(--t2)">
@@ -1208,6 +1568,28 @@ body::before {
         <button class="btn-p" onclick="openM('csv')">Create Server</button>
         <button class="btn-g" onclick="showDiscover()">Discover Servers</button>
       </div>
+    </div>
+
+    <!-- HOME SCREEN -->
+    <div id="home-screen" style="display:none;flex:1;overflow-y:auto;padding:28px 28px 20px">
+      <div style="margin-bottom:24px">
+        <div id="home-greeting" style="font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px">Hey —</div>
+        <div style="font-size:13px;color:var(--t2)">Here's what's been happening.</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px">
+        <div class="home-card" onclick="showFriends()">
+          <div class="home-card-icon" style="background:rgba(0,196,167,0.12);color:var(--accent)"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+          <div><div style="font-size:12px;font-weight:700;margin-bottom:2px">Friends</div><div id="home-friends-count" style="font-size:11px;color:var(--t3)">—</div></div>
+        </div>
+        <div class="home-card" onclick="showDiscover()">
+          <div class="home-card-icon" style="background:rgba(100,149,237,0.12);color:#6495ed"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg></div>
+          <div><div style="font-size:12px;font-weight:700;margin-bottom:2px">Discover</div><div style="font-size:11px;color:var(--t3)">Find new servers</div></div>
+        </div>
+      </div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,0.2);margin-bottom:10px">Recent DMs</div>
+      <div id="home-recent-dms" style="display:flex;flex-direction:column;gap:3px;margin-bottom:24px"></div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,0.2);margin-bottom:10px">Your Servers</div>
+      <div id="home-servers" style="display:flex;flex-direction:column;gap:3px"></div>
     </div>
 
     <!-- DISCOVER -->
@@ -1545,7 +1927,10 @@ body::before {
   </div>
   <!-- centered card feed -->
   <div style="position:absolute;inset:0;top:52px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:transparent">
-    <div id="shorts-feed" style="width:min(340px,90vw);height:calc(100vh - 52px);overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;border-radius:12px"></div>
+    <div style="position:relative;width:min(340px,90vw);height:calc(100vh - 52px)">
+      <div id="shorts-feed" style="width:100%;height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;border-radius:14px;position:relative"></div>
+      <div class="shorts-progress" id="shorts-progress"></div>
+    </div>
   </div>
 </div>
 
@@ -1947,6 +2332,20 @@ function bootApp() {
   connectWS();
   checkInviteHash();
   reqNotifPermission();
+  // Global Escape key: close topmost open modal
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      const open = document.querySelector('.overlay.open');
+      if (open) { open.classList.remove('open'); return; }
+      if (curDM) { closeDMChat(); return; }
+    }
+    // Ctrl/Cmd+K: jump to DM search
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      e.preventDefault();
+      openM('ndm');
+      setTimeout(() => document.getElementById('dm-in')?.focus(), 80);
+    }
+  });
   // Update friend request badge
   setTimeout(()=>{ const inReqs=S.friendReqs.filter(r=>r.direction==='in'); document.getElementById('fr-badge').style.display=inReqs.length?'':'none'; }, 100);
   if(S.servers.length) selectSv(S.servers[0].id);
@@ -3693,7 +4092,22 @@ function buildMsg(m,grp) {
         atts+=`<div class="m-vid"><video controls><source src="${a.url}"></video></div>`;
       }
     }
-    else if(a.type==='audio') atts+=`<div class="vm-msg" style="max-width:280px"><div class="vm-play" onclick="this.nextElementSibling.paused?this.nextElementSibling.play():this.nextElementSibling.pause()"><svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div><audio style="display:none"><source src="${a.url}"></audio><div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px">${esc(a.name)}</div><div style="font-size:10px;color:var(--t3)">${a.size||'Audio'}</div></div></div>`;
+    else if(a.type==='audio') {
+      const aid = 'att-audio-' + (a.url||'').slice(-8).replace(/[^a-z0-9]/gi,'');
+      atts += `<div class="audio-att" id="${aid}">
+        <div class="audio-att-icon"><svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+        <div class="audio-att-body">
+          <div class="audio-att-name">${esc(a.name)}</div>
+          <div class="audio-att-track">
+            <button class="audio-att-btn" onclick="playAttAudio('${aid}','${a.url}',this)">
+              <svg class="play-icon" width="10" height="10" fill="currentColor" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <svg class="pause-icon" width="10" height="10" fill="currentColor" viewBox="0 0 24 24" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            </button>
+            <div class="audio-att-bar"><div class="audio-att-prog" id="${aid}-prog"></div></div>
+            <div class="audio-att-time" id="${aid}-time">0:00</div>
+        </div>
+      </div>`;
+    }
     else atts+=`<div class="m-file"><div class="f-ico">📄</div><div><div class="f-nm">${esc(a.name)}</div><div class="f-sz">${a.size||''}</div></div></div>`;
   });
   let reacts='';
@@ -4142,7 +4556,38 @@ let pendingDMReq = null; // incoming request waiting for accept/decline
 
 function toggleDM() { document.getElementById('dm-panel').classList.toggle('open'); }
 
+function renderRailDMs() {
+  const el = document.getElementById('rail-dms');
+  if (!el) return;
+  const recent = [...S.dms].sort((a,b)=>(b.lastTs||0)-(a.lastTs||0)).slice(0,5);
+  const sep = document.getElementById('rail-dms-sep');
+  if (sep) sep.style.display = recent.length ? '' : 'none';
+  el.innerHTML = recent.map(dm => {
+    const bg = dm.pfp ? 'transparent' : COLORS[hash(dm.name) % COLORS.length];
+    const av = dm.pfp ? `<img src="${dm.pfp}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : dm.name[0].toUpperCase();
+    const isActive = curDM === dm.name;
+    return `<div class="rail-dm-av${isActive?' act':''}${dm.unread?' unread':''}" style="background:${bg}" onclick="openOrCreateDM('${dm.name}',null)" title="${esc(dm.name)}">${av}${dm.unread?'<div class="rail-dm-badge"></div>':''}</div>`;
+  }).join('');
+}
+
 function renderDMs() {
+  renderRailDMs();
+  // Refresh home screen if it's currently showing
+  if (document.getElementById('home-screen')?.style.display !== 'none' &&
+      document.getElementById('home-screen')?.style.display !== '') {
+    // Don't re-trigger full showHome (causes flicker), just update DM list
+    const recent = [...S.dms].sort((a,b)=>(b.lastTs||0)-(a.lastTs||0)).slice(0,5);
+    const dmsEl = document.getElementById('home-recent-dms');
+    if (dmsEl) dmsEl.innerHTML = recent.length ? recent.map(dm => {
+      const bg = dm.pfp ? 'transparent' : COLORS[hash(dm.name) % COLORS.length];
+      const av = dm.pfp ? `<img src="${dm.pfp}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : dm.name[0].toUpperCase();
+      return `<div class="home-row" onclick="openOrCreateDM('${dm.name}',null)">
+        <div class="home-row-av" style="background:${bg}">${av}</div>
+        <div style="min-width:0;flex:1"><div style="font-size:13px;font-weight:600">${esc(dm.name)}</div><div style="font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(dm.last||'No messages yet')}</div></div>
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--t3);flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>`;
+    }).join('') : '<div style="font-size:12px;color:var(--t3);padding:8px 0">No recent conversations.</div>';
+  }
   const el = document.getElementById('dm-list');
   // Sort by most recent message
   const convos = [...S.dms].sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0));
@@ -4165,16 +4610,50 @@ function renderDMs() {
 }
 
 // ── Open or create a DM conversation (no request needed) ──
-function sendDMRequest() {
-  // "New DM" modal — just open the conversation directly
+async function sendDMRequest() {
   const name = document.getElementById('dm-in').value.trim().split('#')[0];
   const errEl = document.getElementById('dm-req-err');
   errEl.style.display = 'none';
   if (!name) { errEl.textContent = 'Enter a username.'; errEl.style.display = 'block'; return; }
-  if (name === S.user.name) { errEl.textContent = "You can't DM yourself."; errEl.style.display = 'block'; return; }
+  if (name.toLowerCase() === S.user.name.toLowerCase()) { errEl.textContent = "You can't DM yourself."; errEl.style.display = 'block'; return; }
+  // Check user exists on server before opening
+  const btn = document.querySelector('#ndm .auth-btn, #ndm .btn-p');
+  const orig = btn?.textContent;
+  if (btn) { btn.textContent = 'Checking…'; btn.disabled = true; }
+  try {
+    const exists = await checkUserExists(name);
+    if (!exists) {
+      errEl.textContent = `@${name} doesn't exist.`;
+      errEl.style.display = 'block';
+      if (btn) { btn.textContent = orig; btn.disabled = false; }
+      return;
+    }
+  } catch(e) {
+    // Server unreachable — allow anyway (offline fallback)
+  }
+  if (btn) { btn.textContent = orig; btn.disabled = false; }
   closeM('ndm');
   document.getElementById('dm-in').value = '';
   openOrCreateDM(name, null);
+}
+
+function checkUserExists(username) {
+  return new Promise((resolve) => {
+    const ws = new WebSocket(WS_URL);
+    ws.onopen = () => ws.send(JSON.stringify({ type: 'check_username', username: username.toLowerCase() }));
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'username_available') {
+          // available=true means user does NOT exist
+          resolve(!msg.available);
+          ws.close();
+        }
+      } catch {}
+    };
+    ws.onerror = () => resolve(true); // fail open
+    setTimeout(() => resolve(true), 5000); // timeout = fail open
+  });
 }
 
 function openOrCreateDM(name, pfp) {
@@ -4376,6 +4855,14 @@ function onDMType() {
   inp.style.height = Math.min(inp.scrollHeight, 120) + 'px';
   const btn = document.getElementById('dm-snd-btn');
   if (btn) btn.classList.toggle('on', inp.value.trim().length > 0);
+  // Warn near 2000 char limit
+  const len = inp.value.length;
+  let warn = document.getElementById('dm-char-warn');
+  if (len > 1800) {
+    if (!warn) { warn = document.createElement('div'); warn.id = 'dm-char-warn'; warn.style.cssText='font-size:10px;color:var(--yellow);text-align:right;padding:0 14px 4px;font-family:DM Mono,monospace'; document.getElementById('dm-inp-wrap').prepend(warn); }
+    warn.textContent = (2000 - len) + ' left';
+    warn.style.color = len > 1950 ? 'var(--red)' : 'var(--yellow)';
+  } else if (warn) { warn.remove(); }
   // Send DM typing indicator
   if (curDM && !_dmTySent) {
     _dmTySent = true;
@@ -4494,6 +4981,7 @@ function checkInviteHash() {
 // ── UI ──
 function hideAll(){
   document.getElementById('welcome').style.display='none';
+  document.getElementById('home-screen').style.display='none';
   document.getElementById('discover').classList.remove('show');
   document.getElementById('chat-wrap').classList.remove('show');
   document.getElementById('ch-hd').style.display='none';
@@ -4501,7 +4989,50 @@ function hideAll(){
   document.getElementById('friends-view').style.display='none';
   document.getElementById('rail-friends').classList.remove('act');
 }
-function showWelcome(){ hideAll(); document.getElementById('welcome').style.display=''; }
+function showWelcome(){
+  hideAll();
+  const el = document.getElementById('welcome');
+  el.style.display = '';
+  el.classList.remove('view-enter'); void el.offsetWidth; el.classList.add('view-enter');
+}
+function showHome() {
+  hideAll();
+  document.getElementById('sidebar').style.display = 'none';
+  document.getElementById('members').style.display = 'none';
+  const _hs = document.getElementById('home-screen');
+  _hs.style.display = 'flex'; _hs.style.flexDirection = 'column';
+  _hs.classList.remove('view-enter'); void _hs.offsetWidth; _hs.classList.add('view-enter');
+  // Greeting
+  const hr = new Date().getHours();
+  const greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('home-greeting').textContent = greet + ', ' + (S.user?.name || '') + '.';
+  // Friends count
+  const online = S.friends.filter(f => f.online).length;
+  document.getElementById('home-friends-count').textContent = S.friends.length + ' friends' + (online ? ` · ${online} online` : '');
+  // Recent DMs
+  const dmsEl = document.getElementById('home-recent-dms');
+  const recent = [...S.dms].sort((a,b)=>(b.lastTs||0)-(a.lastTs||0)).slice(0,5);
+  dmsEl.innerHTML = recent.length ? recent.map(dm => {
+    const bg = dm.pfp ? 'transparent' : COLORS[hash(dm.name) % COLORS.length];
+    const av = dm.pfp ? `<img src="${dm.pfp}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : dm.name[0].toUpperCase();
+    return `<div class="home-row" onclick="openOrCreateDM('${dm.name}',null)">
+      <div class="home-row-av" style="background:${bg}">${av}</div>
+      <div style="min-width:0;flex:1"><div style="font-size:13px;font-weight:600">${esc(dm.name)}</div><div style="font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(dm.last||'No messages yet')}</div></div>
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--t3);flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>`;
+  }).join('') : '<div style="font-size:12px;color:var(--t3);padding:8px 0">No recent conversations.</div>';
+  // Servers
+  const svsEl = document.getElementById('home-servers');
+  svsEl.innerHTML = S.servers.length ? S.servers.slice(0,8).map(sv => {
+    const bg = sv.icon ? 'transparent' : (sv.color || '#6c63ff');
+    const ic = sv.icon ? `<img src="${sv.icon}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : sv.name[0].toUpperCase();
+    return `<div class="home-row" onclick="selectSv('${sv.id}')">
+      <div class="home-row-av" style="background:${bg};font-size:12px;font-weight:800">${ic}</div>
+      <div style="min-width:0;flex:1"><div style="font-size:13px;font-weight:600">${esc(sv.name)}</div><div style="font-size:11px;color:var(--t3)">${sv.memberCount||1} member${(sv.memberCount||1)!==1?'s':''}</div></div>
+      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--t3);flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>`;
+  }).join('') : '<div style="font-size:12px;color:var(--t3);padding:8px 0">No servers yet.</div>';
+}
 function showChat(){ hideAll(); document.getElementById('chat-wrap').classList.add('show'); document.getElementById('ch-hd').style.display='flex'; document.getElementById('sidebar').style.display=''; if (S.mbOpen) document.getElementById('members').style.display=''; document.body.classList.remove('in-dm'); }
 function scrollBot(){ requestAnimationFrame(()=>{const el=document.getElementById('msgs');el.scrollTop=el.scrollHeight;}); }
 function updSnd(){const ok=document.getElementById('msg-in').value.trim()||S.files.length;document.getElementById('snd-btn').classList.toggle('on',!!ok);}
@@ -5220,6 +5751,33 @@ function buildVoiceMsg(m) {
 }
 
 const vmAudios = {};
+const _attAudios = {};
+function playAttAudio(aid, url, btn) {
+  if (_attAudios[aid]) {
+    _attAudios[aid].pause();
+    delete _attAudios[aid];
+    btn.querySelector('.play-icon').style.display = '';
+    btn.querySelector('.pause-icon').style.display = 'none';
+    return;
+  }
+  const audio = new Audio(url);
+  _attAudios[aid] = audio;
+  const prog = document.getElementById(aid + '-prog');
+  const timeEl = document.getElementById(aid + '-time');
+  audio.ontimeupdate = () => {
+    if (prog) prog.style.width = (audio.currentTime / (audio.duration||1) * 100) + '%';
+    if (timeEl) { const s = Math.floor(audio.currentTime); timeEl.textContent = Math.floor(s/60)+':'+(s%60<10?'0':'')+(s%60); }
+  };
+  audio.onended = () => {
+    delete _attAudios[aid];
+    if (prog) prog.style.width = '0%';
+    btn.querySelector('.play-icon').style.display = '';
+    btn.querySelector('.pause-icon').style.display = 'none';
+  };
+  btn.querySelector('.play-icon').style.display = 'none';
+  btn.querySelector('.pause-icon').style.display = '';
+  audio.play();
+}
 function playVoiceMsg(msgId) {
   const msgs = S.messages[S.curCh?.id] || Object.values(S.messages).flat();
   const m = msgs.find(x => x.id === msgId); if (!m || !m.voiceMsg) return;
@@ -5591,11 +6149,29 @@ function openAddShort() {
 function closeShorts() {
   document.getElementById('shorts-view').style.display = 'none';
   document.getElementById('rail-shorts').classList.remove('act');
-  // Pause iframes by clearing src briefly
   document.querySelectorAll('.short-card iframe').forEach(f => { const s = f.src; f.src = ''; setTimeout(()=> f.src = s, 10); });
-  // Close comment panel if open
   document.getElementById('short-comment-panel')?.remove();
 }
+
+// Arrow key navigation for shorts
+document.addEventListener('keydown', e => {
+  if (document.getElementById('shorts-view')?.style.display === 'none') return;
+  if (document.getElementById('short-comment-panel')) return; // comment box open
+  const feed = document.getElementById('shorts-feed');
+  if (!feed) return;
+  const h = feed.clientHeight;
+  const cur = Math.round(feed.scrollTop / h);
+  const total = feed.querySelectorAll('.short-card').length;
+  if (e.key === 'ArrowDown' && cur < total - 1) {
+    e.preventDefault();
+    feed.scrollTo({ top: (cur+1)*h, behavior:'smooth' });
+  } else if (e.key === 'ArrowUp' && cur > 0) {
+    e.preventDefault();
+    feed.scrollTo({ top: (cur-1)*h, behavior:'smooth' });
+  } else if (e.key === 'Escape') {
+    closeShorts();
+  }
+});
 
 function renderShorts() {
   const sv = S.servers.find(s => s.id === curShortsServerId);
@@ -5645,6 +6221,22 @@ function renderShorts() {
     return;
   }
   feed.innerHTML = allShorts.map((s, i) => buildShortCard(s, i)).join('');
+  // Progress dots
+  const prog = document.getElementById('shorts-progress');
+  if (prog) {
+    prog.innerHTML = allShorts.map((_, i) => `<div class="shorts-prog-dot${i===0?' act':''}" onclick="shortsGoTo(${i})" data-idx="${i}"></div>`).join('');
+  }
+  // Scroll listener for dot sync + autoplay
+  feed.onscroll = () => {
+    const idx = Math.round(feed.scrollTop / feed.clientHeight);
+    document.querySelectorAll('.shorts-prog-dot').forEach((d,i) => d.classList.toggle('act', i===idx));
+  };
+}
+
+function shortsGoTo(idx) {
+  const feed = document.getElementById('shorts-feed');
+  if (!feed) return;
+  feed.scrollTo({ top: idx * feed.clientHeight, behavior: 'smooth' });
 }
 
 function buildShortCard(s, i) {
@@ -5661,27 +6253,23 @@ function buildShortCard(s, i) {
   const liked = (s.likes||[]).includes(S.user?.name);
   const comments = (s.comments||[]).length;
   const cachedBadge = s._cached ? `<div style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,.55);border-radius:6px;padding:2px 8px;font-size:10px;color:#fff;font-weight:700;letter-spacing:.05em">📦 CACHED</div>` : '';
-  const actions = s._cached
-    ? `<div class="short-actions" style="z-index:5">
-        <div class="short-action-btn" onclick="event.stopPropagation();shareShort('${s.id}')">
-          <svg width="28" height="28" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-          <div class="short-action-count">Share</div>
-        </div>
-      </div>`
-    : `<div class="short-actions" style="z-index:5">
+  // Cached shorts get full action bar (likes/comments stored locally)
+  const actions_content = `
         <div class="short-action-btn" onclick="event.stopPropagation();toggleShortLike('${s.id}')">
-          <svg width="28" height="28" fill="${liked?'#ef4444':'none'}" stroke="${liked?'#ef4444':'#fff'}" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-          <div class="short-action-count">${likes}</div>
+          <svg width="26" height="26" fill="${liked?'#ef4444':'none'}" stroke="${liked?'#ef4444':'#fff'}" stroke-width="2.2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          <div class="short-action-count">${likes||''}</div>
         </div>
         <div class="short-action-btn" onclick="event.stopPropagation();openShortComments('${s.id}')">
-          <svg width="28" height="28" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          <div class="short-action-count">${comments}</div>
+          <svg width="26" height="26" fill="none" stroke="#fff" stroke-width="2.2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <div class="short-action-count">${comments||''}</div>
         </div>
         <div class="short-action-btn" onclick="event.stopPropagation();shareShort('${s.id}')">
-          <svg width="28" height="28" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-          <div class="short-action-count">Share</div>
-        </div>
-      </div>`;
+          <svg width="26" height="26" fill="none" stroke="#fff" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          <div class="short-action-count"></div>
+        </div>`;
+  const actions = s._cached
+    ? `<div class="short-actions" style="z-index:5">${actions_content}</div>`
+    : `<div class="short-actions" style="z-index:5">${actions_content}</div>`;
   return `<div class="short-card" data-short="${s.id}">
     ${mediaHTML}
     ${cachedBadge}
