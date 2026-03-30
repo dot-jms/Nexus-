@@ -2571,6 +2571,16 @@ function bootApp() {
   _reconnectAttempts = 0;
   S.wsConnecting = false;
   connectWS();
+  // Watchdog: if not connected after 4s (e.g. Ctrl+Shift+R cleared session storage
+  // mid-flight or WS handshake stalled), force a clean retry
+  setTimeout(() => {
+    if (!S.wsOk && S.user) {
+      S.wsConnecting = false;
+      clearTimeout(_reconnectTimer);
+      _reconnectAttempts = 0;
+      connectWS();
+    }
+  }, 4000);
   checkInviteHash();
   reqNotifPermission();
   // Global Escape key: close topmost open modal
@@ -2832,6 +2842,22 @@ document.addEventListener('visibilitychange', () => {
     connectWS();
   }
 });
+window.addEventListener('focus', () => {
+  if (!S.wsOk && !S.wsConnecting && S.user) {
+    clearTimeout(_reconnectTimer);
+    _reconnectTimer = null;
+    _reconnectAttempts = 0;
+    connectWS();
+  }
+});
+window.addEventListener('online', () => {
+  if (!S.wsOk && !S.wsConnecting && S.user) {
+    clearTimeout(_reconnectTimer);
+    _reconnectTimer = null;
+    _reconnectAttempts = 0;
+    connectWS();
+  }
+});
 // ── Pending server creates — resent until relay ACKs ────────────────────────
 // Stored in localStorage so they survive page reloads on flaky connections
 const _pendingServerCreates = new Map();
@@ -3009,7 +3035,7 @@ function handleIn(msg) {
               if (ss.name)              existing.name        = ss.name;
               if (ss.desc !== undefined) existing.desc       = ss.desc;
               if (ss.color)             existing.color       = ss.color;
-              if (ss.channels?.length)  existing.channels   = ss.channels;
+              if (ss.channels !== undefined) existing.channels = ss.channels; // always sync - empty array means all channels deleted
               if (ss.icon !== undefined) existing.icon       = ss.icon;
               if (ss.memberCount)       existing.memberCount = ss.memberCount;
               if (ss.isPublic !== undefined) existing.isPublic = ss.isPublic;
