@@ -3698,7 +3698,7 @@ function handleIn(msg) {
       const sv = S.servers.find(s => s.id === msg.server?.id);
       if (sv && msg.server) {
         const si = msg.server;
-        if (si.channels?.length)      sv.channels    = si.channels;
+        if (si.channels !== undefined) sv.channels    = si.channels; // always sync - empty = all channels deleted
         if (si.ownerId) {
           sv.ownerId = si.ownerId;
           sv.isOwner = si.ownerId.toLowerCase() === (S.user.name||'').toLowerCase();
@@ -3770,7 +3770,7 @@ function handleIn(msg) {
         if (msg.desc !== undefined)    sv.desc        = msg.desc;
         if (msg.icon !== undefined)    sv.icon        = msg.icon;
         if (msg.color !== undefined)   sv.color       = msg.color;
-        if (msg.channels !== undefined) sv.channels   = msg.channels;
+        // channels intentionally not applied here - managed via channel_add/remove/update
         if (msg.isPublic !== undefined) sv.isPublic   = msg.isPublic;
         if (msg.memberCount !== undefined) sv.memberCount = msg.memberCount;
         // FIX: Only update ownerId if the incoming message has one AND it doesn't overwrite an existing owner
