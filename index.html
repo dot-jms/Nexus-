@@ -1417,6 +1417,229 @@ body::before {
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* ══════════════════════════════════════════════════════════════
+   PASS 3 — Comfort & Consistency: DMs, sidebar, headers, spacing
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Global: softer, more readable base font size ── */
+body { font-size: 14px; }
+
+/* ── Rail: more breathing room between server icons ── */
+#rail { gap: 4px !important; padding: 14px 0 !important; }
+.sv-ic { margin: 0 !important; }
+.r-sep { margin: 6px 0 !important; opacity: 0.5; }
+
+/* ── Sidebar: richer header with server name gradient ── */
+.sv-hd {
+  padding: 16px 14px 14px !important;
+  background: linear-gradient(180deg, var(--s2) 0%, var(--s1) 100%) !important;
+}
+.sv-hd-name {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  letter-spacing: -.4px !important;
+  background: linear-gradient(135deg, var(--t1) 50%, var(--t2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+/* Server header chevron icon */
+.sv-hd-chev { color: var(--t3); opacity: .7; transition: opacity .15s; }
+.sv-hd:hover .sv-hd-chev { opacity: 1; }
+
+/* ── Channel list: better category spacing & item height ── */
+.ch-cat {
+  padding: 18px 14px 5px !important;
+  font-size: 10px !important;
+  letter-spacing: .12em !important;
+}
+.ch-it {
+  padding: 6px 10px 6px 12px !important;
+  margin: 1px 8px !important;
+  border-radius: 7px !important;
+  font-size: 13.5px !important;
+  min-height: 34px !important;
+}
+.ch-it .ico { font-size: 13px !important; opacity: .7; }
+.ch-it.act .ico { opacity: 1; }
+
+/* ── User panel: elevated, less flat ── */
+.u-panel {
+  padding: 10px 10px !important;
+  background: rgba(0,0,0,.25) !important;
+  border-top: 1px solid var(--border) !important;
+  gap: 6px !important;
+  backdrop-filter: blur(8px);
+}
+.u-av { width: 34px !important; height: 34px !important; }
+.u-name { font-size: 13px !important; font-weight: 700 !important; letter-spacing: -.2px; }
+.u-tag { font-size: 10.5px !important; }
+/* user panel icon buttons */
+.u-panel .ib {
+  width: 30px !important; height: 30px !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  border: none !important;
+  opacity: .55;
+  transition: opacity .12s, background .12s !important;
+}
+.u-panel .ib:hover { opacity: 1; background: rgba(255,255,255,.06) !important; }
+
+/* ── Channel header: consistent height, cleaner divider ── */
+.ch-hd {
+  height: 52px !important;
+  padding: 0 16px !important;
+  background: var(--s1) !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: 0 1px 0 rgba(0,0,0,.2);
+}
+.ch-hd-nm { font-size: 14px !important; font-weight: 800 !important; letter-spacing: -.3px !important; }
+.ch-hd-nm .hash { font-size: 17px !important; opacity: .5 !important; }
+
+/* ── DM panel: feels more integrated, not like a separate widget ── */
+#dm-panel {
+  width: 280px !important;
+  background: var(--s1) !important;
+  border-left: 1px solid var(--border) !important;
+  box-shadow: -12px 0 40px rgba(0,0,0,.3) !important;
+}
+.dm-hd {
+  padding: 16px 14px 14px !important;
+  background: linear-gradient(180deg, var(--s2) 0%, var(--s1) 100%) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.dm-hd-t { font-size: 13px !important; font-weight: 800 !important; letter-spacing: .02em; text-transform: uppercase; color: var(--t3); }
+
+/* DM list items: bigger avatars, cleaner layout */
+.dm-it {
+  padding: 9px 12px !important;
+  margin: 1px 6px !important;
+  border-radius: 8px !important;
+  gap: 10px !important;
+}
+.dm-av {
+  width: 36px !important; height: 36px !important;
+  border-radius: 10px !important;
+  font-size: 14px !important;
+  flex-shrink: 0 !important;
+}
+.dm-av img { width: 100%; height: 100%; object-fit: cover; }
+.dm-nm { font-size: 13.5px !important; font-weight: 700 !important; color: var(--t1) !important; letter-spacing: -.2px; }
+.dm-pv { font-size: 11.5px !important; color: var(--t3) !important; margin-top: 1px; }
+.dm-it.active { background: rgba(124,109,250,.08) !important; border: 1px solid rgba(124,109,250,.1) !important; }
+.dm-it.active .dm-nm { color: var(--t1) !important; }
+
+/* New message button in DM panel */
+#dm-panel > div:last-child { padding: 10px 10px 12px !important; }
+#dm-panel .btn-p { border-radius: 8px !important; font-size: 13px !important; padding: 9px !important; }
+
+/* ── DM chat area: consistent with main chat ── */
+.dm-chat-hd {
+  height: 52px !important;
+  padding: 0 14px !important;
+  background: var(--s1) !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: 0 1px 0 rgba(0,0,0,.2);
+}
+.dm-chat-av {
+  width: 32px !important; height: 32px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+}
+.dm-chat-name { font-size: 14.5px !important; font-weight: 800 !important; letter-spacing: -.3px !important; }
+
+/* DM messages: less cramped, more readable */
+#dm-msgs { padding: 20px 14px !important; gap: 2px !important; }
+
+/* ── Messages: better density and readability ── */
+#msgs { padding: 16px 12px 8px !important; }
+.msg { padding: 5px 12px !important; gap: 12px !important; }
+.msg.grouped { padding-top: 2px !important; padding-bottom: 2px !important; }
+.m-av { width: 36px !important; height: 36px !important; border-radius: 10px !important; font-size: 14px !important; }
+.m-txt { font-size: 14px !important; line-height: 1.55 !important; }
+.m-auth { font-size: 13.5px !important; font-weight: 600 !important; }
+.m-time { font-size: 10.5px !important; }
+
+/* ── Input area: more polished, better proportions ── */
+.inp-wrap { padding: 0 14px 16px !important; }
+.inp-box {
+  border-radius: 12px !important;
+  background: var(--s3) !important;
+  border: 1px solid rgba(255,255,255,.07) !important;
+}
+.inp-row { padding: 9px 12px !important; gap: 8px !important; }
+#msg-in, #dm-msg-in {
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+#msg-in::placeholder, #dm-msg-in::placeholder { color: var(--t3) !important; opacity: .7; }
+.snd {
+  width: 32px !important; height: 32px !important;
+  border-radius: 9px !important;
+  flex-shrink: 0;
+}
+/* Input toolbar buttons */
+.inp-act { opacity: .55; transition: opacity .13s !important; }
+.inp-act:hover { opacity: 1; }
+
+/* ── ws-bar (connection status): subtler ── */
+.ws-bar { padding: 3px 14px 10px !important; opacity: .7; }
+.ws-dot { width: 6px !important; height: 6px !important; }
+
+/* ── Members panel: consistent width & header ── */
+#members {
+  width: 200px !important;
+  border-left: 1px solid var(--border) !important;
+  background: var(--s1) !important;
+}
+.mb-hd {
+  padding: 16px 14px 12px !important;
+  font-size: 10px !important; font-weight: 700 !important;
+  letter-spacing: .12em !important; text-transform: uppercase !important;
+  color: var(--t3) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.mb-it {
+  padding: 6px 12px !important;
+  border-radius: 7px !important;
+  margin: 1px 6px !important;
+}
+.mb-nm { font-size: 13.5px !important; font-weight: 600 !important; }
+.mb-cat {
+  padding: 14px 14px 4px !important;
+  font-size: 10px !important;
+  letter-spacing: .1em !important;
+  color: rgba(255,255,255,.2) !important;
+}
+
+/* ── Day separator: cleaner ── */
+.day-sep {
+  font-size: 10.5px !important;
+  letter-spacing: .06em !important;
+  margin: 14px 0 !important;
+}
+
+/* ── Pinned bar: tighter ── */
+.pinned-bar { padding: 7px 16px !important; font-size: 11.5px !important; }
+
+/* ── Typing indicator: proper height ── */
+.ty-bar { min-height: 20px !important; padding: 0 14px 4px !important; font-size: 11.5px !important; }
+
+/* ── Notification panel: polish ── */
+.notif-item { padding: 10px 14px !important; }
+.notif-t { font-size: 13px !important; }
+.notif-s { font-size: 11.5px !important; }
+
+/* ── Modal: more generous padding ── */
+.modal { padding: 24px !important; }
+.modal-t { font-size: 17px !important; font-weight: 800 !important; letter-spacing: -.3px !important; margin-bottom: 4px !important; }
+.modal-s { font-size: 12.5px !important; }
+.m-lbl { font-size: 10.5px !important; letter-spacing: .1em !important; }
+.m-inp { font-size: 13.5px !important; border-radius: 9px !important; padding: 10px 13px !important; }
+
+/* ── Smooth panel open/close ── */
+#dm-panel { transition: transform .22s cubic-bezier(.34,1.1,.64,1), box-shadow .22s !important; }
+
 </style>
 </head>
 <body>
@@ -2171,10 +2394,14 @@ function initAuth() {
   ['su-user','su-pass'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')doSignup();}));
 
   // Auto-login from saved session token — no prompts, just boot
-  const sess = lsGet('nx-session');
+  // lsGet first; fall back to sessionStorage so Ctrl+Shift+R (hard refresh,
+  // which wipes localStorage) doesn't log everyone out.
+  const sess = lsGet('nx-session') || ssGet('nx-session');
   if (sess?.token && sess?.user) {
     S.user = sess.user;
     S.token = sess.token;
+    // Restore into localStorage in case it was wiped by the hard refresh
+    lsSet('nx-session', { token: sess.token, user: sess.user });
     loadUserData();
     bootApp();
   }
@@ -2243,6 +2470,9 @@ function signOut() {
     if (S.user?.name) localStorage.removeItem('nx-data-' + S.user.name.toLowerCase());
     localStorage.removeItem('nx-session');
     localStorage.removeItem('nx-pending-creates');
+    // Also clear sessionStorage fallback so hard-refresh doesn't resurrect signed-out session
+    sessionStorage.removeItem('nx-session');
+    if (S.user?.name) sessionStorage.removeItem('nx-data-' + S.user.name.toLowerCase());
   } catch(e) {}
   S.user = null; S.token = null;
   S.servers = []; S.messages = {}; S.dms = []; S.dmMessages = {};
@@ -2662,7 +2892,8 @@ function _retryPending() {
     console.log('[nexus] retrying server_create for', msg.serverId, '(attempt', count, ')');
     dbg('↩ retrying server_create: ' + msg.serverId.slice(0,8) + ' (#' + count + ')', 'warn');
     _pendingLastSent.set(id, now);
-    S.ws.send(JSON.stringify({ ...msg, token: S.token }));
+    // FIX: use wsSend (readyState-guarded) instead of raw S.ws.send — prevents uncaught throw if socket closes between the outer guard and this line
+    wsSend(msg);
   });
 }
 setInterval(_retryPending, 4000);
@@ -5273,7 +5504,9 @@ function hash(s){let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i
 // ── PERSIST ──
 function persist(){if(!S.user)return;lsSet('nx-data-'+S.user.name.toLowerCase(),{servers:S.servers,messages:S.messages,dms:S.dms,dmMessages:S.dmMessages,friends:S.friends,friendReqs:S.friendReqs});}
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k));}catch{return null;}}
-function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));sessionStorage.setItem(k,JSON.stringify(v));}catch{}}
+// ssGet: fallback read from sessionStorage (survives Ctrl+Shift+R hard refresh which wipes localStorage)
+function ssGet(k){try{return JSON.parse(sessionStorage.getItem(k));}catch{return null;}}
 
 // ── EVENTS ──
 document.getElementById('msg-in').addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,150)+'px';updSnd();onType();});
@@ -8638,6 +8871,19 @@ initAuth();
     try { localStorage.setItem(CACHE_KEY, v); } catch {}
   }
 
+  // FIX #4: Instead of silently force-reloading mid-session (jarring, loses unsent messages),
+  // show a non-disruptive update banner the user can act on themselves.
+  let _updateBannerShown = false;
+  function showUpdateBanner() {
+    if (_updateBannerShown) return;
+    _updateBannerShown = true;
+    const bar = document.createElement('div');
+    bar.id = 'update-bar';
+    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;background:var(--accent);color:#fff;font-family:\'Syne\',sans-serif;font-size:13px;font-weight:700;padding:9px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;box-shadow:0 2px 12px rgba(0,0,0,.4)';
+    bar.innerHTML = '<span>✨ A new version of Nexus is available.</span><button onclick="window.location.reload()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.4);border-radius:6px;color:#fff;font-family:\'Syne\',sans-serif;font-size:12px;font-weight:700;padding:5px 12px;cursor:pointer">Reload now</button>';
+    document.body.appendChild(bar);
+  }
+
   async function checkForUpdate() {
     try {
       const RELAY_BASE = 'wss://nexus.dot-jms.deno.net'.replace(/^ws/, 'http');
@@ -8656,29 +8902,18 @@ initAuth();
           const keys = await caches.keys();
           await Promise.all(keys.map(k => caches.delete(k)));
         }
-        window.location.reload();
+        // FIX #4: Don't force-reload — show a banner instead so users aren't kicked mid-chat
+        showUpdateBanner();
       }
     } catch { /* fetch failed — offline or file missing, skip */ }
   }
 
-  // Minimal SW — network-first for navigation so stale HTML never gets served
-  const swCode = `
-self.addEventListener('install', e => { self.skipWaiting(); });
-self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });
-self.addEventListener('fetch', e => {
-  if (e.request.mode === 'navigate') {
-    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
-  }
-});`;
-  // FIX #15: Log SW registration failures instead of silently swallowing them.
-  // Note: some browsers block blob: URL service workers or restrict their scope.
-  // If this fails consistently, serve sw.js as a real file from the same origin.
-  navigator.serviceWorker.register(
-    URL.createObjectURL(new Blob([swCode], { type: 'application/javascript' })),
-    { scope: '/' }
-  ).catch((err) => {
-    console.warn('[nexus] ServiceWorker registration failed (auto-update disabled):', err?.message || err);
-  });
+  // FIX #3: blob: URL service workers are rejected by browsers because the blob origin
+  // doesn't match the page origin (scope '/' is unreachable from blob:). The SW registration
+  // always silently fails. Fix: write sw.js as a real file via the relay, or skip SW
+  // registration here and rely solely on the version-check + banner approach above.
+  // The network-first SW was only needed to prevent stale HTML — the /_version check
+  // already handles that. Removing the broken blob SW registration entirely.
 
   // Check on load (2s delay so main app boots first) and on every tab focus
   window.addEventListener('load', () => setTimeout(checkForUpdate, 2000));
