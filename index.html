@@ -303,7 +303,7 @@ body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--t1);display:
 /* CHAT */
 #chat-wrap{flex:1;display:none;flex-direction:column;min-height:0}
 #chat-wrap.show{display:flex}
-#msgs{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:1px;transition:opacity .1s}
+#msgs{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column!important;gap:1px;transition:opacity .1s}
 #msgs.switching{opacity:0}
 .day-sep{display:flex;align-items:center;gap:10px;margin:16px 0 8px;font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3)}
 .day-sep::before,.day-sep::after{content:'';flex:1;height:1px;background:var(--border)}
@@ -3250,6 +3250,25 @@ function handleIn(msg) {
       break;
     }
 
+    case 'server_channel_updated': {
+      // Another client (or the server confirming our own change) updated a channel's properties
+      const ucSv = S.servers.find(sv => sv.id === msg.serverId);
+      if (ucSv && ucSv.channels) {
+        const ucCh = ucSv.channels.find(c => c.id === msg.channelId);
+        if (ucCh) {
+          Object.assign(ucCh, msg.changes || {});
+          persist();
+          if (S.curSv?.id === msg.serverId) { S.curSv.channels = ucSv.channels; renderChs(); }
+          // Update header if we're currently in this channel
+          if (S.curCh?.id === msg.channelId) {
+            Object.assign(S.curCh, msg.changes || {});
+            if (msg.changes?.name) document.getElementById('ch-nm').textContent = msg.changes.name;
+          }
+        }
+      }
+      break;
+    }
+
     case 'server_channel_deleted': {
       const dcSv = S.servers.find(sv => sv.id === msg.serverId);
       if (dcSv && dcSv.channels) {
@@ -4358,9 +4377,13 @@ function renderChs() {
 function chHTML(c,ico){
   const canDel = S.curSv && hasPerm(S.curSv,'manage_channels') && (S.curSv.channels||[]).length > 1;
   const delBtn = canDel ? `<span class="ch-del-btn" onclick="event.stopPropagation();deleteCh('${c.id}')" title="Delete channel">🗑</span>` : '';
-  // Right-click copies channel ID (power users); show copy indicator on hover
-  const ctxStr = isPlatformPower() ? `oncontextmenu="event.preventDefault();event.stopPropagation();navigator.clipboard?.writeText('${c.id}');toast('📋 Channel ID copied')"` : '';
-  return `<div class="ch-it" data-id="${c.id}" onclick="selectCh('${c.id}')" ${ctxStr} title="${isPlatformPower() ? 'Right-click to copy ID: '+c.id : ''}"><span class="ico">${ico}</span><span style="flex:1">${esc(c.name)}</span><span class="un-dot"></span>${delBtn}</div>`;
+  // Right-click: power users copy ID; manage_channels users rename; dblclick also renames
+  const canManage = hasPerm(S.curSv, 'manage_channels');
+  const ctxStr = isPlatformPower()
+    ? `oncontextmenu="event.preventDefault();event.stopPropagation();navigator.clipboard?.writeText('${c.id}');toast('📋 Channel ID copied')"`
+    : (canManage ? `oncontextmenu="event.preventDefault();event.stopPropagation();renameCh('${c.id}')"` : '');
+  const tipText = isPlatformPower() ? 'Right-click to copy ID: '+c.id : (canManage ? 'Double-click or right-click to rename' : '');
+  return `<div class="ch-it" data-id="${c.id}" onclick="selectCh('${c.id}')" ondblclick="renameCh('${c.id}')" ${ctxStr} title="${tipText}"><span class="ico">${ico}</span><span style="flex:1">${esc(c.name)}</span><span class="un-dot"></span>${delBtn}</div>`;
 }
 function hlCh(){ document.querySelectorAll('.ch-it').forEach(el=>{ el.classList.toggle('act',el.dataset.id===S.curCh?.id); if(el.dataset.id===S.curCh?.id) el.classList.remove('unread'); }); }
 function selectCh(id) {
@@ -4431,6 +4454,31 @@ function deleteCh(id) {
 }
 function setCT(t){ S.chType=t; document.getElementById('ct-txt').classList.toggle('sel',t==='text'); document.getElementById('ct-vox').classList.toggle('sel',t==='voice'); }
 
+function renameCh(id) {
+  const sv = S.curSv; if (!sv) return;
+  if (!hasPerm(sv,'manage_channels')) { toast('No permission'); return; }
+  const ch = sv.channels.find(c=>c.id===id); if (!ch) return;
+  const raw = prompt(`Rename #${ch.name} to:`, ch.name);
+  if (!raw || !raw.trim()) return;
+  const name = raw.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+  if (!name || name === ch.name) return;
+  ch.name = name;
+  persist(); renderChs();
+  if (S.curCh?.id === id) document.getElementById('ch-nm').textContent = name;
+  toast('✏️ Channel renamed to #'+name);
+  wsSend({type:'channel_update', serverId:sv.id, channelId:id, changes:{name}});
+}
+
+function updateChSettings(id, changes) {
+  // Generic: persist channel property changes AND sync to server KV
+  const sv = S.curSv; if (!sv) return;
+  if (!hasPerm(sv,'manage_channels')) { toast('No permission'); return; }
+  const ch = sv.channels.find(c=>c.id===id); if (!ch) return;
+  Object.assign(ch, changes);
+  persist(); renderChs();
+  wsSend({type:'channel_update', serverId:sv.id, channelId:id, changes});
+}
+
 // ══════════════════════════════════
 // MESSAGES
 // ══════════════════════════════════
@@ -4477,6 +4525,7 @@ function buildMsg(m,grp) {
             </button>
             <div class="audio-att-bar"><div class="audio-att-prog" id="${aid}-prog"></div></div>
             <div class="audio-att-time" id="${aid}-time">0:00</div>
+          </div>
         </div>
       </div>`;
     }
@@ -5177,11 +5226,13 @@ function renderDMMessages(name) {
     return;
   }
   let la = '', lt = 0;
+  const dmParts = [];
   msgs.forEach(m => {
     const grp = m.author === la && (m.ts - lt) < 300000;
-    el.innerHTML += buildMsg(m, grp);
+    dmParts.push(buildMsg(m, grp));
     la = m.author; lt = m.ts;
   });
+  el.innerHTML = dmParts.join('');
   el.scrollTop = el.scrollHeight;
 }
 
