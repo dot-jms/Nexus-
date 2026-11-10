@@ -1,0 +1,236 @@
+/* ── Global: softer, more readable base font size ── */
+body { font-size: 14px; }
+
+/* ── Rail: more breathing room between server icons ── */
+#rail { gap: 4px !important; padding: 14px 0 !important; }
+.sv-ic { margin: 0 !important; }
+.r-sep { margin: 6px 0 !important; opacity: 0.5; }
+
+/* ── Sidebar: richer header with server name gradient ── */
+.sv-hd {
+  padding: 16px 14px 14px !important;
+  background: linear-gradient(180deg, var(--s2) 0%, var(--s1) 100%) !important;
+}
+.sv-hd-name {
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  letter-spacing: -.4px !important;
+  background: linear-gradient(135deg, var(--t1) 50%, var(--t2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+/* Server header chevron icon */
+.sv-hd-chev { color: var(--t3); opacity: .7; transition: opacity .15s; }
+.sv-hd:hover .sv-hd-chev { opacity: 1; }
+
+/* ── Channel list: better category spacing & item height ── */
+.ch-cat {
+  padding: 18px 14px 5px !important;
+  font-size: 10px !important;
+  letter-spacing: .12em !important;
+}
+.ch-it {
+  padding: 6px 10px 6px 12px !important;
+  margin: 1px 8px !important;
+  border-radius: 7px !important;
+  font-size: 13.5px !important;
+  min-height: 34px !important;
+}
+.ch-it .ico { font-size: 13px !important; opacity: .7; }
+.ch-it.act .ico { opacity: 1; }
+
+/* ── User panel: elevated, less flat ── */
+.u-panel {
+  padding: 10px 10px !important;
+  background: rgba(0,0,0,.25) !important;
+  border-top: 1px solid var(--border) !important;
+  gap: 6px !important;
+  backdrop-filter: blur(8px);
+}
+.u-av { width: 34px !important; height: 34px !important; }
+.u-name { font-size: 13px !important; font-weight: 700 !important; letter-spacing: -.2px; }
+.u-tag { font-size: 10.5px !important; }
+/* user panel icon buttons */
+.u-panel .ib {
+  width: 30px !important; height: 30px !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  border: none !important;
+  opacity: .55;
+  transition: opacity .12s, background .12s !important;
+}
+.u-panel .ib:hover { opacity: 1; background: rgba(255,255,255,.06) !important; }
+
+/* ── Channel header: consistent height, cleaner divider ── */
+.ch-hd {
+  height: 52px !important;
+  padding: 0 16px !important;
+  background: var(--s1) !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: 0 1px 0 rgba(0,0,0,.2);
+}
+.ch-hd-nm { font-size: 14px !important; font-weight: 800 !important; letter-spacing: -.3px !important; }
+.ch-hd-nm .hash { font-size: 17px !important; opacity: .5 !important; }
+
+/* ── DM panel: feels more integrated, not like a separate widget ── */
+#dm-panel {
+  width: 280px !important;
+  background: var(--s1) !important;
+  border-left: 1px solid var(--border) !important;
+  box-shadow: -12px 0 40px rgba(0,0,0,.3) !important;
+}
+.dm-hd {
+  padding: 16px 14px 14px !important;
+  background: linear-gradient(180deg, var(--s2) 0%, var(--s1) 100%) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.dm-hd-t { font-size: 13px !important; font-weight: 800 !important; letter-spacing: .02em; text-transform: uppercase; color: var(--t3); }
+
+/* DM list items: bigger avatars, cleaner layout */
+.dm-it {
+  padding: 9px 12px !important;
+  margin: 1px 6px !important;
+  border-radius: 8px !important;
+  gap: 10px !important;
+}
+.dm-av {
+  width: 36px !important; height: 36px !important;
+  border-radius: 10px !important;
+  font-size: 14px !important;
+  flex-shrink: 0 !important;
+}
+.dm-av img { width: 100%; height: 100%; object-fit: cover; }
+.dm-nm { font-size: 13.5px !important; font-weight: 700 !important; color: var(--t1) !important; letter-spacing: -.2px; }
+.dm-pv { font-size: 11.5px !important; color: var(--t3) !important; margin-top: 1px; }
+.dm-it.active { background: rgba(124,109,250,.08) !important; border: 1px solid rgba(124,109,250,.1) !important; }
+.dm-it.active .dm-nm { color: var(--t1) !important; }
+
+/* New message button in DM panel */
+#dm-panel > div:last-child { padding: 10px 10px 12px !important; }
+#dm-panel .btn-p { border-radius: 8px !important; font-size: 13px !important; padding: 9px !important; }
+
+/* ── DM chat area: consistent with main chat ── */
+.dm-chat-hd {
+  height: 52px !important;
+  padding: 0 14px !important;
+  background: var(--s1) !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: 0 1px 0 rgba(0,0,0,.2);
+}
+.dm-chat-av {
+  width: 32px !important; height: 32px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+}
+.dm-chat-name { font-size: 14.5px !important; font-weight: 800 !important; letter-spacing: -.3px !important; }
+
+/* DM messages: less cramped, more readable */
+#dm-msgs { padding: 20px 14px !important; gap: 2px !important; }
+
+/* ── Messages: better density and readability ── */
+#msgs { padding: 16px 12px 8px !important; }
+.msg { padding: 5px 12px !important; gap: 12px !important; }
+.msg.grouped { padding-top: 2px !important; padding-bottom: 2px !important; }
+.m-av { width: 36px !important; height: 36px !important; border-radius: 10px !important; font-size: 14px !important; }
+.m-txt { font-size: 14px !important; line-height: 1.55 !important; }
+.m-auth { font-size: 13.5px !important; font-weight: 600 !important; }
+.m-time { font-size: 10.5px !important; }
+
+/* ── Input area: more polished, better proportions ── */
+.inp-wrap { padding: 0 14px 16px !important; }
+.inp-box {
+  border-radius: 12px !important;
+  background: var(--s3) !important;
+  border: 1px solid rgba(255,255,255,.07) !important;
+}
+.inp-row { padding: 9px 12px !important; gap: 8px !important; }
+#msg-in, #dm-msg-in {
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+#msg-in::placeholder, #dm-msg-in::placeholder { color: var(--t3) !important; opacity: .7; }
+.snd {
+  width: 32px !important; height: 32px !important;
+  border-radius: 9px !important;
+  flex-shrink: 0;
+}
+/* Input toolbar buttons */
+.inp-act { opacity: .55; transition: opacity .13s !important; }
+.inp-act:hover { opacity: 1; }
+
+/* ── ws-bar (connection status): subtler ── */
+.ws-bar { padding: 3px 14px 10px !important; opacity: .7; }
+.ws-dot { width: 6px !important; height: 6px !important; }
+
+/* ── Members panel: consistent width & header ── */
+#members {
+  width: 200px !important;
+  border-left: 1px solid var(--border) !important;
+  background: var(--s1) !important;
+}
+.mb-hd {
+  padding: 16px 14px 12px !important;
+  font-size: 10px !important; font-weight: 700 !important;
+  letter-spacing: .12em !important; text-transform: uppercase !important;
+  color: var(--t3) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+.mb-it {
+  padding: 6px 12px !important;
+  border-radius: 7px !important;
+  margin: 1px 6px !important;
+}
+.mb-nm { font-size: 13.5px !important; font-weight: 600 !important; }
+.mb-cat {
+  padding: 14px 14px 4px !important;
+  font-size: 10px !important;
+  letter-spacing: .1em !important;
+  color: rgba(255,255,255,.2) !important;
+}
+
+/* ── Day separator: cleaner ── */
+.day-sep {
+  font-size: 10.5px !important;
+  letter-spacing: .06em !important;
+  margin: 14px 0 !important;
+}
+
+/* ── Pinned bar: tighter ── */
+.pinned-bar { padding: 7px 16px !important; font-size: 11.5px !important; }
+
+/* ── Typing indicator: proper height ── */
+.ty-bar { min-height: 20px !important; padding: 0 14px 4px !important; font-size: 11.5px !important; }
+
+/* ── Notification panel: polish ── */
+.notif-item { padding: 10px 14px !important; }
+.notif-t { font-size: 13px !important; }
+.notif-s { font-size: 11.5px !important; }
+
+/* ── Modal: more generous padding ── */
+.modal { padding: 24px !important; }
+.modal-t { font-size: 17px !important; font-weight: 800 !important; letter-spacing: -.3px !important; margin-bottom: 4px !important; }
+.modal-s { font-size: 12.5px !important; }
+.m-lbl { font-size: 10.5px !important; letter-spacing: .1em !important; }
+.m-inp { font-size: 13.5px !important; border-radius: 9px !important; padding: 10px 13px !important; }
+
+/* ── Smooth panel open/close ── */
+#dm-panel { transition: transform .22s cubic-bezier(.34,1.1,.64,1), box-shadow .22s !important; }
+
+/* ══ MAKEOVER v2 ══ */
+:root{--t2:#9393ad;--t3:#62627f;--ease:cubic-bezier(.2,.8,.2,1)}
+html,body,#app{height:100dvh}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:9px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(124,109,250,.5);background-clip:padding-box}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.msg{padding:5px 12px;border-radius:10px}
+.msg:hover{transform:none!important;background:rgba(255,255,255,.035)!important}
+.m-acts{backdrop-filter:blur(10px);background:rgba(20,20,25,.88)}
+.m-txt{line-height:1.55;font-size:14px}
+.react:hover{border-color:var(--accent);background:rgba(124,109,250,.12)}
+.auth-card{backdrop-filter:blur(20px)}
+button,.ma,.react,.auth-tab{transition:transform .12s var(--ease),background .12s,color .12s,border-color .12s}
+button:active,.ma:active{transform:scale(.96)}
+.toast{border-radius:12px;backdrop-filter:blur(12px)}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
