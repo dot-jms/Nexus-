@@ -2060,6 +2060,19 @@ button:active,.ma:active{transform:scale(.96)}
   <button class="btn-g" style="width:100%;font-size:11px;margin-top:8px;padding:5px" onclick="document.getElementById('vcall-invite-widget').style.display='none'">Close</button>
 </div>
 
+<!-- BEDROCK NEWS -->
+<div class="overlay" id="bedrock-news" onclick="if(event.target===this)closeBedrockNews()">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-t">Bedrock has moved into Nexus</div>
+    <div class="modal-s" style="margin-bottom:14px">Bedrock, the games portal, now lives alongside Nexus.</div>
+    <div style="font-size:13px;line-height:1.65;color:var(--t2)">Games and everything else from Bedrock are one click away from here. Your Nexus account, servers and messages stay exactly as they are.</div>
+    <div class="m-row">
+      <button class="btn-g" onclick="closeBedrockNews()">Not now</button>
+      <a class="btn-p" id="bedrock-news-link" href="https://dot-jms.github.io/Bedrock/" target="_blank" rel="noopener noreferrer" onclick="closeBedrockNews()" style="text-decoration:none;display:inline-block">Open Bedrock</a>
+    </div>
+  </div>
+</div>
+
 <!-- CREATE SERVER -->
 <div class="overlay" id="csv">
   <div class="modal">
@@ -2578,6 +2591,17 @@ function loadUserData(){
   S.friends=d.friends||[]; S.friendReqs=d.friendReqs||[];
 }
 
+// ── Bedrock announcement (shown once per browser) ──
+const BEDROCK_NEWS_KEY = 'nx-news-bedrock-1';
+function showBedrockNews(force){
+  try { if (!force && localStorage.getItem(BEDROCK_NEWS_KEY)) return; } catch(_) {}
+  document.getElementById('bedrock-news').classList.add('open');
+}
+function closeBedrockNews(){
+  document.getElementById('bedrock-news').classList.remove('open');
+  try { localStorage.setItem(BEDROCK_NEWS_KEY, '1'); } catch(_) {}
+}
+
 function bootApp() {
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('app').classList.add('vis');
@@ -2600,6 +2624,7 @@ function bootApp() {
   }, 4000);
   checkInviteHash();
   reqNotifPermission();
+  setTimeout(showBedrockNews, 1500);
   // Global Escape key: close topmost open modal
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
