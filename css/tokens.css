@@ -1,0 +1,128 @@
+/* ═══════════════════════════════════════════════════════════════
+   tokens.css — design tokens, reset, typography, scrollbars
+   Palette and sizing follow Discord's dark theme.
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  /* surfaces (darkest → lightest) */
+  --bg-tertiary:   #1e1f22;   /* server rail, inputs inside modals */
+  --bg-user-panel: #232428;   /* user panel, profile cards */
+  --bg-secondary:  #2b2d31;   /* channel sidebar, member list */
+  --bg-primary:    #313338;   /* chat surface, modals */
+  --bg-input:      #383a40;   /* message composer */
+  --bg-floating:   #111214;   /* menus, tooltips, popovers */
+  --bg-hover:      rgba(78, 80, 88, .30);
+  --bg-selected:   rgba(78, 80, 88, .60);
+  --bg-msg-hover:  rgba(2, 2, 2, .06);
+  --divider:       rgba(78, 80, 88, .48);
+
+  /* text */
+  --text-header:    #f2f3f5;
+  --text-normal:    #dbdee1;
+  --text-secondary: #b5bac1;
+  --text-muted:     #949ba4;
+  --text-faint:     #80848e;
+  --link:           #00a8fc;
+
+  /* brand + status */
+  --brand:        #5865f2;
+  --brand-hover:  #4752c4;
+  --brand-active: #3c45a5;
+  --green:  #23a55a;
+  --yellow: #f0b232;
+  --red:    #f23f42;
+  --red-hover: #da373c;
+
+  /* shape + motion */
+  --r: 8px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --ease: cubic-bezier(.2, 0, 0, 1);
+  --fast: 100ms;
+  --base: 150ms;
+  --elev-low: 0 1px 0 rgba(4,4,5,.2), 0 1.5px 0 rgba(6,6,7,.05), 0 2px 0 rgba(4,4,5,.05);
+  --elev-high: 0 8px 16px rgba(0,0,0,.24);
+
+  --font: 'Noto Sans', 'gg sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --mono: Consolas, 'Andale Mono WT', 'Andale Mono', 'Lucida Console', 'DejaVu Sans Mono', monospace;
+
+  /* ── legacy aliases ──────────────────────────────────────────
+     index.html and the js/ files use these names in inline styles.
+     Pointing them at the new tokens re-themes all of that for free. */
+  --bg: var(--bg-tertiary);
+  --s1: var(--bg-primary);
+  --s2: var(--bg-secondary);
+  --s3: var(--bg-input);
+  --s4: #404249;
+  --t1: var(--text-header);
+  --t2: var(--text-secondary);
+  --t3: var(--text-muted);
+  --border:  rgba(255, 255, 255, .06);
+  --border2: rgba(255, 255, 255, .10);
+  --accent:   var(--brand);
+  --accent-h: #949cf7;
+  --glow:     rgba(88, 101, 242, .30);
+  --glow2:    rgba(88, 101, 242, .12);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  display: flex;
+  height: 100dvh;
+  background: var(--bg-tertiary);
+  color: var(--text-normal);
+  font: 400 16px/1.375 var(--font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+img { -webkit-user-drag: none; }
+::selection { background: rgba(88, 101, 242, .45); }
+
+/* ── scrollbars: slim, dark, only as loud as they need to be ── */
+* { scrollbar-width: thin; scrollbar-color: #1a1b1e transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: #1a1b1e;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover { background: #111214; background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; border-radius: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ── shared keyframes ── */
+@keyframes fadeIn   { from { opacity: 0; } to { opacity: 1; } }
+@keyframes blink    { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes pop      { from { transform: scale(.9); opacity: .6; } to { transform: none; opacity: 1; } }
+@keyframes tdot     { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+@keyframes viewIn   { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── debug overlay (admins only) ── */
+#dbg-overlay { position: fixed; bottom: 12px; right: 12px; z-index: 9999; width: 340px; max-height: 220px; background: rgba(17,18,20,.94); border: 1px solid var(--divider); border-radius: 8px; font: 11px/1.5 var(--mono); color: var(--text-muted); overflow: hidden; display: none; flex-direction: column; pointer-events: none; }
+#dbg-overlay.has-logs { pointer-events: auto; }
+#dbg-title { padding: 6px 10px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--brand); border-bottom: 1px solid var(--divider); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+#dbg-close { cursor: pointer; color: var(--text-faint); pointer-events: auto; }
+#dbg-close:hover { color: var(--text-header); }
+#dbg-lines { overflow-y: auto; padding: 6px 10px; display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.dbg-line { word-break: break-all; }
+.dbg-line.ok { color: var(--green); } .dbg-line.warn { color: var(--yellow); } .dbg-line.err { color: var(--red); } .dbg-line.info { color: var(--text-muted); }
+
+/* ── tooltip (js/tooltips.js) ── */
+#tip { position: fixed; z-index: 10000; max-width: 260px; padding: 8px 12px; background: var(--bg-floating); color: var(--text-normal); font-size: 14px; font-weight: 600; line-height: 1.2; border-radius: 5px; box-shadow: var(--elev-high); pointer-events: none; opacity: 0; transition: opacity 80ms linear; white-space: nowrap; }
+#tip.show { opacity: 1; }
+#tip::after { content: ''; position: absolute; border: 5px solid transparent; }
+#tip.right::after  { right: 100%;  top: 50%;  margin-top: -5px;  border-right-color: var(--bg-floating); }
+#tip.top::after    { top: 100%;    left: 50%; margin-left: -5px; border-top-color: var(--bg-floating); }
+#tip.bottom::after { bottom: 100%; left: 50%; margin-left: -5px; border-bottom-color: var(--bg-floating); }

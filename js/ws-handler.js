@@ -64,7 +64,7 @@ function handleIn(msg) {
             // Server exists in backend but not locally — restore it
             S.servers.push({
               id: ss.id, name: ss.name, desc: ss.desc || '',
-              color: ss.color || '#6c63ff', icon: ss.icon || null,
+              color: ss.color || '#5865f2', icon: ss.icon || null,
               channels: ss.channels || [],
               isOwner: (ss.ownerId||'').toLowerCase() === (S.user.name||'').toLowerCase(),
               ownerId: ss.ownerId, memberCount: ss.memberCount || 1,
@@ -136,7 +136,7 @@ function handleIn(msg) {
             console.log('[nexus] owned server missing from backend — re-registering:', sv.id, sv.name);
             dbg('⚠ owned server not in backend, re-registering: "' + sv.name + '"', 'warn');
             const reCreateMsg = {type:'server_create', serverId:sv.id, name:sv.name,
-              desc:sv.desc||'', icon:null, color:sv.color||'#6c63ff', isPublic:sv.isPublic!==false,
+              desc:sv.desc||'', icon:null, color:sv.color||'#5865f2', isPublic:sv.isPublic!==false,
               memberCount:sv.memberCount||1, createdAt:sv.createdAt||Date.now(),
               channels:sv.channels||[], ownerId:sv.ownerId||S.user.name};
             _pendingServerCreates.set(sv.id, reCreateMsg);
@@ -398,7 +398,7 @@ function handleIn(msg) {
         if (!motdBanner) {
           motdBanner = document.createElement('div');
           motdBanner.id = 'motd-banner';
-          motdBanner.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:998;background:var(--s2);border:1px solid rgba(108,99,255,.4);border-radius:12px;padding:12px 16px;max-width:340px;box-shadow:0 4px 24px rgba(0,0,0,.4);font-size:13px';
+          motdBanner.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:998;background:var(--s2);border:1px solid rgba(88,101,242,.4);border-radius:12px;padding:12px 16px;max-width:340px;box-shadow:0 4px 24px rgba(0,0,0,.4);font-size:13px';
           document.body.appendChild(motdBanner);
         }
         motdBanner.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><strong style="color:var(--accent)">📢 Message of the Day</strong><button onclick="document.getElementById('motd-banner')?.remove()" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:14px">✕</button></div><div style="color:var(--t2)">${esc(msg.text)}</div><div style="font-size:10px;color:var(--t3);margin-top:6px">— ${esc(msg.by||'Admin')}</div>`;
@@ -495,7 +495,7 @@ function handleIn(msg) {
       if (annBanner) annBanner.remove();
       annBanner = document.createElement('div');
       annBanner.id = 'platform-announcement';
-      annBanner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:9998;background:linear-gradient(135deg,rgba(108,99,255,.9),rgba(192,132,252,.9));border-radius:12px;padding:14px 20px;max-width:420px;box-shadow:0 4px 32px rgba(0,0,0,.5);font-size:14px;color:#fff;text-align:center';
+      annBanner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:9998;background:linear-gradient(135deg,rgba(88,101,242,.9),rgba(192,132,252,.9));border-radius:12px;padding:14px 20px;max-width:420px;box-shadow:0 4px 32px rgba(0,0,0,.5);font-size:14px;color:#fff;text-align:center';
       annBanner.innerHTML = `<div style="font-weight:700;margin-bottom:4px">📢 Platform Announcement</div><div>${esc(msg.text)}</div><button onclick="this.parentElement.remove()" style="background:rgba(255,255,255,.2);border:none;border-radius:6px;color:#fff;padding:4px 12px;margin-top:8px;cursor:pointer;font-size:12px">Dismiss</button>`;
       document.body.appendChild(annBanner);
       setTimeout(() => annBanner?.remove(), 30000);
@@ -776,7 +776,7 @@ function handleIn(msg) {
         if (!alreadyKnown) {
           S.discServers.push({
             id: msg.serverId, name: msg.name, desc: msg.desc || '',
-            color: msg.color || '#6c63ff', icon: msg.icon || null,
+            color: msg.color || '#5865f2', icon: msg.icon || null,
             memberCount: msg.memberCount || 1, createdAt: msg.createdAt || Date.now(),
             ownerId: msg.ownerId, isPublic: true,
           });

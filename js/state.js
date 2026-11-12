@@ -15,7 +15,7 @@ const S = {
   tempSvIcon: null,
 };
 
-const COLORS = ['#6c63ff','#a855f7','#ec4899','#3b82f6','#10b981','#f59e0b','#ef4444','#06b6d4'];
+const COLORS = ['#5865f2','#a855f7','#ec4899','#3b82f6','#10b981','#f59e0b','#ef4444','#06b6d4'];
 
 // ── COMPREHENSIVE EMOJI DATA ──
 const EMOJI_DATA = {

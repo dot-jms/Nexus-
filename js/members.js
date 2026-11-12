@@ -1,6 +1,6 @@
 // ── MEMBERS (real, from WS) ──
 function renderMbs() {
-  const el=document.getElementById('members'); el.innerHTML='';
+  const el=document.getElementById('members'); let html='';
   if(!S.curSv){ el.innerHTML='<div class="mb-empty">No server selected</div>'; return; }
   const sv=S.curSv;
   const mbs=S.members[sv.id]||[];
@@ -11,7 +11,7 @@ function renderMbs() {
 
   const renderGroup=(title,members,isOffline=false)=>{
     if(!members.length) return;
-    el.innerHTML+=`<div class="mb-cat">${title} — ${members.length}</div>`;
+    html+=`<div class="mb-cat">${title} — ${members.length}</div>`;
     members.forEach(m=>{
       const avContent=m.pfp?`<img src="${m.pfp}" alt="">`:`${m.name[0].toUpperCase()}`;
       const avBg=m.pfp?'transparent':(m.color||COLORS[hash(m.name)%COLORS.length]);
@@ -20,8 +20,8 @@ function renderMbs() {
       const canCtx=(myRole==='owner'||myRole==='mod')&&m.name!==S.user.name;
       const statusBg=isOffline?'var(--t3)':(m.status==='idle'?'var(--yellow)':m.status==='dnd'?'var(--red)':m.status==='invisible'?'var(--t3)':'var(--green)');
       const offlineStyle=isOffline?'opacity:0.5;':'';
-      el.innerHTML+=`<div class="mb-it" style="${offlineStyle}" onclick="openProfilePage('${esc(m.name)}')" oncontextmenu="${canCtx?`openMemberCtx('${esc(m.name)}',event)`:''}" onmouseenter="showUserHover('${esc(m.name)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" title="Click for profile${canCtx?' · Right-click for options':''}">
-        <div class="mb-av" style="background:${avBg}">${avContent}<div class="mb-st on" style="background:${statusBg}"></div></div>
+      html+=`<div class="mb-it" style="${offlineStyle}" onclick="openProfilePage('${esc(m.name)}')" oncontextmenu="${canCtx?`openMemberCtx('${esc(m.name)}',event)`:''}" onmouseenter="showUserHover('${esc(m.name)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" title="Click for profile${canCtx?' · Right-click for options':''}">
+        <div class="mb-av" style="background:${avBg}">${avContent}<div class="mb-st" style="background:${statusBg}"></div></div>
         <div style="flex:1;min-width:0"><div class="mb-nm">${esc(m.name)}</div></div>
         <div class="mb-role">${badge}</div>
       </div>`;
@@ -48,5 +48,6 @@ function renderMbs() {
     // Show offline by role sub-group or flat depending on size
     renderGroup('Offline',offOwners.concat(offMods,offOthers),true);
   }
+  el.innerHTML=html;
 }
 function toggleMb(){S.mbOpen=!S.mbOpen;document.getElementById('members').style.display=S.mbOpen?'':'none';}

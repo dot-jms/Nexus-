@@ -1,27 +1,46 @@
 // ══════════════════════════════════
 // CHANNELS
 // ══════════════════════════════════
+// ── icons (inline SVG so they match on every OS) ──
+const ICON_HASH  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 9h14M5 15h14M10 4L8 20M16 4l-2 16"/></svg>';
+const ICON_VOICE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7M19 5a10 10 0 010 14"/></svg>';
+const ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>';
+function chIcon(type){ return type==='voice' ? ICON_VOICE : ICON_HASH; }
+
+// collapsed categories persist per server
+const _catCollapsed = new Set((()=>{ try{ return JSON.parse(localStorage.getItem('nx-cat-collapsed')||'[]'); }catch{ return []; } })());
+function toggleCat(key){
+  _catCollapsed.has(key) ? _catCollapsed.delete(key) : _catCollapsed.add(key);
+  try{ localStorage.setItem('nx-cat-collapsed', JSON.stringify([..._catCollapsed])); }catch{}
+  document.querySelectorAll('.ch-group').forEach(g=>{ if(g.dataset.cat===key) g.classList.toggle('collapsed'); });
+}
+
 function renderChs() {
-  const el=document.getElementById('ch-list'); el.innerHTML='';
-  if(!S.curSv) return;
+  const el=document.getElementById('ch-list');
+  if(!S.curSv){ el.innerHTML=''; return; }
   const chs = S.curSv.channels || [];
-  if (!chs.length) { el.innerHTML='<div style="padding:16px;font-size:12px;color:var(--t3);text-align:center">No channels yet</div>'; return; }
-  const txt=chs.filter(c=>c.type==='text');
-  const vox=chs.filter(c=>c.type==='voice');
-  if(txt.length){ el.innerHTML+=`<div class="ch-cat"><span>Text Channels</span><span class="cat-add" onclick="openM('ach')">+</span></div>`; txt.forEach(c=>el.innerHTML+=chHTML(c,'#')); }
-  if(vox.length){ el.innerHTML+=`<div class="ch-cat"><span>Voice Channels</span><span class="cat-add" onclick="openM('ach')">+</span></div>`; vox.forEach(c=>el.innerHTML+=chHTML(c,'🔊')); }
+  if (!chs.length) { el.innerHTML='<div class="ch-empty">No channels yet</div>'; return; }
+  const group=(kind,label,list)=>{
+    if(!list.length) return '';
+    const key=S.curSv.id+':'+kind;
+    return `<div class="ch-group${_catCollapsed.has(key)?' collapsed':''}" data-cat="${key}">
+      <div class="ch-cat" onclick="toggleCat('${key}')"><span class="cat-name"><svg class="cat-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>${label}</span><span class="cat-add" title="Create Channel" onclick="event.stopPropagation();openM('ach')">+</span></div>
+      ${list.map(chHTML).join('')}</div>`;
+  };
+  // one DOM write, not one per channel
+  el.innerHTML = group('text','Text Channels',chs.filter(c=>c.type==='text')) + group('voice','Voice Channels',chs.filter(c=>c.type==='voice'));
   hlCh();
 }
-function chHTML(c,ico){
+function chHTML(c){
   const canDel = S.curSv && hasPerm(S.curSv,'manage_channels') && (S.curSv.channels||[]).length > 1;
-  const delBtn = canDel ? `<span class="ch-del-btn" onclick="event.stopPropagation();deleteCh('${c.id}')" title="Delete channel">🗑</span>` : '';
+  const delBtn = canDel ? `<span class="ch-del-btn" onclick="event.stopPropagation();deleteCh('${c.id}')" title="Delete channel">${ICON_TRASH}</span>` : '';
   // Right-click: power users copy ID; manage_channels users rename; dblclick also renames
   const canManage = hasPerm(S.curSv, 'manage_channels');
   const ctxStr = isPlatformPower()
     ? `oncontextmenu="event.preventDefault();event.stopPropagation();navigator.clipboard?.writeText('${c.id}');toast('📋 Channel ID copied')"`
     : (canManage ? `oncontextmenu="event.preventDefault();event.stopPropagation();renameCh('${c.id}')"` : '');
   const tipText = isPlatformPower() ? 'Right-click to copy ID: '+c.id : (canManage ? 'Double-click or right-click to rename' : '');
-  return `<div class="ch-it" data-id="${c.id}" onclick="selectCh('${c.id}')" ondblclick="renameCh('${c.id}')" ${ctxStr} title="${tipText}"><span class="ico">${ico}</span><span style="flex:1">${esc(c.name)}</span><span class="un-dot"></span>${delBtn}</div>`;
+  return `<div class="ch-it" data-id="${c.id}" onclick="selectCh('${c.id}')" ondblclick="renameCh('${c.id}')" ${ctxStr} title="${tipText}"><span class="ico">${chIcon(c.type)}</span><span class="ch-name">${esc(c.name)}</span><span class="un-dot"></span>${delBtn}</div>`;
 }
 function hlCh(){ document.querySelectorAll('.ch-it').forEach(el=>{ el.classList.toggle('act',el.dataset.id===S.curCh?.id); if(el.dataset.id===S.curCh?.id) el.classList.remove('unread'); }); }
 function selectCh(id) {
@@ -30,14 +49,13 @@ function selectCh(id) {
   S.curCh=ch;
   document.getElementById('ch-nm').textContent=ch.name;
   document.getElementById('ch-desc').textContent=ch.desc||'';
-  document.getElementById('ch-ico').textContent=ch.type==='voice'?'🔊':'#';
+  document.getElementById('ch-ico').innerHTML=chIcon(ch.type);
   document.getElementById('msg-in').placeholder=`Message #${ch.name}`;
   document.getElementById('ch-hd').style.display='flex';
   const msgsEl = document.getElementById('msgs');
-  if (msgsEl) msgsEl.classList.add('switching');
   if (ch.type==='voice') {
     showChat(); hlCh();
-    requestAnimationFrame(() => { renderMsgs(ch.id); if(msgsEl) msgsEl.classList.remove('switching'); });
+    requestAnimationFrame(() => { renderMsgs(ch.id); swapFade(msgsEl); });
     if (isPlatformPower() && !ghostVcChannelId && !vcChannelId) {
       const vb = document.getElementById('voice-bar');
       if (vb) {
@@ -57,7 +75,7 @@ function selectCh(id) {
     }
   } else {
     showChat(); hlCh();
-    requestAnimationFrame(() => { renderMsgs(ch.id); scrollBot(); if(msgsEl) msgsEl.classList.remove('switching'); autoRequestStrippedVideos(ch.id); });
+    requestAnimationFrame(() => { renderMsgs(ch.id); scrollBot(); swapFade(msgsEl); autoRequestStrippedVideos(ch.id); });
   }
   Object.keys(typers).forEach(k=>delete typers[k]); renderTypingBar();
   wsSend({type:'join_channel',channelId:id,serverId:S.curSv?.id});

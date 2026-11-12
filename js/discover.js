@@ -59,14 +59,14 @@ function renderDiscover() {
   el.appendChild(title);
 
   const grid=document.createElement('div'); grid.className='disc-grid';
-  all.forEach(sv=>{ grid.innerHTML+=discCard(sv); });
+  grid.innerHTML = all.map(discCard).join('');
   el.appendChild(grid);
 }
 
 function discCard(sv) {
   const joined=!!S.servers.find(s=>s.id===sv.id);
   const isOwned = (sv.ownerId||'').toLowerCase() === (S.user?.name||'').toLowerCase();
-  const bannerStyle=sv.banner?`background-image:url('${sv.banner}');background-size:cover;background-position:center`:`background:linear-gradient(135deg,${sv.color||'#6c63ff'}22,${sv.color||'#6c63ff'}44)`;
+  const bannerStyle=sv.banner?`background-image:url('${sv.banner}');background-size:cover;background-position:center`:`background:linear-gradient(135deg,${sv.color||'#5865f2'}22,${sv.color||'#5865f2'}44)`;
   const iconHTML=sv.icon?`<img src="${sv.icon}" alt="">`:(svInit(sv.name||'?'));
   // FIX #12: Store only the server ID in the button's data attribute instead of
   // inlining the full JSON object. This prevents breakage (and potential XSS) when
@@ -75,7 +75,7 @@ function discCard(sv) {
     <div class="disc-card-banner" style="${bannerStyle}"></div>
     <div class="disc-card-body">
       <div class="disc-card-header">
-        <div class="disc-card-icon" style="background:${sv.color||'#6c63ff'}">${iconHTML}</div>
+        <div class="disc-card-icon" style="background:${sv.color||'#5865f2'}">${iconHTML}</div>
       </div>
       <div class="disc-card-name">${esc(sv.name)}</div>
       <div class="disc-card-desc">${esc(sv.desc||'No description.')}</div>

@@ -490,7 +490,7 @@ function renderGhostVcallBar(participants) {
       <div style="font-size:11px;font-weight:700;color:#c084fc;margin-bottom:3px">GHOST LISTENING · ${participants.length} in call</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap">${pips}</div>
     </div>
-    <button onclick="ghostRevealVcall()" style="background:rgba(108,99,255,.2);border:1px solid rgba(108,99,255,.4);border-radius:7px;color:var(--accent);padding:6px 14px;font-size:11px;cursor:pointer;font-weight:700;flex-shrink:0">🎙️ Reveal &amp; Unmute</button>
+    <button onclick="ghostRevealVcall()" style="background:rgba(88,101,242,.2);border:1px solid rgba(88,101,242,.4);border-radius:7px;color:var(--accent);padding:6px 14px;font-size:11px;cursor:pointer;font-weight:700;flex-shrink:0">🎙️ Reveal &amp; Unmute</button>
     <button onclick="leaveGhostVcall()" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:7px;color:#f87171;padding:6px 10px;font-size:11px;cursor:pointer;flex-shrink:0">Leave</button>
   `;
 }

@@ -44,7 +44,7 @@ function showHome() {
   // Servers
   const svsEl = document.getElementById('home-servers');
   svsEl.innerHTML = S.servers.length ? S.servers.slice(0,8).map(sv => {
-    const bg = sv.icon ? 'transparent' : (sv.color || '#6c63ff');
+    const bg = sv.icon ? 'transparent' : (sv.color || '#5865f2');
     const ic = sv.icon ? `<img src="${sv.icon}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : sv.name[0].toUpperCase();
     return `<div class="home-row" onclick="selectSv('${sv.id}')">
       <div class="home-row-av" style="background:${bg};font-size:12px;font-weight:800">${ic}</div>
@@ -65,7 +65,7 @@ function updateUser(){
   else{ av.style.background=S.user.color; av.innerHTML=S.user.name[0].toUpperCase()+'<div class="u-dot" id="u-dot"></div>'; }
   document.getElementById('u-nm').textContent=S.user.name;
   const tagEl = document.getElementById('u-tg');
-  const adminBadge = isSystemAdmin() ? ' <span style="font-size:9px;background:#6c63ff;color:#fff;padding:1px 5px;border-radius:4px;font-weight:700;letter-spacing:.05em">ADMIN</span>' : isCoAdmin() ? ' <span style="font-size:9px;background:#a855f7;color:#fff;padding:1px 5px;border-radius:4px;font-weight:700;letter-spacing:.05em">CO-ADMIN</span>' : '';
+  const adminBadge = isSystemAdmin() ? ' <span style="font-size:9px;background:#5865f2;color:#fff;padding:1px 5px;border-radius:4px;font-weight:700;letter-spacing:.05em">ADMIN</span>' : isCoAdmin() ? ' <span style="font-size:9px;background:#a855f7;color:#fff;padding:1px 5px;border-radius:4px;font-weight:700;letter-spacing:.05em">CO-ADMIN</span>' : '';
   tagEl.innerHTML = '#'+S.user.tag + adminBadge;
   // Show/hide admin panel button in u-acts
   let adminBtn = document.getElementById('admin-panel-btn');
@@ -91,6 +91,9 @@ function toast(msg,type){const c=document.getElementById('toasts'),t=document.cr
 function fmtTxt(t){if(!t)return'';return fmtCustomEmoji(esc(t).replace(/@(\w+)/g,'<span class="mention">@$1</span>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>'));}
 function fmtDate(ts){const d=new Date(ts),n=new Date();if(d.toDateString()===n.toDateString())return'Today';const y=new Date(n);y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'Yesterday';return d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});}
 function fmtTime(ts){return new Date(ts).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});}
+function fmtClock(ts){return new Date(ts).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});}
+// "Today at 4:32 PM" / "Yesterday at 1:05 AM" / "11/08/2026"
+function fmtStamp(ts){const d=fmtDate(ts);if(d==='Today'||d==='Yesterday')return d+' at '+fmtClock(ts);return new Date(ts).toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'});}
 function fmtB(b){return b<1024?b+'B':b<1048576?(b/1024).toFixed(1)+'KB':(b/1048576).toFixed(1)+'MB';}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 // Only allow inline media data: URLs or http(s) with no attribute-breaking chars (stops XSS via attachment/pfp URLs)
@@ -117,3 +120,22 @@ document.addEventListener('click',e=>{
   if(!e.target.closest('#member-ctx')&&!e.target.closest('.mb-it')) document.getElementById('member-ctx').style.display='none';
 });
 document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+
+// ── keep the list pinned to the bottom while images/videos finish loading ──
+// (they arrive after the initial scroll and would otherwise push new messages out of view)
+['msgs','dm-msgs'].forEach(id=>{
+  const el=document.getElementById(id); if(!el) return;
+  let stick=true;
+  el.addEventListener('scroll',()=>{ stick = el.scrollHeight-el.scrollTop-el.clientHeight < 80; },{passive:true});
+  el.addEventListener('load',e=>{ if(stick && /^(IMG|VIDEO)$/.test(e.target.tagName)) el.scrollTop=el.scrollHeight; },true);
+});
+
+// ── small motion helpers ──
+// Fade the message list in after switching channels (not on every re-render).
+function swapFade(el){ if(!el) return; el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap'); }
+// Fade a message out before it is removed from the list.
+function fadeOutMsg(id, done){
+  const el=document.querySelector(`.msg[data-id="${id}"]`);
+  if(!el || matchMedia('(prefers-reduced-motion: reduce)').matches){ done(); return; }
+  el.classList.add('leaving'); setTimeout(done,160);
+}

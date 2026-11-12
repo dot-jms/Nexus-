@@ -48,7 +48,7 @@ function renderDMs() {
     const av = dm.pfp ? `<img src="${dm.pfp}">` : dm.name[0].toUpperCase();
     const isActive = curDM === dm.name;
     html += `<div class="dm-it${isActive?' active':''}${dm.unread?' unread':''}" onclick="openDMChat('${dm.name}')">
-      <div class="mb-av" style="background:${bg};width:30px;height:30px">${av}</div>
+      <div class="mb-av" style="background:${bg}">${av}</div>
       <div style="min-width:0;flex:1">
         <div class="dm-nm">${esc(dm.name)}</div>
         <div class="dm-pv">${esc(dm.last || 'No messages yet')}</div>
@@ -293,7 +293,7 @@ function showDMPopup(from, color, pfp, preview) {
   document.getElementById('dm-new-popup')?.remove();
   const div = document.createElement('div');
   div.id = 'dm-new-popup';
-  div.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.92);background:var(--s1);border:1px solid var(--border2);border-radius:20px;padding:28px 32px;z-index:999;box-shadow:0 40px 100px rgba(0,0,0,.85),0 0 0 1px rgba(124,109,250,.12);text-align:center;min-width:290px;max-width:360px;animation:popIn .22s cubic-bezier(.34,1.56,.64,1) forwards';
+  div.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.92);background:var(--s1);border:1px solid var(--border2);border-radius:20px;padding:28px 32px;z-index:999;box-shadow:0 40px 100px rgba(0,0,0,.85),0 0 0 1px rgba(88,101,242,.12);text-align:center;min-width:290px;max-width:360px;animation:popIn .22s cubic-bezier(.34,1.56,.64,1) forwards';
   const avBg = pfp ? 'transparent' : (color || 'var(--accent)');
   const avContent = pfp ? `<img src="${pfp}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : `<span style="font-size:22px;font-weight:800;color:#fff">${from[0].toUpperCase()}</span>`;
   div.innerHTML = `

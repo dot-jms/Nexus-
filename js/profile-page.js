@@ -29,8 +29,8 @@ function renderProfilePage(u) {
   const isPuck = S.user?.systemRole === 'admin';
   // Banner gradient from user color
   const bannerGrad = document.getElementById('pp-banner-grad');
-  bannerGrad.style.background = `linear-gradient(160deg, ${u.color||'#6c63ff'}cc 0%, ${u.color||'#6c63ff'}22 100%)`;
-  document.getElementById('pp-banner').style.background = `${u.color||'#6c63ff'}33`;
+  bannerGrad.style.background = `linear-gradient(160deg, ${u.color||'#5865f2'}cc 0%, ${u.color||'#5865f2'}22 100%)`;
+  document.getElementById('pp-banner').style.background = `${u.color||'#5865f2'}33`;
   // Avatar
   const avEl = document.getElementById('pp-av');
   avEl.style.background = u.pfp ? 'transparent' : (u.color||COLORS[0]);
@@ -54,7 +54,7 @@ function renderProfilePage(u) {
   document.getElementById('pp-tag').textContent = '#' + (u.tag||'????');
   // Badges
   let badgeHtml = '';
-  if (u.systemRole==='admin') badgeHtml += `<span class="pp-badge" style="background:rgba(108,99,255,.2);color:var(--accent);border:1px solid rgba(108,99,255,.3)">⚡ Admin</span>`;
+  if (u.systemRole==='admin') badgeHtml += `<span class="pp-badge" style="background:rgba(88,101,242,.2);color:var(--accent);border:1px solid rgba(88,101,242,.3)">⚡ Admin</span>`;
   if (u.coAdmin) badgeHtml += `<span class="pp-badge" style="background:rgba(168,85,247,.2);color:#c084fc;border:1px solid rgba(168,85,247,.3)">⭐ Co-Admin</span>`;
   if (isSelf) badgeHtml += `<span class="pp-badge" style="background:rgba(52,211,153,.12);color:var(--green);border:1px solid rgba(52,211,153,.2)">You</span>`;
   document.getElementById('pp-badges').innerHTML = badgeHtml;
@@ -162,7 +162,7 @@ function showUserHover(username, anchorEl) {
     const avContent = u.pfp ? `<img src="${u.pfp}">` : esc((username[0]||'?').toUpperCase());
     const avBg = u.pfp ? 'transparent' : color;
     let badgesHtml = '';
-    if (u.systemRole==='admin') badgesHtml += `<span class="pp-badge" style="font-size:9px;background:rgba(108,99,255,.2);color:var(--accent);border:1px solid rgba(108,99,255,.3)">⚡ Admin</span>`;
+    if (u.systemRole==='admin') badgesHtml += `<span class="pp-badge" style="font-size:9px;background:rgba(88,101,242,.2);color:var(--accent);border:1px solid rgba(88,101,242,.3)">⚡ Admin</span>`;
     if (u.coAdmin) badgesHtml += `<span class="pp-badge" style="font-size:9px;background:rgba(168,85,247,.2);color:#c084fc;border:1px solid rgba(168,85,247,.3)">⭐ Co-Admin</span>`;
     popup.innerHTML = `
       <div class="uhp-banner" style="background:linear-gradient(135deg,${color}cc,${color}33)">

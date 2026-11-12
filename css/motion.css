@@ -1,0 +1,85 @@
+/* ═══════════════════════════════════════════════════════════════
+   motion.css — nothing appears or disappears instantly
+   ───────────────────────────────────────────────────────────────
+   A lot of Nexus shows and hides things from JS with
+   `el.style.display = 'none' | ''`. CSS can't normally animate that, but
+   modern browsers can: `transition-behavior: allow-discrete` keeps the element
+   rendered until the exit transition finishes, and `@starting-style` gives
+   the entry transition something to start from. So the JS stays untouched.
+
+   Pattern per element:
+     1. transition the visual props + `display` (allow-discrete)
+     2. the hidden state (inline display:none) sets the "off" values
+     3. @starting-style sets where the entry animation begins
+   Browsers without support simply show/hide instantly (nothing breaks).
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ───────── side panels slide in from their edge ───────── */
+#notif-panel {
+  transition: transform .2s var(--ease), opacity .2s var(--ease), display .2s allow-discrete;
+}
+#notif-panel[style*="display: none"] { transform: translateX(24px); opacity: 0; }
+@starting-style { #notif-panel { transform: translateX(24px); opacity: 0; } }
+
+#friends-view {
+  transition: transform .2s var(--ease), opacity .2s var(--ease), display .2s allow-discrete;
+}
+#friends-view[style*="display: none"] { transform: translateX(-24px); opacity: 0; }
+@starting-style { #friends-view { transform: translateX(-24px); opacity: 0; } }
+
+/* ───────── sidebar + member list slide away (and the chat grows smoothly) ───────── */
+#sidebar {
+  transition: margin-left .2s var(--ease), opacity .2s var(--ease), display .2s allow-discrete;
+}
+#sidebar[style*="display: none"] { margin-left: -240px; opacity: 0; }
+@starting-style { #sidebar { margin-left: -240px; opacity: 0; } }
+
+#members {
+  transition: margin-right .2s var(--ease), opacity .2s var(--ease), display .2s allow-discrete;
+}
+#members[style*="display: none"] { margin-right: -240px; opacity: 0; }
+@starting-style { #members { margin-right: -240px; opacity: 0; } }
+
+/* ───────── full-screen layers fade ───────── */
+#shorts-view, #auth-screen {
+  transition: opacity .2s linear, display .2s allow-discrete;
+}
+#shorts-view[style*="display: none"], #auth-screen[style*="display: none"] { opacity: 0; }
+@starting-style { #shorts-view, #auth-screen { opacity: 0; } }
+
+/* ───────── floating things ───────── */
+#member-ctx {
+  transition: opacity var(--fast) linear, transform var(--fast) var(--ease), display var(--fast) allow-discrete;
+  transform-origin: top left;
+}
+#member-ctx[style*="display: none"] { opacity: 0; transform: scale(.96); }
+@starting-style { #member-ctx { opacity: 0; transform: scale(.96); } }
+
+#vcall-invite-widget {
+  transition: opacity .2s var(--ease), transform .2s var(--ease), display .2s allow-discrete;
+}
+#vcall-invite-widget[style*="display: none"] { opacity: 0; transform: translateY(12px); }
+@starting-style { #vcall-invite-widget { opacity: 0; transform: translateY(12px); } }
+
+/* its inline transform centres it, so this one only fades */
+#vm-recording { transition: opacity .15s linear, display .15s allow-discrete; }
+#vm-recording[style*="display: none"] { opacity: 0; }
+@starting-style { #vm-recording { opacity: 0; } }
+
+#rail-ctx { animation: pop var(--fast) var(--ease) both; transform-origin: top left; }
+
+/* ───────── voice bar slides open/closed ───────── */
+#voice-bar { transition: max-height .2s var(--ease), padding .2s var(--ease), opacity .2s linear, display .2s allow-discrete; }
+#voice-bar[style*="display: none"] { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; }
+@starting-style { #voice-bar { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; } }
+
+/* ───────── badges pop in/out ───────── */
+.fr-badge, .notif-badge { transition: transform var(--base) var(--ease), opacity var(--base) linear, display var(--base) allow-discrete; }
+.fr-badge[style*="display: none"], .notif-badge[style*="display: none"] { transform: scale(0); opacity: 0; }
+@starting-style { .fr-badge, .notif-badge { transform: scale(0); opacity: 0; } }
+
+/* ───────── views: fade in as they take over the screen ─────────
+   (an outgoing view can't linger — it would stack with the incoming one —
+    so views get a clean fade-in; everything else above also fades out) */
+#welcome, #home-screen, #discover.show, #chat-wrap.show, #dm-chat.show,
+.ch-hd, .dm-chat-hd, #role-editor, .auth-form.show { animation: viewIn var(--base) ease both; }

@@ -48,12 +48,12 @@ function renderAdminAccounts(accounts) {
   if (!box) return;
   if (!accounts.length) { box.innerHTML = '<div style="font-size:12px;color:var(--t3);padding:8px 0">No accounts found.</div>'; return; }
   box.innerHTML = accounts.map(a => {
-    const avBg = a.color || '#6c63ff';
+    const avBg = a.color || '#5865f2';
     const avContent = a.pfp
       ? `<img src="${a.pfp}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
       : `<span style="font-size:13px;font-weight:700;color:#fff">${esc(a.name[0]?.toUpperCase()||'?')}</span>`;
     const roleBadge = a.systemRole === 'admin'
-      ? `<span style="font-size:9px;background:rgba(108,99,255,.2);color:var(--accent);border:1px solid rgba(108,99,255,.3);border-radius:99px;padding:1px 6px;font-weight:700">⚡ Admin</span>`
+      ? `<span style="font-size:9px;background:rgba(88,101,242,.2);color:var(--accent);border:1px solid rgba(88,101,242,.3);border-radius:99px;padding:1px 6px;font-weight:700">⚡ Admin</span>`
       : a.coAdmin
         ? `<span style="font-size:9px;background:rgba(52,211,153,.15);color:var(--green);border:1px solid rgba(52,211,153,.3);border-radius:99px;padding:1px 6px;font-weight:700">★ Co-Admin</span>` : '';
     const frozenBadge = a.frozen

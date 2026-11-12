@@ -536,7 +536,7 @@ function renderAdminOnline(users) {
   if (!users.length) { box.innerHTML = '<div style="font-size:12px;color:var(--t3)">No users online.</div>'; return; }
   box.innerHTML = `<div style="font-size:11px;color:var(--t3);margin-bottom:8px">${users.length} user(s) connected right now</div>` +
     users.map(u => {
-      const role = u.systemRole==='admin' ? `<span style="font-size:9px;background:rgba(108,99,255,.2);color:var(--accent);border:1px solid rgba(108,99,255,.3);border-radius:99px;padding:1px 5px">⚡ Admin</span>`
+      const role = u.systemRole==='admin' ? `<span style="font-size:9px;background:rgba(88,101,242,.2);color:var(--accent);border:1px solid rgba(88,101,242,.3);border-radius:99px;padding:1px 5px">⚡ Admin</span>`
         : u.coAdmin ? `<span style="font-size:9px;background:rgba(52,211,153,.15);color:var(--green);border:1px solid rgba(52,211,153,.3);border-radius:99px;padding:1px 5px">★ Co-Admin</span>` : '';
       const frozen = u.frozen ? `<span style="font-size:9px;background:rgba(96,165,250,.15);color:#60a5fa;border:1px solid rgba(96,165,250,.3);border-radius:99px;padding:1px 5px">🧊 Frozen</span>` : '';
       return `<div style="display:flex;align-items:center;gap:8px;background:var(--s3);border:1px solid var(--border);border-radius:6px;padding:7px 10px">

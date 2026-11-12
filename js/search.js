@@ -28,5 +28,5 @@ function runSearch() {
 function jumpToMsg(id) {
   closeM('search-modal');
   const el = document.querySelector(`.msg[data-id="${id}"]`);
-  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.background='rgba(108,99,255,.15)'; setTimeout(()=>el.style.background='',1500); }
+  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.style.background='rgba(88,101,242,.15)'; setTimeout(()=>el.style.background='',1500); }
 }

@@ -6,7 +6,6 @@ function renderSvs() {
   S.servers.forEach(sv=>{
     const d=document.createElement('div');
     d.className='sv-ic'+(S.curSv?.id===sv.id?' act':'');
-    if(S.curSv?.id===sv.id) d.style.background=sv.color;
     d.title=sv.name;
     if(sv.icon){ d.innerHTML=`<div class="sv-pip"></div><img src="${sv.icon}" alt="">`; }
     else { d.innerHTML=`<div class="sv-pip"></div>${svInit(sv.name)}`; }
@@ -65,7 +64,7 @@ function showRailCtx(sv, e) {
   const isOwner = (sv.ownerId||'').toLowerCase() === (S.user.name||'').toLowerCase();
   const ctx = document.createElement('div');
   ctx.id = 'rail-ctx';
-  ctx.style.cssText = `position:fixed;background:var(--s3);border:1px solid var(--border2);border-radius:10px;padding:4px;z-index:300;min-width:180px;box-shadow:0 8px 32px rgba(0,0,0,.6)`;
+  ctx.className = 'ctx-menu';
   const x = Math.min(e.clientX + 8, window.innerWidth - 200);
   const y = Math.min(e.clientY, window.innerHeight - 160);
   ctx.style.left = x + 'px'; ctx.style.top = y + 'px';

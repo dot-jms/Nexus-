@@ -14,11 +14,20 @@ function showTyping(who, channelId) {
 function renderTypingBar() {
   const el = document.getElementById('ty-bar');
   const names = Object.keys(typers);
-  if (!names.length) { el.innerHTML = ''; return; }
+  clearTimeout(el._tyOut);
+  if (!names.length) {
+    if (!el.innerHTML) return;
+    el.classList.remove('ty-in'); el.classList.add('ty-out');          // fade out, then clear
+    el._tyOut = setTimeout(() => { el.innerHTML = ''; el.classList.remove('ty-out'); }, 160);
+    return;
+  }
   const txt = names.length === 1 ? `${esc(names[0])} is typing...`
     : names.length === 2 ? `${esc(names[0])} and ${esc(names[1])} are typing...`
     : `${names.length} people are typing...`;
+  const wasEmpty = !el.innerHTML || el.classList.contains('ty-out');
+  el.classList.remove('ty-out');
   el.innerHTML = `<div class="ty-dots"><div class="ty-dot"></div><div class="ty-dot"></div><div class="ty-dot"></div></div><span>${txt}</span>`;
+  if (wasEmpty) { el.classList.remove('ty-in'); void el.offsetWidth; el.classList.add('ty-in'); } // only animate the first appearance, not every keystroke
 }
 
 // ── FILES ──

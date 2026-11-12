@@ -98,7 +98,7 @@ function renderGhostCallBar() {
       <div style="font-weight:700;color:#c084fc;font-size:11px">GHOST LISTENING · ${memberNames.length} member(s)</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${memberPips}</div>
     </div>
-    <button onclick="ghostReveal()" style="background:rgba(108,99,255,.2);border:1px solid rgba(108,99,255,.4);border-radius:6px;color:var(--accent);padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700">🎙️ Reveal &amp; Unmute</button>
+    <button onclick="ghostReveal()" style="background:rgba(88,101,242,.2);border:1px solid rgba(88,101,242,.4);border-radius:6px;color:var(--accent);padding:5px 12px;font-size:11px;cursor:pointer;font-weight:700">🎙️ Reveal &amp; Unmute</button>
     <button onclick="leaveVoiceGhost()" style="background:rgba(248,113,113,.15);border:1px solid rgba(248,113,113,.3);border-radius:6px;color:#f87171;padding:5px 10px;font-size:11px;cursor:pointer">Leave</button>
   `;
 }

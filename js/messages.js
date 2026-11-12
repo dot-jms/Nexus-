@@ -4,13 +4,22 @@
 function renderMsgs(chId) {
   const msgs=S.messages[chId]||[];
   const el=document.getElementById('msgs'); el.innerHTML='';
-  if(!msgs.length){ el.innerHTML=`<div style="text-align:center;padding:40px 0;color:var(--t3)"><div style="font-size:32px;margin-bottom:8px">#</div><div style="font-weight:700;color:var(--t2);font-size:14px">Start of #${esc(S.curCh?.name||'')}</div><div style="margin-top:5px;font-size:12px">Be the first to say something!</div></div>`; return; }
+  if(!msgs.length){ const n=esc(S.curCh?.name||''); el.innerHTML=`<div class="ch-intro"><div class="ch-intro-ico">${chIcon(S.curCh?.type)}</div><h3>Welcome to #${n}!</h3><p>This is the start of the #${n} channel.</p></div>`; return; }
   let ld='',la='',lt=0;
   const parts=[];
   msgs.forEach(m=>{ const d=fmtDate(m.ts); if(d!==ld){parts.push(`<div class="day-sep">${d}</div>`);ld=d;la='';lt=0;} const grp=m.author===la&&(m.ts-lt)<300000; parts.push(buildMsg(m,grp)); la=m.author;lt=m.ts; });
   el.innerHTML=parts.join('');
   scrollBot();
 }
+
+// ── message toolbar icons ──
+const MI = {
+  react:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg>',
+  reply:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17l-5-5 5-5"/><path d="M20 18v-2a4 4 0 00-4-4H4"/></svg>',
+  pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-3l-2-5V3H7v6l-2 5v3z"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>',
+  del:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6"/></svg>'
+};
 
 function buildMsg(m,grp) {
   m={...m,id:safeId(m.id),channelId:safeId(m.channelId)};
@@ -55,18 +64,21 @@ function buildMsg(m,grp) {
   });
   let reacts='';
   if((m.reactions||[]).length){ reacts='<div class="m-reacts">'+m.reactions.map(r=>`<div class="react${r.users?.includes(S.user?.name)?' me':''}" onclick="toggleReact('${m.id}','${r.emoji}')">${r.emoji}<span>${r.count}</span></div>`).join('')+'</div>'; }
+  const lead = grp
+    ? `<div class="m-gutter"><span class="m-gtime">${fmtClock(m.ts)}</span></div>`
+    : `<div class="m-av" style="background:${livePfp?'transparent':ac}" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${avInner}</div>`;
   return `<div class="msg${grp?' grouped':''}" data-id="${m.id}">
-    <div class="m-av" style="background:${livePfp?'transparent':ac};cursor:pointer" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${avInner}</div>
+    ${lead}
     <div class="m-body">
-      ${!grp?`<div class="m-head"><span class="m-auth" style="cursor:pointer" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${esc(m.author)}${isMe?'<span class="m-you">you</span>':''}</span><span class="m-time">${fmtTime(m.ts)}</span></div>`:''}
+      ${!grp?`<div class="m-head"><span class="m-auth" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${esc(m.author)}</span><span class="m-time">${fmtStamp(m.ts)}</span></div>`:''}
       ${m.voiceMsg ? buildVoiceMsg(m) : `<div class="m-txt">${fmtTxt(m.text)}${m.edited?'<span class="m-edited">(edited)</span>':''}</div>`}${atts?`<div class="m-atts">${atts}</div>`:''}${reacts}
     </div>
     <div class="m-acts">
-      <div class="ma" title="React" onclick="openReactPicker('${m.id}',event)">😊</div>
-      <div class="ma" title="Reply" onclick="replyTo('${esc(m.author)}')">↩</div>
-      ${!curDM?`<div class="ma pin-btn" title="Pin" onclick="pinMsg('${m.id}')">📌</div>`:''}
-      ${(isMe||isPlatformPower())?`<div class="ma" title="Edit" onclick="startEditMsg('${m.id}')">✏️</div>`:''}
-      ${(isMe||isPlatformPower())?`<div class="ma" title="Delete" onclick="delMsg('${m.id}')">🗑</div>`:''}
+      <div class="ma" title="Add Reaction" onclick="openReactPicker('${m.id}',event)">${MI.react}</div>
+      <div class="ma" title="Reply" onclick="replyTo('${esc(m.author)}')">${MI.reply}</div>
+      ${!curDM?`<div class="ma" title="Pin Message" onclick="pinMsg('${m.id}')">${MI.pin}</div>`:''}
+      ${(isMe||isPlatformPower())?`<div class="ma" title="Edit" onclick="startEditMsg('${m.id}')">${MI.edit}</div>`:''}
+      ${(isMe||isPlatformPower())?`<div class="ma danger" title="Delete" onclick="delMsg('${m.id}')">${MI.del}</div>`:''}
     </div>
   </div>`;
 }
@@ -103,8 +115,8 @@ function appendMsgDOM(m) {
   }
 }
 function addMsg(m){ if(!S.messages[m.channelId]) S.messages[m.channelId]=[]; S.messages[m.channelId].push(m); persist(); }
-function delMsg(id){ if(curDM){const arr=S.dmMessages[curDM];if(!arr)return;const i=arr.findIndex(m=>m.id===id);if(i!==-1){arr.splice(i,1);persist();renderDMMessages(curDM);}wsSend({type:'dm_delete',messageId:id,to:curDM,from:S.user.name});return;} const arr=S.messages[S.curCh?.id]; if(!arr) return; const i=arr.findIndex(m=>m.id===id); if(i!==-1){arr.splice(i,1);persist();renderMsgs(S.curCh.id);} wsSend({type:'delete_message',messageId:id,channelId:S.curCh.id}); }
-function delById(id,chId){ if(!S.messages[chId]) return; S.messages[chId]=S.messages[chId].filter(m=>m.id!==id); persist(); if(S.curCh?.id===chId) renderMsgs(chId); }
+function delMsg(id){ if(curDM){const arr=S.dmMessages[curDM];if(!arr)return;const i=arr.findIndex(m=>m.id===id);if(i!==-1){arr.splice(i,1);persist();fadeOutMsg(id,()=>renderDMMessages(curDM));}wsSend({type:'dm_delete',messageId:id,to:curDM,from:S.user.name});return;} const arr=S.messages[S.curCh?.id]; if(!arr) return; const i=arr.findIndex(m=>m.id===id); if(i!==-1){arr.splice(i,1);persist();const _ch=S.curCh.id;fadeOutMsg(id,()=>renderMsgs(_ch));} wsSend({type:'delete_message',messageId:id,channelId:S.curCh.id}); }
+function delById(id,chId){ if(!S.messages[chId]) return; S.messages[chId]=S.messages[chId].filter(m=>m.id!==id); persist(); if(S.curCh?.id===chId) fadeOutMsg(id,()=>renderMsgs(chId)); }
 function replyTo(name){ if(editingMsgId) cancelEdit(); const inpId=curDM?'dm-msg-in':'msg-in'; const el=document.getElementById(inpId); if(!el)return; el.value=`@${name} `+el.value; el.focus(); if(curDM){const btn=document.getElementById('dm-snd-btn');if(btn)btn.classList.toggle('on',el.value.trim().length>0);}else updSnd(); }
 
 // ── MESSAGE EDITING ──
@@ -128,7 +140,7 @@ function startEditMsg(id) {
   if (!ind) {
     ind = document.createElement('div');
     ind.id = 'edit-indicator';
-    ind.style.cssText = 'font-size:11px;color:var(--accent);padding:4px 14px 2px;display:flex;align-items:center;gap:6px;border-bottom:1px solid rgba(124,109,250,.15)';
+    ind.style.cssText = 'font-size:11px;color:var(--accent);padding:4px 14px 2px;display:flex;align-items:center;gap:6px;border-bottom:1px solid rgba(88,101,242,.15)';
     const box = curDM
       ? document.getElementById('dm-inp-wrap')?.querySelector('.inp-box')
       : document.getElementById('inp-box');
