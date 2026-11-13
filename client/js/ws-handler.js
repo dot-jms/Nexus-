@@ -101,12 +101,8 @@ function handleIn(msg) {
               existing.isOwner = (ss.ownerId||'').toLowerCase() === (S.user.name||'').toLowerCase();
               // Merge persisted pins — server is authoritative, client may have stale cache
               if (ss.pins) existing.pins = { ...(existing.pins||{}), ...ss.pins };
-              // Merge shorts — server is authoritative for metadata
-              if (ss.shorts?.length) {
-                if (!existing.shorts) existing.shorts = [];
-                const existingIds = new Set((existing.shorts||[]).map(s => s.id));
-                ss.shorts.forEach(s => { if (!existingIds.has(s.id)) existing.shorts.push(s); });
-              }
+              // Merge shorts: server is authoritative for the list, likes and comments
+              if (ss.shorts) mergeServerShorts(existing, ss.shorts);
               // Restore custom emoji names — data will be fetched p2p when needed
               if (ss.customEmojiNames?.length) {
                 if (!existing.customEmojis) existing.customEmojis = [];
@@ -121,7 +117,7 @@ function handleIn(msg) {
           }
         });
         if (svChanged) {
-          persist(); renderSvs();
+          persist(); renderSvs(); shortsSyncNew();
           S.servers.forEach(sv => wsSend({type:'get_server_info', serverId:sv.id}));
           if (!S.curSv && S.servers.length) selectSv(S.servers[0].id);
         } else if (msg.servers?.length) {
@@ -701,7 +697,11 @@ function handleIn(msg) {
     case 'member_list':
       S.members[msg.serverId]=msg.members||[];
       // seed avatars/colors so messages (which no longer carry the sender's avatar) render them
-      (msg.members||[]).forEach(m => { if (!m?.name) return; const p = profileCache[m.name] || (profileCache[m.name] = {}); if (m.pfp !== undefined) p.pfp = m.pfp || null; if (m.color) p.color = m.color; });
+      // (merge the whole member record, never a partial one: openProfilePage reads this cache directly)
+      (msg.members||[]).forEach(m => {
+        if (!m?.name || m.name === S.user?.name) return;
+        profileCache[m.name] = { ...(profileCache[m.name] || {}), ...m, name: m.name };
+      });
       if (S.curSv?.id === msg.serverId && S.curCh) renderMsgs(S.curCh.id);
       // Always sync memberCount from actual member list — includes offline members
       { const mlSv = S.servers.find(s => s.id === msg.serverId);
@@ -736,6 +736,7 @@ function handleIn(msg) {
         S.messages[msg.channelId].sort((a,b) => a.ts - b.ts);
         persist();
         if (S.curCh?.id === msg.channelId) renderMsgs(msg.channelId);
+        shortsOnMedia();
       }
       break;
     }
@@ -772,6 +773,7 @@ function handleIn(msg) {
       } else if (S.curCh?.id === vsChId) {
         renderMsgs(vsChId);
       }
+      shortsOnMedia();
       break;
     }
     case 'server_info': {
@@ -793,10 +795,14 @@ function handleIn(msg) {
         if (si.roles !== undefined)        sv.roles       = si.roles;
         if (si.memberRoles !== undefined)  sv.memberRoles = si.memberRoles;
         if (si.banner !== undefined)       sv.banner      = si.banner;
+        // shorts + pins are only sent to members: this is how a new member gets them on joining
+        if (si.shorts) mergeServerShorts(sv, si.shorts);
+        if (si.pins) sv.pins = { ...(sv.pins||{}), ...si.pins };
         // Keep S.curSv in sync if this is the active server
         if (S.curSv?.id === sv.id) Object.assign(S.curSv, sv);
         persist();
         renderSvs();
+        if (si.shorts) shortsSyncNew();
         if (S.curSv?.id === sv.id) { renderChs(); document.getElementById('sv-nm').textContent = sv.name; buildSvDropdown(); }
       }
       break;
@@ -903,17 +909,21 @@ function handleIn(msg) {
       break;
     case 'short_post': {
       const sv = S.servers.find(s => s.id === msg.serverId);
-      if (sv) { if (!sv.shorts) sv.shorts=[]; sv.shorts.push(msg.short); persist(); if (curShortsServerId===msg.serverId) renderShorts(); }
+      if (sv && msg.short?.id) {
+        if (!sv.shorts) sv.shorts=[];
+        if (!sv.shorts.some(x => x.id === msg.short.id)) { sv.shorts.push(msg.short); persist(); }
+        if (curShortsServerId === msg.serverId) shortsSyncNew();
+      }
       break;
     }
     case 'short_like': {
       const sv = S.servers.find(s => s.id === msg.serverId);
-      if (sv) { const s=(sv.shorts||[]).find(x=>x.id===msg.shortId); if(s){if(!s.likes)s.likes=[];const i=s.likes.indexOf(msg.user);if(msg.liked&&i<0)s.likes.push(msg.user);else if(!msg.liked&&i>=0)s.likes.splice(i,1);persist();if(curShortsServerId===msg.serverId)renderShorts();} }
+      if (sv) { const s=(sv.shorts||[]).find(x=>x.id===msg.shortId); if(s){if(!s.likes)s.likes=[];const i=s.likes.indexOf(msg.user);if(msg.liked&&i<0)s.likes.push(msg.user);else if(!msg.liked&&i>=0)s.likes.splice(i,1);persist();if(curShortsServerId===msg.serverId)refreshShortActions(msg.shortId);} }
       break;
     }
     case 'short_comment': {
       const sv = S.servers.find(s => s.id === msg.serverId);
-      if (sv) { const s=(sv.shorts||[]).find(x=>x.id===msg.shortId); if(s){if(!s.comments)s.comments=[];s.comments.push(msg.comment);persist();if(curShortsServerId===msg.serverId)renderShorts();} }
+      if (sv) { const s=(sv.shorts||[]).find(x=>x.id===msg.shortId); if(s){if(!s.comments)s.comments=[];if(!s.comments.some(c=>c.id===msg.comment?.id))s.comments.push(msg.comment);persist();if(curShortsServerId===msg.serverId){refreshShortActions(msg.shortId);refreshShortCommentPanel(msg.shortId);}} }
       break;
     }
     case 'custom_emoji_add': {

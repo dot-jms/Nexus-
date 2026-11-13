@@ -36,10 +36,9 @@ function chHTML(c){
   const delBtn = canDel ? `<span class="ch-del-btn" onclick="event.stopPropagation();deleteCh('${c.id}')" title="Delete channel">${ICON_TRASH}</span>` : '';
   // Right-click: power users copy ID; manage_channels users rename; dblclick also renames
   const canManage = hasPerm(S.curSv, 'manage_channels');
-  const ctxStr = isPlatformPower()
-    ? `oncontextmenu="event.preventDefault();event.stopPropagation();navigator.clipboard?.writeText('${c.id}');toast('📋 Channel ID copied')"`
-    : (canManage ? `oncontextmenu="event.preventDefault();event.stopPropagation();renameCh('${c.id}')"` : '');
-  const tipText = isPlatformPower() ? 'Right-click to copy ID: '+c.id : (canManage ? 'Double-click or right-click to rename' : '');
+  // Right-click opens a menu (rename / topic / copy ID / delete, depending on what you're allowed to do)
+  const ctxStr = `oncontextmenu="showChCtx(event,'${c.id}')"`;
+  const tipText = canManage ? 'Double-click to rename, right-click for more' : 'Right-click for options';
   return `<div class="ch-it" data-id="${c.id}" onclick="selectCh('${c.id}')" ondblclick="renameCh('${c.id}')" ${ctxStr} title="${tipText}"><span class="ico">${chIcon(c.type)}</span><span class="ch-name">${esc(c.name)}</span><span class="un-dot"></span>${delBtn}</div>`;
 }
 function hlCh(){ document.querySelectorAll('.ch-it').forEach(el=>{ el.classList.toggle('act',el.dataset.id===S.curCh?.id); if(el.dataset.id===S.curCh?.id) el.classList.remove('unread'); }); }
@@ -105,13 +104,16 @@ function deleteCh(id) {
   if (!hasPerm(sv,'manage_channels')) { toast('No permission'); return; }
   const ch = sv.channels.find(c=>c.id===id); if (!ch) return;
   if (!confirm(`Delete #${ch.name}? All messages will be lost.`)) return;
-  sv.channels = sv.channels.filter(c=>c.id!==id);
-  delete S.messages[id];
-  persist(); renderChs();
-  if (S.curCh?.id === id) { const first=(sv.channels||[]).find(c=>c.type==='text'); first?selectCh(first.id):showWelcome(); }
-  toast('🗑 #'+ch.name+' deleted');
-  // Use dedicated channel_remove — removes from KV directly
+  // Tell the server FIRST. If anything while redrawing the screen throws, the delete used to never be
+  // sent, and the channel (with its messages) came back on the next refresh.
   wsSend({type:'channel_remove', serverId:sv.id, channelId:id});
+  try {
+    sv.channels = sv.channels.filter(c=>c.id!==id);
+    delete S.messages[id];
+    persist(); renderChs();
+    if (S.curCh?.id === id) { const first=(sv.channels||[]).find(c=>c.type==='text'); first?selectCh(first.id):showWelcome(); }
+    toast('🗑 #'+ch.name+' deleted');
+  } catch (e) { console.error('[nexus] deleteCh UI error', e); toast('⚠️ Deleted, but the screen failed to update: ' + e.message); }
 }
 function setCT(t){ S.chType=t; document.getElementById('ct-txt').classList.toggle('sel',t==='text'); document.getElementById('ct-vox').classList.toggle('sel',t==='voice'); }
 
@@ -123,11 +125,65 @@ function renameCh(id) {
   if (!raw || !raw.trim()) return;
   const name = raw.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
   if (!name || name === ch.name) return;
-  ch.name = name;
-  persist(); renderChs();
-  if (S.curCh?.id === id) document.getElementById('ch-nm').textContent = name;
-  toast('✏️ Channel renamed to #'+name);
   wsSend({type:'channel_update', serverId:sv.id, channelId:id, changes:{name}});
+  try {
+    ch.name = name;
+    persist(); renderChs();
+    if (S.curCh?.id === id) document.getElementById('ch-nm').textContent = name;
+    toast('✏️ Channel renamed to #'+name);
+  } catch (e) { console.error('[nexus] renameCh UI error', e); toast('⚠️ Renamed, but the screen failed to update: ' + e.message); }
+}
+
+// Topic shown under the channel name in the header
+function editChTopic(id) {
+  const sv = S.curSv; if (!sv) return;
+  if (!hasPerm(sv,'manage_channels')) { toast('No permission'); return; }
+  const ch = sv.channels.find(c=>c.id===id); if (!ch) return;
+  const raw = prompt(`Topic for #${ch.name}:`, ch.desc || '');
+  if (raw === null) return;
+  const desc = raw.trim().slice(0, 256);
+  if (desc === (ch.desc || '')) return;
+  updateChSettings(id, { desc });
+  if (S.curCh?.id === id) { const el = document.getElementById('ch-desc'); if (el) el.textContent = desc; }
+  toast('✏️ Topic updated');
+}
+
+// Right-click menu for a channel
+function showChCtx(e, id) {
+  e.preventDefault(); e.stopPropagation();
+  document.getElementById('ch-ctx')?.remove();
+  const sv = S.curSv; if (!sv) return;
+  const ch = (sv.channels||[]).find(c=>c.id===id); if (!ch) return;
+  const canManage = hasPerm(sv, 'manage_channels');
+  const ctx = document.createElement('div');
+  ctx.id = 'ch-ctx'; ctx.className = 'ctx-menu';
+  const add = (label, fn, danger=false) => {
+    const d = document.createElement('div');
+    d.className = 'sv-dd-item' + (danger ? ' danger' : '');
+    d.textContent = label;
+    d.onclick = () => { ctx.remove(); fn(); };
+    ctx.appendChild(d);
+  };
+  const sep = () => { const d = document.createElement('div'); d.className = 'sv-dd-sep'; ctx.appendChild(d); };
+  const lbl = document.createElement('div');
+  lbl.style.cssText = 'padding:6px 10px 4px;font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px';
+  lbl.textContent = (ch.type === 'voice' ? '🔊 ' : '# ') + ch.name;
+  ctx.appendChild(lbl); sep();
+  add('💬 Open Channel', () => selectCh(id));
+  if (canManage) {
+    add('✏️ Rename Channel', () => renameCh(id));
+    add('📝 Edit Topic', () => editChTopic(id));
+  }
+  add('📋 Copy Channel ID', () => { navigator.clipboard?.writeText(id); toast('📋 Channel ID copied'); });
+  if (canManage && (sv.channels||[]).length > 1) { sep(); add('🗑 Delete Channel', () => deleteCh(id), true); }
+  document.body.appendChild(ctx);
+  // keep it on screen
+  const r = ctx.getBoundingClientRect();
+  ctx.style.left = Math.max(4, Math.min(e.clientX + 4, window.innerWidth - r.width - 8)) + 'px';
+  ctx.style.top  = Math.max(4, Math.min(e.clientY, window.innerHeight - r.height - 8)) + 'px';
+  const close = (ev) => { if (ev && ctx.contains(ev.target)) return; ctx.remove(); document.removeEventListener('mousedown', close, true); document.removeEventListener('keydown', esc, true); window.removeEventListener('blur', close); };
+  const esc = (ev) => { if (ev.key === 'Escape') close(); };
+  setTimeout(() => { document.addEventListener('mousedown', close, true); document.addEventListener('keydown', esc, true); window.addEventListener('blur', close); }, 0);
 }
 
 function updateChSettings(id, changes) {
@@ -135,9 +191,9 @@ function updateChSettings(id, changes) {
   const sv = S.curSv; if (!sv) return;
   if (!hasPerm(sv,'manage_channels')) { toast('No permission'); return; }
   const ch = sv.channels.find(c=>c.id===id); if (!ch) return;
+  wsSend({type:'channel_update', serverId:sv.id, channelId:id, changes});
   Object.assign(ch, changes);
   persist(); renderChs();
-  wsSend({type:'channel_update', serverId:sv.id, channelId:id, changes});
 }
 
 

@@ -174,7 +174,7 @@ const _wsQueue = [];
 // wins on the next load ("I deleted it / made it, refreshed, and it was undone"). Those are kept in
 // localStorage (per account) until they've actually been sent.
 const _DURABLE_TYPES = new Set(['server_delete','channel_add','channel_update','channel_remove','server_update',
-  'leave_server','join_server','kick_member','roles_update','role_assign']);
+  'leave_server','join_server','kick_member','roles_update','role_assign','short_post','short_like','short_comment']);
 const _outboxKey = () => 'nx-outbox-' + (S.user?.name || '').toLowerCase();
 function _saveOutbox() {
   if (!S.user) return;

@@ -73,10 +73,24 @@ index 684846a..345cfa6 100644
      sessionStorage.removeItem('nx-session');
      if (S.user?.name) sessionStorage.removeItem('nx-data-' + S.user.name.toLowerCase());
 diff --git a/js/channels.js b/js/channels.js
-index 3e55344..cc17435 100644
+index 3e55344..e7e6ee7 100644
 --- a/js/channels.js
 +++ b/js/channels.js
-@@ -82,6 +82,7 @@ function selectCh(id) {
+@@ -36,10 +36,9 @@ function chHTML(c){
+   const delBtn = canDel ? `<span class="ch-del-btn" onclick="event.stopPropagation();deleteCh('${c.id}')" title="Delete channel">${ICON_TRASH}</span>` : '';
+   // Right-click: power users copy ID; manage_channels users rename; dblclick also renames
+   const canManage = hasPerm(S.curSv, 'manage_channels');
+-  const ctxStr = isPlatformPower()
+-    ? `oncontextmenu="event.preventDefault();event.stopPropagation();navigator.clipboard?.writeText('${c.id}');toast('📋 Channel ID copied')"`
+-    : (canManage ? `oncontextmenu="event.preventDefault();event.stopPropagation();renameCh('${c.id}')"` : '');
+-  const tipText = isPlatformPower() ? 'Right-click to copy ID: '+c.id : (canManage ? 'Double-click or right-click to rename' : '');
++  // Right-click opens a menu (rename / topic / copy ID / delete, depending on what you're allowed to do)
++  const ctxStr = `oncontextmenu="showChCtx(event,'${c.id}')"`;
++  const tipText = canManage ? 'Double-click to rename, right-click for more' : 'Right-click for options';
+   return `<div class="ch-it" data-id="${c.id}" onclick="selectCh('${c.id}')" ondblclick="renameCh('${c.id}')" ${ctxStr} title="${tipText}"><span class="ico">${chIcon(c.type)}</span><span class="ch-name">${esc(c.name)}</span><span class="un-dot"></span>${delBtn}</div>`;
+ }
+ function hlCh(){ document.querySelectorAll('.ch-it').forEach(el=>{ el.classList.toggle('act',el.dataset.id===S.curCh?.id); if(el.dataset.id===S.curCh?.id) el.classList.remove('unread'); }); }
+@@ -82,6 +81,7 @@ function selectCh(id) {
    const msgs = S.messages[id]||[];
    const lastTs = msgs.length ? msgs[msgs.length-1].ts : 0;
    wsSend({type:'get_history', channelId:id, since:lastTs||0});
@@ -84,7 +98,7 @@ index 3e55344..cc17435 100644
    updatePinnedBar();
  }
  function markUnread(chId){ document.querySelector(`.ch-it[data-id="${chId}"]`)?.classList.add('unread'); }
-@@ -89,11 +90,15 @@ function addCh() {
+@@ -89,24 +89,31 @@ function addCh() {
    const raw=document.getElementById('ch-in').value.trim(); if(!raw||!S.curSv) return;
    const name=raw.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
    const newCh = {id:uid(),name,type:S.chType,desc:''};
@@ -105,10 +119,107 @@ index 3e55344..cc17435 100644
  }
  function deleteCh(id) {
    const sv = S.curSv; if (!sv) return;
-@@ -134,3 +139,52 @@ function updateChSettings(id, changes) {
-   persist(); renderChs();
-   wsSend({type:'channel_update', serverId:sv.id, channelId:id, changes});
+   if (!hasPerm(sv,'manage_channels')) { toast('No permission'); return; }
+   const ch = sv.channels.find(c=>c.id===id); if (!ch) return;
+   if (!confirm(`Delete #${ch.name}? All messages will be lost.`)) return;
+-  sv.channels = sv.channels.filter(c=>c.id!==id);
+-  delete S.messages[id];
+-  persist(); renderChs();
+-  if (S.curCh?.id === id) { const first=(sv.channels||[]).find(c=>c.type==='text'); first?selectCh(first.id):showWelcome(); }
+-  toast('🗑 #'+ch.name+' deleted');
+-  // Use dedicated channel_remove — removes from KV directly
++  // Tell the server FIRST. If anything while redrawing the screen throws, the delete used to never be
++  // sent, and the channel (with its messages) came back on the next refresh.
+   wsSend({type:'channel_remove', serverId:sv.id, channelId:id});
++  try {
++    sv.channels = sv.channels.filter(c=>c.id!==id);
++    delete S.messages[id];
++    persist(); renderChs();
++    if (S.curCh?.id === id) { const first=(sv.channels||[]).find(c=>c.type==='text'); first?selectCh(first.id):showWelcome(); }
++    toast('🗑 #'+ch.name+' deleted');
++  } catch (e) { console.error('[nexus] deleteCh UI error', e); toast('⚠️ Deleted, but the screen failed to update: ' + e.message); }
  }
+ function setCT(t){ S.chType=t; document.getElementById('ct-txt').classList.toggle('sel',t==='text'); document.getElementById('ct-vox').classList.toggle('sel',t==='voice'); }
+ 
+@@ -118,11 +125,65 @@ function renameCh(id) {
+   if (!raw || !raw.trim()) return;
+   const name = raw.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+   if (!name || name === ch.name) return;
+-  ch.name = name;
+-  persist(); renderChs();
+-  if (S.curCh?.id === id) document.getElementById('ch-nm').textContent = name;
+-  toast('✏️ Channel renamed to #'+name);
+   wsSend({type:'channel_update', serverId:sv.id, channelId:id, changes:{name}});
++  try {
++    ch.name = name;
++    persist(); renderChs();
++    if (S.curCh?.id === id) document.getElementById('ch-nm').textContent = name;
++    toast('✏️ Channel renamed to #'+name);
++  } catch (e) { console.error('[nexus] renameCh UI error', e); toast('⚠️ Renamed, but the screen failed to update: ' + e.message); }
++}
++
++// Topic shown under the channel name in the header
++function editChTopic(id) {
++  const sv = S.curSv; if (!sv) return;
++  if (!hasPerm(sv,'manage_channels')) { toast('No permission'); return; }
++  const ch = sv.channels.find(c=>c.id===id); if (!ch) return;
++  const raw = prompt(`Topic for #${ch.name}:`, ch.desc || '');
++  if (raw === null) return;
++  const desc = raw.trim().slice(0, 256);
++  if (desc === (ch.desc || '')) return;
++  updateChSettings(id, { desc });
++  if (S.curCh?.id === id) { const el = document.getElementById('ch-desc'); if (el) el.textContent = desc; }
++  toast('✏️ Topic updated');
++}
++
++// Right-click menu for a channel
++function showChCtx(e, id) {
++  e.preventDefault(); e.stopPropagation();
++  document.getElementById('ch-ctx')?.remove();
++  const sv = S.curSv; if (!sv) return;
++  const ch = (sv.channels||[]).find(c=>c.id===id); if (!ch) return;
++  const canManage = hasPerm(sv, 'manage_channels');
++  const ctx = document.createElement('div');
++  ctx.id = 'ch-ctx'; ctx.className = 'ctx-menu';
++  const add = (label, fn, danger=false) => {
++    const d = document.createElement('div');
++    d.className = 'sv-dd-item' + (danger ? ' danger' : '');
++    d.textContent = label;
++    d.onclick = () => { ctx.remove(); fn(); };
++    ctx.appendChild(d);
++  };
++  const sep = () => { const d = document.createElement('div'); d.className = 'sv-dd-sep'; ctx.appendChild(d); };
++  const lbl = document.createElement('div');
++  lbl.style.cssText = 'padding:6px 10px 4px;font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px';
++  lbl.textContent = (ch.type === 'voice' ? '🔊 ' : '# ') + ch.name;
++  ctx.appendChild(lbl); sep();
++  add('💬 Open Channel', () => selectCh(id));
++  if (canManage) {
++    add('✏️ Rename Channel', () => renameCh(id));
++    add('📝 Edit Topic', () => editChTopic(id));
++  }
++  add('📋 Copy Channel ID', () => { navigator.clipboard?.writeText(id); toast('📋 Channel ID copied'); });
++  if (canManage && (sv.channels||[]).length > 1) { sep(); add('🗑 Delete Channel', () => deleteCh(id), true); }
++  document.body.appendChild(ctx);
++  // keep it on screen
++  const r = ctx.getBoundingClientRect();
++  ctx.style.left = Math.max(4, Math.min(e.clientX + 4, window.innerWidth - r.width - 8)) + 'px';
++  ctx.style.top  = Math.max(4, Math.min(e.clientY, window.innerHeight - r.height - 8)) + 'px';
++  const close = (ev) => { if (ev && ctx.contains(ev.target)) return; ctx.remove(); document.removeEventListener('mousedown', close, true); document.removeEventListener('keydown', esc, true); window.removeEventListener('blur', close); };
++  const esc = (ev) => { if (ev.key === 'Escape') close(); };
++  setTimeout(() => { document.addEventListener('mousedown', close, true); document.addEventListener('keydown', esc, true); window.addEventListener('blur', close); }, 0);
+ }
+ 
+ function updateChSettings(id, changes) {
+@@ -130,7 +191,56 @@ function updateChSettings(id, changes) {
+   const sv = S.curSv; if (!sv) return;
+   if (!hasPerm(sv,'manage_channels')) { toast('No permission'); return; }
+   const ch = sv.channels.find(c=>c.id===id); if (!ch) return;
++  wsSend({type:'channel_update', serverId:sv.id, channelId:id, changes});
+   Object.assign(ch, changes);
+   persist(); renderChs();
+-  wsSend({type:'channel_update', serverId:sv.id, channelId:id, changes});
++}
 +
 +
 +// ══════════════════════════════════
@@ -157,7 +268,7 @@ index 3e55344..cc17435 100644
 +    if (S.servers.length) selectSv(S.servers[0].id); else showWelcome();
 +  }
 +  return !!sv;
-+}
+ }
 diff --git a/js/messages.js b/js/messages.js
 index 20e798d..ca1ea96 100644
 --- a/js/messages.js
@@ -171,6 +282,29 @@ index 20e798d..ca1ea96 100644
    addMsg(msg);
    // Fast path: append single message node instead of full re-render
    appendMsgDOM(msg);
+diff --git a/js/profile-page.js b/js/profile-page.js
+index 478fce9..b79a086 100644
+--- a/js/profile-page.js
++++ b/js/profile-page.js
+@@ -4,7 +4,8 @@
+ const profileCache = {}; // username → profile data
+ 
+ function openProfilePage(username) {
+-  const data = profileCache[username] || buildLocalProfile(username);
++  const cached = profileCache[username];
++  const data = (cached && cached.name) ? cached : buildLocalProfile(username);
+   renderProfilePage(data);
+   document.getElementById('profile-page').classList.add('open');
+ }
+@@ -153,7 +154,7 @@ let _hoverPopup = null;
+ function showUserHover(username, anchorEl) {
+   clearTimeout(_hoverTimer);
+   _hoverTimer = setTimeout(() => {
+-    const u = profileCache[username] || buildLocalProfile(username);
++    const u = (profileCache[username]?.name ? profileCache[username] : null) || buildLocalProfile(username);
+     if (_hoverPopup) _hoverPopup.remove();
+     const popup = document.createElement('div');
+     popup.className = 'user-hover-popup';
 diff --git a/js/servers.js b/js/servers.js
 index 068ed8a..f57263d 100644
 --- a/js/servers.js
@@ -203,6 +337,400 @@ index 068ed8a..f57263d 100644
      }, true);
    } else {
      ctxSep();
+diff --git a/js/shorts.js b/js/shorts.js
+index 60b7d6f..a1d5f4e 100644
+--- a/js/shorts.js
++++ b/js/shorts.js
+@@ -21,7 +21,9 @@ function openShorts(serverId, channelId=null, channelName='') {
+   document.getElementById('shorts-sv-name').textContent = label;
+   document.getElementById('shorts-view').style.display = 'block';
+   document.getElementById('rail-shorts').classList.add('act');
++  _shortsBuildQueue();
+   renderShorts();
++  prefetchShortMedia();
+ }
+ 
+ function openAddShort() {
+@@ -32,6 +34,7 @@ function openAddShort() {
+ function closeShorts() {
+   document.getElementById('shorts-view').style.display = 'none';
+   document.getElementById('rail-shorts').classList.remove('act');
++  document.querySelectorAll('#shorts-feed video').forEach(v => v.pause());
+   document.querySelectorAll('.short-card iframe').forEach(f => { const s = f.src; f.src = ''; setTimeout(()=> f.src = s, 10); });
+   document.getElementById('short-comment-panel')?.remove();
+ }
+@@ -56,79 +59,181 @@ document.addEventListener('keydown', e => {
+   }
+ });
+ 
+-function renderShorts() {
+-  const sv = S.servers.find(s => s.id === curShortsServerId);
+-  let shorts = (sv?.shorts || []).slice().reverse();
+-  // Filter by channel if set
+-  if (curShortsChannelId) shorts = shorts.filter(s => s.channelId === curShortsChannelId || !s.channelId);
++// ══════════════════════════════════════════════
++// FEED: random order, a short is never played twice
++// ══════════════════════════════════════════════
++// "Seen" is remembered per account, per server (localStorage). Anything that has started playing is
++// not served again on later visits. The order is shuffled once per visit and then kept stable, so a
++// like or a new comment never reshuffles or restarts the feed.
++let _seenData = null, _seenUser = null;
++function _seenAll() {
++  const u = (S.user?.name || '').toLowerCase();
++  if (_seenData && _seenUser === u) return _seenData;
++  _seenUser = u;
++  try { _seenData = JSON.parse(localStorage.getItem('nx-shorts-seen-' + u) || '{}'); } catch { _seenData = {}; }
++  return _seenData;
++}
++function _seenSet(svId) { return new Set(_seenAll()[svId] || []); }
++function _markShortSeen(svId, id) {
++  const all = _seenAll(); const arr = all[svId] || (all[svId] = []);
++  if (arr.includes(id)) return;
++  arr.push(id);
++  if (arr.length > 3000) arr.splice(0, arr.length - 3000);
++  try { localStorage.setItem('nx-shorts-seen-' + _seenUser, JSON.stringify(all)); } catch {}
++}
++function resetShortsSeen() {
++  const all = _seenAll(); delete all[curShortsServerId];
++  try { localStorage.setItem('nx-shorts-seen-' + _seenUser, JSON.stringify(all)); } catch {}
++  _shortsBuildQueue(); renderShorts();
++}
++function _shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+ 
+-  // Inject cached P2P videos from message history as ephemeral shorts
+-  // Only include videos we actually have the data URL for (data:video/*)
+-  const cachedShorts = [];
+-  const channels = curShortsChannelId
+-    ? [curShortsChannelId]
+-    : (sv?.channels || []).filter(c => c.type === 'text').map(c => c.id);
+-  const existingIds = new Set(shorts.map(s => s._msgId).filter(Boolean));
+-  channels.forEach(chId => {
+-    (S.messages[chId] || []).forEach(m => {
+-      (m.attachments || []).forEach(a => {
+-        if (!a.url || !a.url.startsWith('data:')) return;
+-        // Accept any video-ish MIME type
+-        const isVideo = /^data:video\//i.test(a.url) || /^data:audio\/mp4/i.test(a.url);
+-        if (!isVideo) return;
+-        const syntheticId = `_cached_${m.id}_${a.name}`;
+-        if (existingIds.has(syntheticId)) return; // already in shorts list
+-        cachedShorts.push({
+-          id: syntheticId,
+-          _msgId: syntheticId,
+-          _cached: true,
+-          url: a.url,
+-          caption: a.name || '',
+-          author: m.author,
+-          channelId: chId,
+-          ts: m.ts,
+-          likes: [],
+-          comments: [],
+-        });
+-      });
+-    });
+-  });
++let _shortQueue = [], _shortKnown = new Set(), _shortMap = new Map(), _shortsScrollTimer = null, _shortCurIdx = 0;
+ 
+-  // Merge: posted shorts first (newest first), then cached videos (newest first)
+-  const allShorts = [...shorts, ...cachedShorts.sort((a,b) => b.ts - a.ts)];
++// Everything that could be shown: posted shorts, plus videos already cached from chat history
++function _collectShorts() {
++  const sv = S.servers.find(s => s.id === curShortsServerId); if (!sv) return [];
++  let shorts = (sv.shorts || []).slice();
++  if (curShortsChannelId) shorts = shorts.filter(s => s.channelId === curShortsChannelId || !s.channelId);
++  const out = [...shorts]; const have = new Set(shorts.map(s => s.id));
++  const channels = curShortsChannelId ? [curShortsChannelId] : (sv.channels || []).filter(c => c.type === 'text').map(c => c.id);
++  channels.forEach(chId => (S.messages[chId] || []).forEach(m => (m.attachments || []).forEach(a => {
++    if (!a || !a.url || !a.url.startsWith('data:')) return;
++    if (!(/^data:video\//i.test(a.url) || /^data:audio\/mp4/i.test(a.url))) return;
++    const id = `_cached_${m.id}_${a.name}`; if (have.has(id)) return; have.add(id);
++    out.push({ id, _msgId: id, _cached: true, url: a.url, caption: a.name || '', author: m.author, channelId: chId, ts: m.ts, likes: [], comments: [] });
++  })));
++  return out;
++}
++function _shortsBuildQueue() {
++  const pool = _collectShorts();
++  _shortMap = new Map(pool.map(s => [s.id, s]));
++  _shortKnown = new Set(pool.map(s => s.id));
++  const seen = _seenSet(curShortsServerId);
++  _shortQueue = _shuffle(pool.filter(s => !seen.has(s.id)).map(s => s.id));
++}
++function _shortsRenderDots() {
++  const prog = document.getElementById('shorts-progress'); if (!prog) return;
++  const feed = document.getElementById('shorts-feed');
++  const cur = _shortCurIdx;
++  prog.innerHTML = _shortQueue.map((_, i) => `<div class="shorts-prog-dot${i===cur?' act':''}" onclick="shortsGoTo(${i})" data-idx="${i}"></div>`).join('');
++}
++// make card `idx` the playing one (pause the rest) and record it as watched
++function _shortsActivate(idx) {
++  const feed = document.getElementById('shorts-feed'); if (!feed) return;
++  const wraps = [...feed.querySelectorAll('.short-wrap')];
++  _shortCurIdx = idx;
++  document.querySelectorAll('.shorts-prog-dot').forEach((d, i) => d.classList.toggle('act', i === idx));
++  wraps.forEach((w, i) => {
++    const v = w.querySelector('video[data-short-video]'); if (!v) return;
++    v.pause();
++    if (i === idx) { v.currentTime = 0; const p = v.play(); if (p && p.catch) p.catch(() => {}); }
++  });
++  const w = wraps[idx];
++  if (w?.dataset.short) _markShortSeen(curShortsServerId, w.dataset.short);
++}
+ 
++function renderShorts() {
+   const feed = document.getElementById('shorts-feed');
+-  if (!allShorts.length) {
++  const items = _shortQueue.map(id => _shortMap.get(id)).filter(Boolean);
++  if (!items.length) {
++    const watchedAll = _shortMap.size > 0;
+     const chMsg = curShortsChannelId ? 'No shorts in this channel yet' : 'No Shorts Yet';
+-    feed.innerHTML = `<div class="short-card"><div style="text-align:center;color:var(--t2);padding:20px"><div style="font-size:48px;margin-bottom:16px">🎬</div><div style="font-size:18px;font-weight:700;margin-bottom:8px">${chMsg}</div><div style="font-size:14px;opacity:.7">Post one with the + Post Short button!</div></div></div>`;
++    feed.innerHTML = watchedAll
++      ? `<div class="short-card"><div style="text-align:center;color:var(--t2);padding:20px"><div style="font-size:48px;margin-bottom:16px">✅</div><div style="font-size:18px;font-weight:700;margin-bottom:8px">You're all caught up</div><div style="font-size:14px;opacity:.7;margin-bottom:16px">You've watched every short here. New ones show up as they're posted.</div><button class="btn-g" onclick="resetShortsSeen()">Watch again from the start</button></div></div>`
++      : `<div class="short-card"><div style="text-align:center;color:var(--t2);padding:20px"><div style="font-size:48px;margin-bottom:16px">🎬</div><div style="font-size:18px;font-weight:700;margin-bottom:8px">${chMsg}</div><div style="font-size:14px;opacity:.7">Post one with the + Post Short button!</div></div></div>`;
++    const prog = document.getElementById('shorts-progress'); if (prog) prog.innerHTML = '';
+     return;
+   }
+-  feed.innerHTML = allShorts.map((s, i) => buildShortCard(s, i)).join('');
+-  // Progress dots
+-  const prog = document.getElementById('shorts-progress');
+-  if (prog) {
+-    prog.innerHTML = allShorts.map((_, i) => `<div class="shorts-prog-dot${i===0?' act':''}" onclick="shortsGoTo(${i})" data-idx="${i}"></div>`).join('');
+-  }
+-  // Scroll handler: pause all videos, play+restart current, sync dots
+-  let _shortsScrollTimer = null;
++  feed.innerHTML = items.map((s, i) => buildShortCard(s, i)).join('');
++  feed.scrollTop = 0; _shortCurIdx = 0;
++  _shortsRenderDots();
+   feed.onscroll = () => {
+     clearTimeout(_shortsScrollTimer);
+-    _shortsScrollTimer = setTimeout(() => {
+-      const h = feed.clientHeight;
+-      const idx = Math.round(feed.scrollTop / h);
+-      document.querySelectorAll('.shorts-prog-dot').forEach((d,i) => d.classList.toggle('act', i===idx));
+-      // Pause + restart all videos, play only the current one
+-      feed.querySelectorAll('video[data-short-video]').forEach((v, vi) => {
+-        v.pause();
+-        if (vi === idx) { v.currentTime = 0; v.play().catch(()=>{}); }
+-      });
+-    }, 80);
++    _shortsScrollTimer = setTimeout(() => _shortsActivate(Math.round(feed.scrollTop / (feed.clientHeight || 1))), 80);
+   };
+-  // Autoplay first video after render
+-  setTimeout(() => {
+-    const firstVid = feed.querySelector('video[data-short-video]');
+-    if (firstVid) { firstVid.currentTime = 0; firstVid.play().catch(()=>{}); }
+-  }, 100);
++  setTimeout(() => _shortsActivate(0), 100);
++}
++
++// A short arrived while the feed is open (or its video finished downloading): drop it in at a random
++// spot AFTER the one being watched, without re-rendering anything.
++function shortsAddLive(s, opts = {}) {
++  if (!s || !s.id || _shortKnown.has(s.id)) return;
++  _shortKnown.add(s.id); _shortMap.set(s.id, s);
++  if (opts.markSeen) _markShortSeen(curShortsServerId, s.id);
++  else if (_seenSet(curShortsServerId).has(s.id)) return;
++  const feed = document.getElementById('shorts-feed'); if (!feed) return;
++  const wasEmpty = !_shortQueue.length;
++  const cur = wasEmpty ? -1 : Math.min(_shortCurIdx, _shortQueue.length - 1);
++  const pos = wasEmpty ? 0 : cur + 1 + Math.floor(Math.random() * (_shortQueue.length - cur));
++  _shortQueue.splice(pos, 0, s.id);
++  if (wasEmpty) { renderShorts(); return; }
++  const wraps = feed.querySelectorAll('.short-wrap');
++  const html = buildShortCard(s, pos);
++  if (pos >= wraps.length) feed.insertAdjacentHTML('beforeend', html); else wraps[pos].insertAdjacentHTML('beforebegin', html);
++  feed.querySelectorAll('.short-wrap').forEach((w, i) => w.dataset.idx = i);
++  _shortsRenderDots();
++}
++// New data arrived (server sync, history, a p2p video): add anything new and refresh counts in place
++function shortsSyncNew() {
++  if (document.getElementById('shorts-view')?.style.display !== 'block') return;
++  _collectShorts().forEach(s => { if (_shortKnown.has(s.id)) _shortMap.set(s.id, s); else shortsAddLive(s); });
++  _shortQueue.forEach(id => refreshShortActions(id));
++  const open = _shortCommentOverlayId && _shortCommentOverlayId.slice(3);
++  if (open) refreshShortCommentPanel(open);
++}
++function refreshShortActions(id) {
++  const feed = document.getElementById('shorts-feed'); if (!feed) return;
++  const s = _shortMap.get(id) || (S.servers.find(x => x.id === curShortsServerId)?.shorts || []).find(x => x.id === id);
++  if (!s) return;
++  const el = feed.querySelector(`.short-wrap[data-short="${CSS.escape(id)}"] .short-actions`);
++  if (el) el.outerHTML = buildShortActions(s);
++}
++
++// Videos only exist on the devices that uploaded them (history stores no video data). Pull the channel
++// history and ask online members for any chat videos we don't have, so new members get them too.
++const _shortMediaAsked = new Set();
++function _isVideoAtt(a) { return /^video\//i.test(a?.type || '') || /\.(mp4|webm|mov|ogg|m4v)$/i.test(a?.name || ''); }
++function prefetchShortMedia() {
++  const sv = S.servers.find(s => s.id === curShortsServerId); if (!sv) return;
++  const chs = (sv.channels || []).filter(c => c.type === 'text' && (!curShortsChannelId || c.id === curShortsChannelId));
++  let n = 0;
++  chs.forEach(c => {
++    if (!S.messages[c.id]) { wsSend({ type: 'get_history', channelId: c.id, since: 0 }); requestPeerHistory(c.id, sv.id); return; }
++    S.messages[c.id].forEach(m => (m.attachments || []).forEach(a => {
++      if (a && a._stripped && _isVideoAtt(a) && !_shortMediaAsked.has(m.id) && n < 8) {
++        _shortMediaAsked.add(m.id); n++; requestVideo(m.id, c.id, a.name || '');
++      }
++    }));
++  });
++}
++function shortsOnMedia() {
++  if (document.getElementById('shorts-view')?.style.display !== 'block') return;
++  prefetchShortMedia(); shortsSyncNew();
++}
++
++// Merge the server's copy of a server's shorts into ours. The server is the source of truth for the
++// list, likes and comments; the one thing we keep locally is OUR OWN like state (only we change it).
++function mergeServerShorts(sv, list) {
++  if (!sv || !Array.isArray(list)) return false;
++  if (!sv.shorts) sv.shorts = [];
++  const me = S.user?.name; let changed = false;
++  const byId = new Map(sv.shorts.map(s => [s.id, s]));
++  list.forEach(ss => {
++    const ex = byId.get(ss.id);
++    if (!ex) { sv.shorts.push(ss); byId.set(ss.id, ss); changed = true; return; }
++    if (ss.caption !== undefined && ex.caption !== ss.caption) { ex.caption = ss.caption; changed = true; }
++    if (ss.url && ex.url !== ss.url) { ex.url = ss.url; changed = true; }
++    const cids = new Set((ex.comments || []).map(c => c.id));
++    (ss.comments || []).forEach(c => { if (!cids.has(c.id)) { (ex.comments || (ex.comments = [])).push(c); changed = true; } });
++    if (ex.comments) ex.comments.sort((a, b) => (a.ts || 0) - (b.ts || 0));
++    const likes = (ss.likes || []).filter(u => u !== me);
++    if ((ex.likes || []).includes(me)) likes.push(me);
++    const a = likes.slice().sort().join('\u0001'), b = (ex.likes || []).slice().sort().join('\u0001');
++    if (a !== b) { ex.likes = likes; changed = true; }
++  });
++  sv.shorts.sort((a, b) => (a.ts || 0) - (b.ts || 0));
++  return changed;
+ }
+ 
+ function shortsGoTo(idx) {
+@@ -137,21 +242,10 @@ function shortsGoTo(idx) {
+   feed.scrollTo({ top: idx * feed.clientHeight, behavior: 'smooth' });
+ }
+ 
+-function buildShortCard(s, i) {
+-  const embedUrl = s._cached ? null : getEmbedUrl(s.url);
+-  let mediaHTML;
+-  if (embedUrl) {
+-    mediaHTML = `<iframe src="${embedUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy"></iframe>`;
+-  } else if (s._cached || s.url.startsWith('data:') || s.url.match(/\.(mp4|webm|mov|ogg)($|\?)/i)) {
+-    // NO muted — user wants sound. Loop + autoplay handled by JS scroll manager.
+-    mediaHTML = `<video src="${esc(s.url)}" loop playsinline controls preload="metadata" style="width:100%;height:100%;object-fit:cover" data-short-video></video>`;
+-  } else {
+-    mediaHTML = `<div style="color:var(--t2);text-align:center;padding:20px"><div style="font-size:40px">🔗</div><div style="font-size:13px;margin-top:8px;margin-bottom:12px">Unsupported URL</div><a href="${esc(s.url)}" target="_blank" style="color:var(--accent-h);font-size:13px;font-weight:600">Open Link ↗</a></div>`;
+-  }
++function buildShortActions(s) {
+   const likes = (s.likes||[]).length;
+   const liked = (s.likes||[]).includes(S.user?.name);
+   const comments = (s.comments||[]).length;
+-  const cachedBadge = s._cached ? `<div style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,.55);border-radius:6px;padding:2px 8px;font-size:10px;color:#fff;font-weight:700;letter-spacing:.05em">📦 CACHED</div>` : '';
+   const likeColor = liked ? '#ef4444' : 'currentColor';
+   const actions = `<div class="short-actions">
+         <div class="short-action-btn" onclick="event.stopPropagation();toggleShortLike('${s.id}')">
+@@ -164,6 +258,22 @@ function buildShortCard(s, i) {
+           <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+         </div>
+       </div>`;
++  return actions;
++}
++
++function buildShortCard(s, i) {
++  const embedUrl = s._cached ? null : getEmbedUrl(s.url);
++  let mediaHTML;
++  if (embedUrl) {
++    mediaHTML = `<iframe src="${embedUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy"></iframe>`;
++  } else if (s._cached || s.url.startsWith('data:') || s.url.match(/\.(mp4|webm|mov|ogg)($|\?)/i)) {
++    // NO muted — user wants sound. Loop + autoplay handled by JS scroll manager.
++    mediaHTML = `<video src="${esc(s.url)}" loop playsinline controls preload="metadata" style="width:100%;height:100%;object-fit:cover" data-short-video></video>`;
++  } else {
++    mediaHTML = `<div style="color:var(--t2);text-align:center;padding:20px"><div style="font-size:40px">🔗</div><div style="font-size:13px;margin-top:8px;margin-bottom:12px">Unsupported URL</div><a href="${esc(s.url)}" target="_blank" style="color:var(--accent-h);font-size:13px;font-weight:600">Open Link ↗</a></div>`;
++  }
++  const cachedBadge = s._cached ? `<div style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,.55);border-radius:6px;padding:2px 8px;font-size:10px;color:#fff;font-weight:700;letter-spacing:.05em">📦 CACHED</div>` : '';
++  const actions = buildShortActions(s);
+   return `<div class="short-wrap" data-short="${s.id}" data-idx="${i}"><div class="short-card">
+     <div class="short-card-media">${mediaHTML}${cachedBadge}</div>
+     <div class="short-overlay">
+@@ -188,15 +298,17 @@ function postShort() {
+   const url = document.getElementById('short-url-in').value.trim();
+   const caption = document.getElementById('short-caption-in').value.trim();
+   if (!url) { toast('Enter a video URL'); return; }
++  if (!/^https?:\/\//i.test(url)) { toast('The link has to start with http:// or https://'); return; }
+   const sv = S.servers.find(s => s.id === curShortsServerId);
+   if (!sv) return;
+   if (!sv.shorts) sv.shorts = [];
+   const s = { id: uid(), url, caption, author: S.user.name, channelId: curShortsChannelId||null, ts: Date.now(), likes: [], comments: [] };
++  wsSend({ type: 'short_post', serverId: sv.id, short: s }); // server first, UI second
+   sv.shorts.push(s);
+-  persist(); closeM('add-short-modal'); renderShorts();
++  persist(); closeM('add-short-modal');
+   document.getElementById('short-url-in').value = '';
+   document.getElementById('short-caption-in').value = '';
+-  wsSend({ type: 'short_post', serverId: sv.id, short: s });
++  shortsAddLive(s, { markSeen: true });
+   toast('🎬 Short posted!');
+ }
+ 
+@@ -205,9 +317,9 @@ function toggleShortLike(shortId) {
+   const s = (sv.shorts||[]).find(x => x.id === shortId); if (!s) return;
+   if (!s.likes) s.likes = [];
+   const idx = s.likes.indexOf(S.user.name);
+-  if (idx >= 0) s.likes.splice(idx,1); else s.likes.push(S.user.name);
+-  persist(); renderShorts();
+   wsSend({ type: 'short_like', serverId: sv.id, shortId, user: S.user.name, liked: idx < 0 });
++  if (idx >= 0) s.likes.splice(idx,1); else s.likes.push(S.user.name);
++  persist(); refreshShortActions(shortId);
+ }
+ 
+ let _shortCommentOverlayId = null;
+@@ -226,9 +338,9 @@ function openShortComments(shortId) {
+   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+   overlay.innerHTML = `
+     <div style="width:100%;background:var(--s2);border-radius:20px 20px 0 0;padding:20px;max-height:65vh;display:flex;flex-direction:column">
+-      <div style="font-weight:700;font-size:15px;margin-bottom:14px;flex-shrink:0">💬 Comments (${comments.length})</div>
++      <div id="sc-header" style="font-weight:700;font-size:15px;margin-bottom:14px;flex-shrink:0">💬 Comments (${comments.length})</div>
+       <div id="sc-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;margin-bottom:14px;min-height:40px">
+-        ${comments.length ? comments.map(cm => `<div><span style="font-weight:700;font-size:13px">${esc(cm.author)}</span> <span style="font-size:13px;color:var(--t2)">${esc(cm.text)}</span><div style="font-size:10px;color:var(--t3);margin-top:2px">${fmtTime(cm.ts)}</div></div>`).join('') : '<div style="font-size:13px;color:var(--t3)">No comments yet. Be first!</div>'}
++        ${_commentItemsHTML(comments)}
+       </div>
+       <div style="display:flex;gap:8px;flex-shrink:0">
+         <input class="m-inp" id="sc-inp" placeholder="Add a comment..." style="flex:1;margin-bottom:0" onkeydown="if(event.key==='Enter'){event.preventDefault();submitShortComment('${shortId}');}">
+@@ -249,19 +361,27 @@ function submitShortComment(shortId) {
+   const s = (sv.shorts||[]).find(x => x.id === shortId); if (!s) return;
+   if (!s.comments) s.comments = [];
+   const cm = { id: uid(), author: S.user.name, text, ts: Date.now() };
+-  s.comments.push(cm); persist(); renderShorts();
+   wsSend({ type: 'short_comment', serverId: sv.id, shortId, comment: cm });
+-  // Refresh the comment list in panel instead of closing
+-  const list = document.getElementById('sc-list');
+-  if (list) {
+-    list.innerHTML = (s.comments||[]).map(c => `<div><span style="font-weight:700;font-size:13px">${esc(c.author)}</span> <span style="font-size:13px;color:var(--t2)">${esc(c.text)}</span><div style="font-size:10px;color:var(--t3);margin-top:2px">${fmtTime(c.ts)}</div></div>`).join('');
+-    list.scrollTop = list.scrollHeight;
+-  }
+-  const header = document.querySelector('#short-comment-panel [style*="font-weight:700"]');
+-  if (header) header.textContent = `💬 Comments (${s.comments.length})`;
++  s.comments.push(cm); persist();
++  refreshShortActions(shortId); refreshShortCommentPanel(shortId);
+   inp.value = '';
+   inp.focus();
+ }
++function _commentItemsHTML(comments) {
++  return comments.length
++    ? comments.map(cm => `<div><span style="font-weight:700;font-size:13px">${esc(cm.author)}</span> <span style="font-size:13px;color:var(--t2)">${esc(cm.text)}</span><div style="font-size:10px;color:var(--t3);margin-top:2px">${fmtTime(cm.ts)}</div></div>`).join('')
++    : '<div style="font-size:13px;color:var(--t3)">No comments yet. Be first!</div>';
++}
++// redraw the open comment panel (if it is showing this short) without closing it
++function refreshShortCommentPanel(shortId) {
++  if (_shortCommentOverlayId !== 'sc-' + shortId) return;
++  const sv = S.servers.find(s => s.id === curShortsServerId); if (!sv) return;
++  const s = (sv.shorts||[]).find(x => x.id === shortId); if (!s) return;
++  const list = document.getElementById('sc-list');
++  if (list) { list.innerHTML = _commentItemsHTML(s.comments || []); list.scrollTop = list.scrollHeight; }
++  const header = document.getElementById('sc-header');
++  if (header) header.textContent = `💬 Comments (${(s.comments||[]).length})`;
++}
+ 
+ function shareShort(shortId) {
+   const sv = S.servers.find(s => s.id === curShortsServerId); if (!sv) return;
 diff --git a/js/ui-helpers.js b/js/ui-helpers.js
 index 5d27398..2c6b519 100644
 --- a/js/ui-helpers.js
@@ -259,7 +787,7 @@ index a694d9b..399aa17 100644
            attachments: [], ts: Date.now(), reactions: [] };
          // Check size — base64 audio should be small but guard against huge recordings
 diff --git a/js/websocket.js b/js/websocket.js
-index 52c7f95..9096b23 100644
+index 52c7f95..399d9ba 100644
 --- a/js/websocket.js
 +++ b/js/websocket.js
 @@ -39,7 +39,9 @@ function connectWS() {
@@ -296,7 +824,7 @@ index 52c7f95..9096b23 100644
 +// wins on the next load ("I deleted it / made it, refreshed, and it was undone"). Those are kept in
 +// localStorage (per account) until they've actually been sent.
 +const _DURABLE_TYPES = new Set(['server_delete','channel_add','channel_update','channel_remove','server_update',
-+  'leave_server','join_server','kick_member','roles_update','role_assign']);
++  'leave_server','join_server','kick_member','roles_update','role_assign','short_post','short_like','short_comment']);
 +const _outboxKey = () => 'nx-outbox-' + (S.user?.name || '').toLowerCase();
 +function _saveOutbox() {
 +  if (!S.user) return;
@@ -343,7 +871,7 @@ index 52c7f95..9096b23 100644
 +  window.addEventListener('unhandledrejection', e => { console.error('[nexus] unhandled rejection', e.reason); show(e.reason?.message || e.reason); });
 +})();
 diff --git a/js/ws-handler.js b/js/ws-handler.js
-index 39d6738..2906871 100644
+index 39d6738..e847e4d 100644
 --- a/js/ws-handler.js
 +++ b/js/ws-handler.js
 @@ -45,7 +45,17 @@ function handleIn(msg) {
@@ -364,7 +892,31 @@ index 39d6738..2906871 100644
        if (msg.user) {
          S.user.systemRole = msg.user.systemRole || S.user.systemRole;
          S.user.coAdmin    = msg.user.coAdmin    ?? S.user.coAdmin;
-@@ -132,7 +142,8 @@ function handleIn(msg) {
+@@ -91,12 +101,8 @@ function handleIn(msg) {
+               existing.isOwner = (ss.ownerId||'').toLowerCase() === (S.user.name||'').toLowerCase();
+               // Merge persisted pins — server is authoritative, client may have stale cache
+               if (ss.pins) existing.pins = { ...(existing.pins||{}), ...ss.pins };
+-              // Merge shorts — server is authoritative for metadata
+-              if (ss.shorts?.length) {
+-                if (!existing.shorts) existing.shorts = [];
+-                const existingIds = new Set((existing.shorts||[]).map(s => s.id));
+-                ss.shorts.forEach(s => { if (!existingIds.has(s.id)) existing.shorts.push(s); });
+-              }
++              // Merge shorts: server is authoritative for the list, likes and comments
++              if (ss.shorts) mergeServerShorts(existing, ss.shorts);
+               // Restore custom emoji names — data will be fetched p2p when needed
+               if (ss.customEmojiNames?.length) {
+                 if (!existing.customEmojis) existing.customEmojis = [];
+@@ -111,7 +117,7 @@ function handleIn(msg) {
+           }
+         });
+         if (svChanged) {
+-          persist(); renderSvs();
++          persist(); renderSvs(); shortsSyncNew();
+           S.servers.forEach(sv => wsSend({type:'get_server_info', serverId:sv.id}));
+           if (!S.curSv && S.servers.length) selectSv(S.servers[0].id);
+         } else if (msg.servers?.length) {
+@@ -132,7 +138,8 @@ function handleIn(msg) {
          const knownByServer = new Set((msg.servers||[]).map(s=>s.id));
          S.servers.forEach(sv => {
            const iAmOwner = (sv.ownerId||'').toLowerCase() === (S.user?.name||'').toLowerCase() || sv.isOwner === true;
@@ -374,7 +926,7 @@ index 39d6738..2906871 100644
              console.log('[nexus] owned server missing from backend — re-registering:', sv.id, sv.name);
              dbg('⚠ owned server not in backend, re-registering: "' + sv.name + '"', 'warn');
              const reCreateMsg = {type:'server_create', serverId:sv.id, name:sv.name,
-@@ -149,7 +160,24 @@ function handleIn(msg) {
+@@ -149,7 +156,24 @@ function handleIn(msg) {
      case 'auth_required':
        dbg('✕ auth_required — session expired', 'err');
        toast('⚠️ Session expired — please sign in again');
@@ -400,7 +952,7 @@ index 39d6738..2906871 100644
        break;
      case 'server_create_ok':
        _pendingServerCreates.delete(msg.serverId);
-@@ -314,7 +342,8 @@ function handleIn(msg) {
+@@ -314,7 +338,8 @@ function handleIn(msg) {
        const acSv = S.servers.find(sv => sv.id === msg.serverId);
        if (acSv) {
          if (!acSv.channels) acSv.channels = [];
@@ -410,7 +962,7 @@ index 39d6738..2906871 100644
          persist();
          if (S.curSv?.id === msg.serverId) { S.curSv.channels = acSv.channels; renderChs(); }
        }
-@@ -342,6 +371,7 @@ function handleIn(msg) {
+@@ -342,6 +367,7 @@ function handleIn(msg) {
        break;
      }
  
@@ -418,17 +970,77 @@ index 39d6738..2906871 100644
      case 'server_channel_deleted': {
        const dcSv = S.servers.find(sv => sv.id === msg.serverId);
        if (dcSv && dcSv.channels) {
-@@ -670,6 +700,9 @@ function handleIn(msg) {
+@@ -670,6 +696,13 @@ function handleIn(msg) {
        break;
      case 'member_list':
        S.members[msg.serverId]=msg.members||[];
 +      // seed avatars/colors so messages (which no longer carry the sender's avatar) render them
-+      (msg.members||[]).forEach(m => { if (!m?.name) return; const p = profileCache[m.name] || (profileCache[m.name] = {}); if (m.pfp !== undefined) p.pfp = m.pfp || null; if (m.color) p.color = m.color; });
++      // (merge the whole member record, never a partial one: openProfilePage reads this cache directly)
++      (msg.members||[]).forEach(m => {
++        if (!m?.name || m.name === S.user?.name) return;
++        profileCache[m.name] = { ...(profileCache[m.name] || {}), ...m, name: m.name };
++      });
 +      if (S.curSv?.id === msg.serverId && S.curCh) renderMsgs(S.curCh.id);
        // Always sync memberCount from actual member list — includes offline members
        { const mlSv = S.servers.find(s => s.id === msg.serverId);
          if (mlSv) { mlSv.memberCount = (msg.members||[]).length; persist(); renderDiscover(); } }
-@@ -1091,6 +1124,8 @@ function handleIn(msg) {
+@@ -703,6 +736,7 @@ function handleIn(msg) {
+         S.messages[msg.channelId].sort((a,b) => a.ts - b.ts);
+         persist();
+         if (S.curCh?.id === msg.channelId) renderMsgs(msg.channelId);
++        shortsOnMedia();
+       }
+       break;
+     }
+@@ -739,6 +773,7 @@ function handleIn(msg) {
+       } else if (S.curCh?.id === vsChId) {
+         renderMsgs(vsChId);
+       }
++      shortsOnMedia();
+       break;
+     }
+     case 'server_info': {
+@@ -760,10 +795,14 @@ function handleIn(msg) {
+         if (si.roles !== undefined)        sv.roles       = si.roles;
+         if (si.memberRoles !== undefined)  sv.memberRoles = si.memberRoles;
+         if (si.banner !== undefined)       sv.banner      = si.banner;
++        // shorts + pins are only sent to members: this is how a new member gets them on joining
++        if (si.shorts) mergeServerShorts(sv, si.shorts);
++        if (si.pins) sv.pins = { ...(sv.pins||{}), ...si.pins };
+         // Keep S.curSv in sync if this is the active server
+         if (S.curSv?.id === sv.id) Object.assign(S.curSv, sv);
+         persist();
+         renderSvs();
++        if (si.shorts) shortsSyncNew();
+         if (S.curSv?.id === sv.id) { renderChs(); document.getElementById('sv-nm').textContent = sv.name; buildSvDropdown(); }
+       }
+       break;
+@@ -870,17 +909,21 @@ function handleIn(msg) {
+       break;
+     case 'short_post': {
+       const sv = S.servers.find(s => s.id === msg.serverId);
+-      if (sv) { if (!sv.shorts) sv.shorts=[]; sv.shorts.push(msg.short); persist(); if (curShortsServerId===msg.serverId) renderShorts(); }
++      if (sv && msg.short?.id) {
++        if (!sv.shorts) sv.shorts=[];
++        if (!sv.shorts.some(x => x.id === msg.short.id)) { sv.shorts.push(msg.short); persist(); }
++        if (curShortsServerId === msg.serverId) shortsSyncNew();
++      }
+       break;
+     }
+     case 'short_like': {
+       const sv = S.servers.find(s => s.id === msg.serverId);
+-      if (sv) { const s=(sv.shorts||[]).find(x=>x.id===msg.shortId); if(s){if(!s.likes)s.likes=[];const i=s.likes.indexOf(msg.user);if(msg.liked&&i<0)s.likes.push(msg.user);else if(!msg.liked&&i>=0)s.likes.splice(i,1);persist();if(curShortsServerId===msg.serverId)renderShorts();} }
++      if (sv) { const s=(sv.shorts||[]).find(x=>x.id===msg.shortId); if(s){if(!s.likes)s.likes=[];const i=s.likes.indexOf(msg.user);if(msg.liked&&i<0)s.likes.push(msg.user);else if(!msg.liked&&i>=0)s.likes.splice(i,1);persist();if(curShortsServerId===msg.serverId)refreshShortActions(msg.shortId);} }
+       break;
+     }
+     case 'short_comment': {
+       const sv = S.servers.find(s => s.id === msg.serverId);
+-      if (sv) { const s=(sv.shorts||[]).find(x=>x.id===msg.shortId); if(s){if(!s.comments)s.comments=[];s.comments.push(msg.comment);persist();if(curShortsServerId===msg.serverId)renderShorts();} }
++      if (sv) { const s=(sv.shorts||[]).find(x=>x.id===msg.shortId); if(s){if(!s.comments)s.comments=[];if(!s.comments.some(c=>c.id===msg.comment?.id))s.comments.push(msg.comment);persist();if(curShortsServerId===msg.serverId){refreshShortActions(msg.shortId);refreshShortCommentPanel(msg.shortId);}} }
+       break;
+     }
+     case 'custom_emoji_add': {
+@@ -1091,6 +1134,8 @@ function handleIn(msg) {
      }
      case 'error':
        toast('⚠️ ' + (msg.message || 'Server error'));

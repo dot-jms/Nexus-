@@ -4,7 +4,8 @@
 const profileCache = {}; // username → profile data
 
 function openProfilePage(username) {
-  const data = profileCache[username] || buildLocalProfile(username);
+  const cached = profileCache[username];
+  const data = (cached && cached.name) ? cached : buildLocalProfile(username);
   renderProfilePage(data);
   document.getElementById('profile-page').classList.add('open');
 }
@@ -153,7 +154,7 @@ let _hoverPopup = null;
 function showUserHover(username, anchorEl) {
   clearTimeout(_hoverTimer);
   _hoverTimer = setTimeout(() => {
-    const u = profileCache[username] || buildLocalProfile(username);
+    const u = (profileCache[username]?.name ? profileCache[username] : null) || buildLocalProfile(username);
     if (_hoverPopup) _hoverPopup.remove();
     const popup = document.createElement('div');
     popup.className = 'user-hover-popup';

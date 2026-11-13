@@ -1,5 +1,5 @@
 diff --git a/main.ts b/main.ts
-index 20da523..fa687ab 100644
+index 20da523..7d56e2a 100644
 --- a/main.ts
 +++ b/main.ts
 @@ -107,6 +107,14 @@ function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
@@ -17,7 +17,7 @@ index 20da523..fa687ab 100644
  // Login throttle: 8 failures / 5 min per username
  const loginFails = new Map<string, { n: number; t: number }>();
  
-@@ -206,23 +214,130 @@ function isBanned(username: string): boolean {
+@@ -206,23 +214,174 @@ function isBanned(username: string): boolean {
  
  // ─── FIX: Helper to add a server to a user's membership index ───────────────
  // Always uses lowercase username as the KV key to avoid case mismatches.
@@ -130,6 +130,50 @@ index 20da523..fa687ab 100644
 +  for (const [, ci] of clients) (ci.serverIds as Set<string> | undefined)?.delete(serverId);
 +}
 +
++// ─── Shorts ─────────────────────────────────────────────────────────────────
++type Rec = Record<string, unknown>;
++const SHORTS_MAX = 200;
++// Only http(s) links. Anything else (javascript:, data:, ...) ends up in an href/src on the client.
++function cleanShortUrl(u: unknown): string | null {
++  if (typeof u !== "string") return null;
++  const t = u.trim();
++  return t.length <= 2000 && /^https?:\/\//i.test(t) ? t : null;
++}
++function cleanShort(raw: Rec, author: string): Rec | null {
++  const url = cleanShortUrl(raw.url);
++  if (!url || typeof raw.id !== "string" || !raw.id || raw.id.length > 64) return null;
++  return {
++    id: raw.id, url, caption: typeof raw.caption === "string" ? raw.caption.slice(0, 300) : "",
++    author, // never trust the client-supplied author
++    channelId: typeof raw.channelId === "string" ? raw.channelId : null,
++    ts: Number(raw.ts) || Date.now(), likes: [], comments: [],
++  };
++}
++async function loadShorts(svId: string): Promise<Rec[]> {
++  const v = ((await kv.get<Rec[]>(["shorts", svId])).value || []) as Rec[];
++  // scrub anything already stored with a non-http url
++  return v.map((s) => (typeof s.url === "string" && s.url && !/^https?:\/\//i.test(s.url)) ? { ...s, url: "", _stripped: true } : s);
++}
++async function saveShorts(svId: string, list: Rec[]): Promise<boolean> {
++  let l = list.length > SHORTS_MAX ? list.slice(-SHORTS_MAX) : list;
++  while (l.length > 1 && byteLen(l) > KV_MAX_VALUE_BYTES) l = l.slice(1); // stay under the 64 KiB KV value limit
++  return await safeKvSet(["shorts", svId], l);
++}
++async function loadServerPins(svId: string, channels: unknown): Promise<Record<string, unknown[]>> {
++  const out: Record<string, unknown[]> = {};
++  for (const ch of ((channels as Array<{ id: string }>) || [])) {
++    const p = (await kv.get<unknown[]>(["pins", svId, ch.id])).value;
++    if (p?.length) out[ch.id] = p;
+   }
++  return out;
++}
++// A server record as sent to a member: includes the shorts (with likes + comments) and pins, which
++// otherwise only arrived on a full reconnect, so new joiners never saw them.
++async function serverInfoFor(svId: string, sv: Rec, isMember: boolean): Promise<Rec> {
++  if (!isMember) return sv;
++  return { ...sv, shorts: await loadShorts(svId), pins: await loadServerPins(svId, sv.channels) };
++}
++
 +// memberCount is derived from the real member records, not incremented blindly.
 +async function recountMembers(serverId: string): Promise<number> {
 +  let n = 0;
@@ -139,7 +183,7 @@ index 20da523..fa687ab 100644
 +    const updated = { ...entry.value, memberCount: Math.max(n, 1) };
 +    await safeKvSet(["servers", serverId], updated);
 +    if (publicServers.has(serverId)) publicServers.set(serverId, updated);
-   }
++  }
 +  return n;
 +}
 +
@@ -160,7 +204,7 @@ index 20da523..fa687ab 100644
  }
  
  // ─── Load persisted servers into memory on startup ──────────────────────────
-@@ -239,11 +354,30 @@ async function removeServerFromUser(username: string, serverId: string) {
+@@ -239,11 +398,30 @@ async function removeServerFromUser(username: string, serverId: string) {
    for await (const item of allIter) allKeys.push(JSON.stringify(item.key));
    console.log(`[startup] KV keys (${allKeys.length} total): ${allKeys.slice(0, 20).join(", ")}`);
  
@@ -192,7 +236,7 @@ index 20da523..fa687ab 100644
  
    // FIX #3: Restore persisted bans. Expired ones are cleaned up here so they
    // don't accumulate in KV indefinitely.
-@@ -469,6 +603,10 @@ Deno.serve((req) => {
+@@ -469,6 +647,10 @@ Deno.serve((req) => {
        return;
      }
  
@@ -203,7 +247,7 @@ index 20da523..fa687ab 100644
      // ── auth_change_password — allowed before full identify ───────────────
      if (msg.type === "auth_change_password") {
        const oldPassword = msg.oldPassword as string || "";
-@@ -580,24 +718,40 @@ Deno.serve((req) => {
+@@ -580,24 +762,40 @@ Deno.serve((req) => {
            }
          }
          if (recovered.length) {
@@ -247,7 +291,7 @@ index 20da523..fa687ab 100644
          if (svEntry.value) {
            const sv = svEntry.value;
            // Load pins for all channels in this server
-@@ -627,6 +781,25 @@ Deno.serve((req) => {
+@@ -627,6 +825,25 @@ Deno.serve((req) => {
        }
        console.log(`[identify] sending ${userServers.length} servers to ${name}`);
  
@@ -273,7 +317,7 @@ index 20da523..fa687ab 100644
        const friendsRaw = ((await kv.get<unknown[]>(["friends", tokenUser])).value || []) as Record<string, unknown>[];
        // Enrich friends with current pfp from their account records
        const friendsList = await Promise.all(friendsRaw.map(async f => {
-@@ -652,6 +825,8 @@ Deno.serve((req) => {
+@@ -652,6 +869,8 @@ Deno.serve((req) => {
              socials: acct?.socials || {}
            },
            servers: userServers,
@@ -282,7 +326,7 @@ index 20da523..fa687ab 100644
          }));
          // Always send pfp state: send null explicitly if the user has none,
          // so the client can clear a stale cached pfp after an admin wipe.
-@@ -824,19 +999,7 @@ Deno.serve((req) => {
+@@ -824,19 +1043,7 @@ Deno.serve((req) => {
      if (msg.type === "admin_delete_server") {
        if (!isPowerUser) { ws.send(JSON.stringify({ type: "error", message: "No permission." })); return; }
        const adminDelId = msg.serverId as string;
@@ -303,7 +347,7 @@ index 20da523..fa687ab 100644
        broadcast({ type: "server_delete", serverId: adminDelId, by: senderName });
        ws.send(JSON.stringify({ type: "success", message: "Server deleted." }));
        return;
-@@ -903,33 +1066,22 @@ Deno.serve((req) => {
+@@ -903,33 +1110,22 @@ Deno.serve((req) => {
            slowmodeLastPost.set(slowKey, Date.now());
          }
          const chKey = ["ch_history", msg.channelId as string];
@@ -351,7 +395,7 @@ index 20da523..fa687ab 100644
          broadcast(msg, ws);
          break;
        }
-@@ -946,6 +1098,72 @@ Deno.serve((req) => {
+@@ -946,6 +1142,72 @@ Deno.serve((req) => {
          break;
        }
  
@@ -424,7 +468,7 @@ index 20da523..fa687ab 100644
        case "ping":
          // Keepalive — reply immediately so client knows connection is alive
          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "pong", ts: msg.ts }));
-@@ -954,11 +1172,37 @@ Deno.serve((req) => {
+@@ -954,11 +1216,37 @@ Deno.serve((req) => {
        case "typing":
        case "member_join":
        case "member_leave":
@@ -463,7 +507,7 @@ index 20da523..fa687ab 100644
        case "pin_message": {
          // Persist to KV so pins survive cache clears
          const pinSvId = msg.serverId as string;
-@@ -997,12 +1241,22 @@ Deno.serve((req) => {
+@@ -997,12 +1285,22 @@ Deno.serve((req) => {
          if (!caSvId || !caCh?.id || !caCh?.name) break;
          const caEntry = await kv.get<Record<string, unknown>>(["servers", caSvId]);
          if (!caEntry.value) break;
@@ -490,7 +534,7 @@ index 20da523..fa687ab 100644
          if (publicServers.has(caSvId)) publicServers.set(caSvId, caUpdated);
          broadcastToServer(caSvId, { type: "server_channel_added", serverId: caSvId, channel: caCh, by: senderName }, null);
          break;
-@@ -1016,8 +1270,11 @@ Deno.serve((req) => {
+@@ -1016,8 +1314,11 @@ Deno.serve((req) => {
          if (!cuSvId || !cuChId || !cuChanges) break;
          const cuEntry = await kv.get<Record<string, unknown>>(["servers", cuSvId]);
          if (!cuEntry.value) break;
@@ -504,7 +548,7 @@ index 20da523..fa687ab 100644
          // Patch the matching channel inside the channels array
          const cuChannels = ((cuEntry.value.channels as unknown[]) || []).map((c: unknown) => {
            const ch = c as Record<string, unknown>;
-@@ -1044,8 +1301,11 @@ Deno.serve((req) => {
+@@ -1044,14 +1345,24 @@ Deno.serve((req) => {
          if (!crSvId || !crChId) break;
          const crEntry = await kv.get<Record<string, unknown>>(["servers", crSvId]);
          if (!crEntry.value) break;
@@ -517,8 +561,23 @@ index 20da523..fa687ab 100644
 +        }
          const crChannels = ((crEntry.value.channels as unknown[]) || []).filter((c: unknown) => (c as Record<string,unknown>).id !== crChId);
          const crUpdated  = { ...crEntry.value, channels: crChannels };
-         await kv.set(["servers", crSvId], crUpdated);
-@@ -1374,6 +1634,30 @@ Deno.serve((req) => {
+-        await kv.set(["servers", crSvId], crUpdated);
++        if (!(await safeKvSet(["servers", crSvId], crUpdated))) {
++          ws.send(JSON.stringify({ type: "error", message: "Couldn't delete the channel." }));
++          ws.send(JSON.stringify({ type: "server_info", server: crEntry.value }));
++          break;
++        }
+         if (publicServers.has(crSvId)) publicServers.set(crSvId, crUpdated);
+         await kv.delete(["ch_history", crChId]);
+-        msgHistory.delete(crChId);
++        await kv.delete(["pins", crSvId, crChId]);
++        await kv.delete(["channel_lock", crChId]);
++        await kv.delete(["slowmode", crChId]);
++        msgHistory.delete(crChId); channelLocks.delete(crChId); slowmodes.delete(crChId);
+         broadcastToServer(crSvId, { type: "server_channel_removed", serverId: crSvId, channelId: crChId, by: senderName }, null);
+         break;
+       }
+@@ -1374,6 +1685,30 @@ Deno.serve((req) => {
  
        case "server_create": {
          console.log(`[server_create] RECEIVED from ${senderName} id=${msg.serverId} name=${msg.name}`);
@@ -549,7 +608,7 @@ index 20da523..fa687ab 100644
          // FIX: store ownerId as the canonical display name from the account record,
          // but guarantee it's always findable via case-insensitive lookup.
          // senderName comes from acct.name (display name), which is fine for display.
-@@ -1386,8 +1670,11 @@ Deno.serve((req) => {
+@@ -1386,8 +1721,11 @@ Deno.serve((req) => {
            ownerIdLower: senderName.toLowerCase(), // FIX: add lowercased copy for reliable matching
            isPublic: msg.isPublic !== false,
          };
@@ -562,7 +621,7 @@ index 20da523..fa687ab 100644
  
          // Verify it actually wrote
          const verifyWrite = await kv.get(["servers", msg.serverId as string]);
-@@ -1395,6 +1682,7 @@ Deno.serve((req) => {
+@@ -1395,6 +1733,7 @@ Deno.serve((req) => {
  
          await kv.set(["server_member", msg.serverId as string, senderName], { joinedAt: Date.now() });
          await addServerToUser(senderName, msg.serverId as string);
@@ -570,7 +629,7 @@ index 20da523..fa687ab 100644
  
          // Verify user_servers index
          const verifyIndex = await kv.get(["user_servers", senderName.toLowerCase()]);
-@@ -1417,7 +1705,10 @@ Deno.serve((req) => {
+@@ -1417,7 +1756,10 @@ Deno.serve((req) => {
  
        case "server_update": {
          const sid = msg.serverId as string;
@@ -581,7 +640,7 @@ index 20da523..fa687ab 100644
          // FIX: Guard - only owner or admin can update a server
          const svForCheck = existing.value || publicServers.get(sid);
          if (svForCheck) {
-@@ -1432,6 +1723,10 @@ Deno.serve((req) => {
+@@ -1432,6 +1774,10 @@ Deno.serve((req) => {
          const safeMsg = { ...msg as Record<string, unknown> };
          delete safeMsg.ownerId;
          delete safeMsg.ownerIdLower;
@@ -592,7 +651,7 @@ index 20da523..fa687ab 100644
          if (publicServers.has(sid)) {
            const sv = publicServers.get(sid)!;
            // Preserve ownerId/ownerIdLower from stored record
-@@ -1476,18 +1771,11 @@ Deno.serve((req) => {
+@@ -1476,18 +1822,11 @@ Deno.serve((req) => {
            ws.send(JSON.stringify({ type: "error", message: "Only the server owner can delete this server." }));
            break;
          }
@@ -616,7 +675,7 @@ index 20da523..fa687ab 100644
          break;
        }
  
-@@ -1505,33 +1793,46 @@ Deno.serve((req) => {
+@@ -1505,33 +1844,46 @@ Deno.serve((req) => {
          }
          await kv.delete(["server_member", msg.serverId as string, senderName]);
          await removeServerFromUser(senderName, msg.serverId as string);
@@ -674,12 +733,12 @@ index 20da523..fa687ab 100644
 +        const jsvFresh = (await kv.get<Record<string,unknown>>(["servers", jsvId])).value || jsv;
 +        // Confirm to the joiner with the authoritative server record (channels, roles, count)
 +        ws.send(JSON.stringify({ type: "join_ok", serverId: jsvId }));
-+        ws.send(JSON.stringify({ type: "server_info", server: jsvFresh }));
++        ws.send(JSON.stringify({ type: "server_info", server: await serverInfoFor(jsvId, jsvFresh, true) }));
 +        if (!alreadyMember) broadcast(msg, ws);
          break;
        }
  
-@@ -1540,6 +1841,7 @@ Deno.serve((req) => {
+@@ -1540,6 +1892,7 @@ Deno.serve((req) => {
          for (const sv of (msg.servers as unknown[] || [])) {
            const s = sv as Record<string, unknown>;
            if (!s.id) continue;
@@ -687,7 +746,63 @@ index 20da523..fa687ab 100644
            // FIX: Check if server already exists - if so, preserve ownerId
            const existingSv = await kv.get<Record<string, unknown>>(["servers", s.id as string]);
            const existingOwner = existingSv.value?.ownerId;
-@@ -1695,10 +1997,12 @@ Deno.serve((req) => {
+@@ -1549,18 +1902,31 @@ Deno.serve((req) => {
+             console.log(`[announce_servers] BLOCKED: ${senderName} tried to announce server ${s.id} owned by ${existingOwner}`);
+             continue;
+           }
+-          const svEntry: Record<string, unknown> = {
+-            id: s.id, name: s.name, desc: s.desc || "",
+-            icon: s.icon || null, color: s.color || "#6c63ff",
+-            memberCount: s.memberCount || 1, createdAt: s.createdAt || Date.now(),
+-            channels: s.channels || [],
+-            // FIX: preserve stored owner; only set from message if no owner on record
+-            ownerId: existingOwner || s.ownerId || senderName,
+-            ownerIdLower: existingOwnerLower || (s.ownerId as string || senderName).toLowerCase(),
+-            isPublic: true,
+-          };
+-          publicServers.set(s.id as string, svEntry);
+-          await kv.set(["servers", s.id as string], svEntry);
++          // This used to REPLACE the stored server with whatever the client sent: it forced isPublic to true
++          // (a private server became public the next time its settings were saved), dropped roles and
++          // member roles, and put back channels the owner had deleted. For a server that already exists
++          // only the cosmetic fields may change here; channels/roles/visibility have their own messages.
++          const annIcon = typeof s.icon === "string" && s.icon && byteLen(s.icon) <= 45_000 ? s.icon : undefined;
++          const svEntry: Record<string, unknown> = existingSv.value
++            ? {
++                ...existingSv.value,
++                name: typeof s.name === "string" && s.name ? s.name.slice(0, 64) : existingSv.value.name,
++                desc: typeof s.desc === "string" ? s.desc.slice(0, 256) : existingSv.value.desc,
++                color: typeof s.color === "string" && s.color ? s.color : existingSv.value.color,
++                ...(annIcon ? { icon: annIcon } : {}),
++              }
++            : {
++                id: s.id, name: s.name, desc: s.desc || "",
++                icon: annIcon || null, color: s.color || "#6c63ff",
++                memberCount: s.memberCount || 1, createdAt: s.createdAt || Date.now(),
++                channels: s.channels || [],
++                ownerId: s.ownerId || senderName,
++                ownerIdLower: (s.ownerId as string || senderName).toLowerCase(),
++                isPublic: s.isPublic !== false,
++              };
++          if (!(await safeKvSet(["servers", s.id as string], svEntry))) continue;
++          if (svEntry.isPublic !== false) publicServers.set(s.id as string, svEntry);
++          else publicServers.delete(s.id as string);
+         }
+         break;
+ 
+@@ -1580,7 +1946,10 @@ Deno.serve((req) => {
+       case "get_server_info": {
+         const svInfoEntry = await kv.get<Record<string, unknown>>(["servers", msg.serverId as string]);
+         const svInfo = svInfoEntry.value || publicServers.get(msg.serverId as string);
+-        if (svInfo && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "server_info", server: svInfo }));
++        if (svInfo && ws.readyState === WebSocket.OPEN) {
++          const gsiMember = !!(info.serverIds as Set<string> | undefined)?.has(msg.serverId as string) || isPowerUser;
++          ws.send(JSON.stringify({ type: "server_info", server: await serverInfoFor(msg.serverId as string, svInfo, gsiMember) }));
++        }
+         break;
+       }
+ 
+@@ -1695,10 +2064,12 @@ Deno.serve((req) => {
          // an admin rename) always resolve to the same KV key.
          const dmKey = ["dm_history", [dmFrom.toLowerCase(), dmTo.toLowerCase()].sort().join(":")];
          const existing = await kv.get<unknown[]>(dmKey);
@@ -704,7 +819,112 @@ index 20da523..fa687ab 100644
          sendToUser(dmTo, msg, true);
          break;
        }
-@@ -2876,7 +3180,7 @@ Deno.serve((req) => {
+@@ -1822,61 +2193,62 @@ Deno.serve((req) => {
+       }
+ 
+       case "short_post": {
+-        // Save short metadata to KV — no video data stored (URL-based, or p2p for uploads)
+         const spSvId = msg.serverId as string;
+-        if (spSvId && msg.short) {
+-          const spKey = ["shorts", spSvId];
+-          const spList = ((await kv.get<unknown[]>(spKey)).value || []) as Record<string, unknown>[];
+-          const spShort = msg.short as Record<string, unknown>;
+-          // Strip any base64 video data — shorts should use external URLs or p2p
+-          const spToStore = { ...spShort };
+-          if (typeof spToStore.url === "string" && spToStore.url.startsWith("data:")) {
+-            spToStore.url = ""; spToStore._stripped = true;
+-          }
+-          if (!spList.find(s => s.id === spToStore.id)) {
+-            spList.push(spToStore);
+-            if (spList.length > 200) spList.splice(0, spList.length - 200);
+-            await kv.set(spKey, spList);
+-          }
+-        }
+-        broadcast(msg, ws);
++        // only members can post; the poster is whoever is logged in, never what the client claims
++        if (!spSvId || !msg.short || !((info.serverIds as Set<string> | undefined)?.has(spSvId) || isPowerUser)) break;
++        const spShort = cleanShort(msg.short as Rec, senderName);
++        if (!spShort) { ws.send(JSON.stringify({ type: "error", message: "That doesn't look like a valid video link (it must start with http:// or https://)." })); break; }
++        let spAdded = false;
++        await withLock("shorts:" + spSvId, async () => {
++          const list = await loadShorts(spSvId);
++          if (list.some((x) => x.id === spShort.id)) return; // a retry / outbox replay: already saved
++          list.push(spShort); spAdded = true;
++          if (!(await saveShorts(spSvId, list))) ws.send(JSON.stringify({ type: "error", message: "Couldn't save that short." }));
++        });
++        if (spAdded) broadcast({ type: "short_post", serverId: spSvId, short: spShort }, ws);
+         break;
+       }
+ 
+       case "short_like": {
+         const slSvId = msg.serverId as string;
+         const slId = msg.shortId as string;
+-        if (slSvId && slId) {
+-          const slKey = ["shorts", slSvId];
+-          const slList = ((await kv.get<unknown[]>(slKey)).value || []) as Record<string, unknown>[];
+-          const slShort = slList.find(s => s.id === slId) as Record<string, unknown> | undefined;
+-          if (slShort) {
+-            const slLikes = (slShort.likes as string[] || []);
+-            const slUser = msg.user as string;
+-            if (msg.liked && !slLikes.includes(slUser)) slLikes.push(slUser);
+-            else if (!msg.liked) slShort.likes = slLikes.filter(u => u !== slUser);
+-            if (msg.liked) slShort.likes = slLikes;
+-            await kv.set(slKey, slList);
+-          }
+-        }
+-        broadcast(msg, ws);
++        if (!slSvId || !slId || !((info.serverIds as Set<string> | undefined)?.has(slSvId) || isPowerUser)) break;
++        const slLiked = msg.liked === true;
++        let slChanged = false;
++        await withLock("shorts:" + slSvId, async () => {
++          const list = await loadShorts(slSvId);
++          const s = list.find((x) => x.id === slId);
++          if (!s) return;
++          const likes = new Set((s.likes as string[]) || []);
++          if (slLiked && !likes.has(senderName)) { likes.add(senderName); slChanged = true; }
++          else if (!slLiked && likes.has(senderName)) { likes.delete(senderName); slChanged = true; }
++          if (slChanged) { s.likes = [...likes]; await saveShorts(slSvId, list); }
++        });
++        if (slChanged) broadcast({ type: "short_like", serverId: slSvId, shortId: slId, user: senderName, liked: slLiked }, ws);
+         break;
+       }
+ 
+       case "short_comment": {
+         const scSvId = msg.serverId as string;
+         const scId = msg.shortId as string;
+-        if (scSvId && scId && msg.comment) {
+-          const scKey = ["shorts", scSvId];
+-          const scList = ((await kv.get<unknown[]>(scKey)).value || []) as Record<string, unknown>[];
+-          const scShort = scList.find(s => s.id === scId) as Record<string, unknown> | undefined;
+-          if (scShort) {
+-            if (!Array.isArray(scShort.comments)) scShort.comments = [];
+-            (scShort.comments as unknown[]).push(msg.comment);
+-            await kv.set(scKey, scList);
+-          }
+-        }
+-        broadcast(msg, ws);
++        const raw = (msg.comment || {}) as Rec;
++        const scText = typeof raw.text === "string" ? raw.text.trim().slice(0, 500) : "";
++        if (!scSvId || !scId || !scText || typeof raw.id !== "string" || !raw.id || raw.id.length > 64) break;
++        if (!((info.serverIds as Set<string> | undefined)?.has(scSvId) || isPowerUser)) break;
++        const scComment = { id: raw.id, author: senderName, text: scText, ts: Number(raw.ts) || Date.now() };
++        let scAdded = false;
++        await withLock("shorts:" + scSvId, async () => {
++          const list = await loadShorts(scSvId);
++          const s = list.find((x) => x.id === scId);
++          if (!s) return;
++          let comments = (Array.isArray(s.comments) ? s.comments : []) as Rec[];
++          if (comments.some((c) => c.id === scComment.id)) return; // replay
++          comments.push(scComment);
++          if (comments.length > 300) comments = comments.slice(-300);
++          s.comments = comments; scAdded = true;
++          await saveShorts(scSvId, list);
++        });
++        if (scAdded) broadcast({ type: "short_comment", serverId: scSvId, shortId: scId, comment: scComment }, ws);
+         break;
+       }
+ 
+@@ -2876,7 +3248,7 @@ Deno.serve((req) => {
          if (!isPowerUser) { ws.send(JSON.stringify({ type: "error", message: "No permission." })); break; }
          const auditLimit = Math.min(200, parseInt(msg.limit as string) || 50);
          const auditEntries: unknown[] = [];

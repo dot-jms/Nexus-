@@ -311,6 +311,50 @@ async function purgeServer(serverId: string, by: string) {
   for (const [, ci] of clients) (ci.serverIds as Set<string> | undefined)?.delete(serverId);
 }
 
+// ─── Shorts ─────────────────────────────────────────────────────────────────
+type Rec = Record<string, unknown>;
+const SHORTS_MAX = 200;
+// Only http(s) links. Anything else (javascript:, data:, ...) ends up in an href/src on the client.
+function cleanShortUrl(u: unknown): string | null {
+  if (typeof u !== "string") return null;
+  const t = u.trim();
+  return t.length <= 2000 && /^https?:\/\//i.test(t) ? t : null;
+}
+function cleanShort(raw: Rec, author: string): Rec | null {
+  const url = cleanShortUrl(raw.url);
+  if (!url || typeof raw.id !== "string" || !raw.id || raw.id.length > 64) return null;
+  return {
+    id: raw.id, url, caption: typeof raw.caption === "string" ? raw.caption.slice(0, 300) : "",
+    author, // never trust the client-supplied author
+    channelId: typeof raw.channelId === "string" ? raw.channelId : null,
+    ts: Number(raw.ts) || Date.now(), likes: [], comments: [],
+  };
+}
+async function loadShorts(svId: string): Promise<Rec[]> {
+  const v = ((await kv.get<Rec[]>(["shorts", svId])).value || []) as Rec[];
+  // scrub anything already stored with a non-http url
+  return v.map((s) => (typeof s.url === "string" && s.url && !/^https?:\/\//i.test(s.url)) ? { ...s, url: "", _stripped: true } : s);
+}
+async function saveShorts(svId: string, list: Rec[]): Promise<boolean> {
+  let l = list.length > SHORTS_MAX ? list.slice(-SHORTS_MAX) : list;
+  while (l.length > 1 && byteLen(l) > KV_MAX_VALUE_BYTES) l = l.slice(1); // stay under the 64 KiB KV value limit
+  return await safeKvSet(["shorts", svId], l);
+}
+async function loadServerPins(svId: string, channels: unknown): Promise<Record<string, unknown[]>> {
+  const out: Record<string, unknown[]> = {};
+  for (const ch of ((channels as Array<{ id: string }>) || [])) {
+    const p = (await kv.get<unknown[]>(["pins", svId, ch.id])).value;
+    if (p?.length) out[ch.id] = p;
+  }
+  return out;
+}
+// A server record as sent to a member: includes the shorts (with likes + comments) and pins, which
+// otherwise only arrived on a full reconnect, so new joiners never saw them.
+async function serverInfoFor(svId: string, sv: Rec, isMember: boolean): Promise<Rec> {
+  if (!isMember) return sv;
+  return { ...sv, shorts: await loadShorts(svId), pins: await loadServerPins(svId, sv.channels) };
+}
+
 // memberCount is derived from the real member records, not incremented blindly.
 async function recountMembers(serverId: string): Promise<number> {
   let n = 0;
@@ -1308,10 +1352,17 @@ Deno.serve((req) => {
         }
         const crChannels = ((crEntry.value.channels as unknown[]) || []).filter((c: unknown) => (c as Record<string,unknown>).id !== crChId);
         const crUpdated  = { ...crEntry.value, channels: crChannels };
-        await kv.set(["servers", crSvId], crUpdated);
+        if (!(await safeKvSet(["servers", crSvId], crUpdated))) {
+          ws.send(JSON.stringify({ type: "error", message: "Couldn't delete the channel." }));
+          ws.send(JSON.stringify({ type: "server_info", server: crEntry.value }));
+          break;
+        }
         if (publicServers.has(crSvId)) publicServers.set(crSvId, crUpdated);
         await kv.delete(["ch_history", crChId]);
-        msgHistory.delete(crChId);
+        await kv.delete(["pins", crSvId, crChId]);
+        await kv.delete(["channel_lock", crChId]);
+        await kv.delete(["slowmode", crChId]);
+        msgHistory.delete(crChId); channelLocks.delete(crChId); slowmodes.delete(crChId);
         broadcastToServer(crSvId, { type: "server_channel_removed", serverId: crSvId, channelId: crChId, by: senderName }, null);
         break;
       }
@@ -1831,7 +1882,7 @@ Deno.serve((req) => {
         const jsvFresh = (await kv.get<Record<string,unknown>>(["servers", jsvId])).value || jsv;
         // Confirm to the joiner with the authoritative server record (channels, roles, count)
         ws.send(JSON.stringify({ type: "join_ok", serverId: jsvId }));
-        ws.send(JSON.stringify({ type: "server_info", server: jsvFresh }));
+        ws.send(JSON.stringify({ type: "server_info", server: await serverInfoFor(jsvId, jsvFresh, true) }));
         if (!alreadyMember) broadcast(msg, ws);
         break;
       }
@@ -1851,18 +1902,31 @@ Deno.serve((req) => {
             console.log(`[announce_servers] BLOCKED: ${senderName} tried to announce server ${s.id} owned by ${existingOwner}`);
             continue;
           }
-          const svEntry: Record<string, unknown> = {
-            id: s.id, name: s.name, desc: s.desc || "",
-            icon: s.icon || null, color: s.color || "#6c63ff",
-            memberCount: s.memberCount || 1, createdAt: s.createdAt || Date.now(),
-            channels: s.channels || [],
-            // FIX: preserve stored owner; only set from message if no owner on record
-            ownerId: existingOwner || s.ownerId || senderName,
-            ownerIdLower: existingOwnerLower || (s.ownerId as string || senderName).toLowerCase(),
-            isPublic: true,
-          };
-          publicServers.set(s.id as string, svEntry);
-          await kv.set(["servers", s.id as string], svEntry);
+          // This used to REPLACE the stored server with whatever the client sent: it forced isPublic to true
+          // (a private server became public the next time its settings were saved), dropped roles and
+          // member roles, and put back channels the owner had deleted. For a server that already exists
+          // only the cosmetic fields may change here; channels/roles/visibility have their own messages.
+          const annIcon = typeof s.icon === "string" && s.icon && byteLen(s.icon) <= 45_000 ? s.icon : undefined;
+          const svEntry: Record<string, unknown> = existingSv.value
+            ? {
+                ...existingSv.value,
+                name: typeof s.name === "string" && s.name ? s.name.slice(0, 64) : existingSv.value.name,
+                desc: typeof s.desc === "string" ? s.desc.slice(0, 256) : existingSv.value.desc,
+                color: typeof s.color === "string" && s.color ? s.color : existingSv.value.color,
+                ...(annIcon ? { icon: annIcon } : {}),
+              }
+            : {
+                id: s.id, name: s.name, desc: s.desc || "",
+                icon: annIcon || null, color: s.color || "#6c63ff",
+                memberCount: s.memberCount || 1, createdAt: s.createdAt || Date.now(),
+                channels: s.channels || [],
+                ownerId: s.ownerId || senderName,
+                ownerIdLower: (s.ownerId as string || senderName).toLowerCase(),
+                isPublic: s.isPublic !== false,
+              };
+          if (!(await safeKvSet(["servers", s.id as string], svEntry))) continue;
+          if (svEntry.isPublic !== false) publicServers.set(s.id as string, svEntry);
+          else publicServers.delete(s.id as string);
         }
         break;
 
@@ -1882,7 +1946,10 @@ Deno.serve((req) => {
       case "get_server_info": {
         const svInfoEntry = await kv.get<Record<string, unknown>>(["servers", msg.serverId as string]);
         const svInfo = svInfoEntry.value || publicServers.get(msg.serverId as string);
-        if (svInfo && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "server_info", server: svInfo }));
+        if (svInfo && ws.readyState === WebSocket.OPEN) {
+          const gsiMember = !!(info.serverIds as Set<string> | undefined)?.has(msg.serverId as string) || isPowerUser;
+          ws.send(JSON.stringify({ type: "server_info", server: await serverInfoFor(msg.serverId as string, svInfo, gsiMember) }));
+        }
         break;
       }
 
@@ -2126,61 +2193,62 @@ Deno.serve((req) => {
       }
 
       case "short_post": {
-        // Save short metadata to KV — no video data stored (URL-based, or p2p for uploads)
         const spSvId = msg.serverId as string;
-        if (spSvId && msg.short) {
-          const spKey = ["shorts", spSvId];
-          const spList = ((await kv.get<unknown[]>(spKey)).value || []) as Record<string, unknown>[];
-          const spShort = msg.short as Record<string, unknown>;
-          // Strip any base64 video data — shorts should use external URLs or p2p
-          const spToStore = { ...spShort };
-          if (typeof spToStore.url === "string" && spToStore.url.startsWith("data:")) {
-            spToStore.url = ""; spToStore._stripped = true;
-          }
-          if (!spList.find(s => s.id === spToStore.id)) {
-            spList.push(spToStore);
-            if (spList.length > 200) spList.splice(0, spList.length - 200);
-            await kv.set(spKey, spList);
-          }
-        }
-        broadcast(msg, ws);
+        // only members can post; the poster is whoever is logged in, never what the client claims
+        if (!spSvId || !msg.short || !((info.serverIds as Set<string> | undefined)?.has(spSvId) || isPowerUser)) break;
+        const spShort = cleanShort(msg.short as Rec, senderName);
+        if (!spShort) { ws.send(JSON.stringify({ type: "error", message: "That doesn't look like a valid video link (it must start with http:// or https://)." })); break; }
+        let spAdded = false;
+        await withLock("shorts:" + spSvId, async () => {
+          const list = await loadShorts(spSvId);
+          if (list.some((x) => x.id === spShort.id)) return; // a retry / outbox replay: already saved
+          list.push(spShort); spAdded = true;
+          if (!(await saveShorts(spSvId, list))) ws.send(JSON.stringify({ type: "error", message: "Couldn't save that short." }));
+        });
+        if (spAdded) broadcast({ type: "short_post", serverId: spSvId, short: spShort }, ws);
         break;
       }
 
       case "short_like": {
         const slSvId = msg.serverId as string;
         const slId = msg.shortId as string;
-        if (slSvId && slId) {
-          const slKey = ["shorts", slSvId];
-          const slList = ((await kv.get<unknown[]>(slKey)).value || []) as Record<string, unknown>[];
-          const slShort = slList.find(s => s.id === slId) as Record<string, unknown> | undefined;
-          if (slShort) {
-            const slLikes = (slShort.likes as string[] || []);
-            const slUser = msg.user as string;
-            if (msg.liked && !slLikes.includes(slUser)) slLikes.push(slUser);
-            else if (!msg.liked) slShort.likes = slLikes.filter(u => u !== slUser);
-            if (msg.liked) slShort.likes = slLikes;
-            await kv.set(slKey, slList);
-          }
-        }
-        broadcast(msg, ws);
+        if (!slSvId || !slId || !((info.serverIds as Set<string> | undefined)?.has(slSvId) || isPowerUser)) break;
+        const slLiked = msg.liked === true;
+        let slChanged = false;
+        await withLock("shorts:" + slSvId, async () => {
+          const list = await loadShorts(slSvId);
+          const s = list.find((x) => x.id === slId);
+          if (!s) return;
+          const likes = new Set((s.likes as string[]) || []);
+          if (slLiked && !likes.has(senderName)) { likes.add(senderName); slChanged = true; }
+          else if (!slLiked && likes.has(senderName)) { likes.delete(senderName); slChanged = true; }
+          if (slChanged) { s.likes = [...likes]; await saveShorts(slSvId, list); }
+        });
+        if (slChanged) broadcast({ type: "short_like", serverId: slSvId, shortId: slId, user: senderName, liked: slLiked }, ws);
         break;
       }
 
       case "short_comment": {
         const scSvId = msg.serverId as string;
         const scId = msg.shortId as string;
-        if (scSvId && scId && msg.comment) {
-          const scKey = ["shorts", scSvId];
-          const scList = ((await kv.get<unknown[]>(scKey)).value || []) as Record<string, unknown>[];
-          const scShort = scList.find(s => s.id === scId) as Record<string, unknown> | undefined;
-          if (scShort) {
-            if (!Array.isArray(scShort.comments)) scShort.comments = [];
-            (scShort.comments as unknown[]).push(msg.comment);
-            await kv.set(scKey, scList);
-          }
-        }
-        broadcast(msg, ws);
+        const raw = (msg.comment || {}) as Rec;
+        const scText = typeof raw.text === "string" ? raw.text.trim().slice(0, 500) : "";
+        if (!scSvId || !scId || !scText || typeof raw.id !== "string" || !raw.id || raw.id.length > 64) break;
+        if (!((info.serverIds as Set<string> | undefined)?.has(scSvId) || isPowerUser)) break;
+        const scComment = { id: raw.id, author: senderName, text: scText, ts: Number(raw.ts) || Date.now() };
+        let scAdded = false;
+        await withLock("shorts:" + scSvId, async () => {
+          const list = await loadShorts(scSvId);
+          const s = list.find((x) => x.id === scId);
+          if (!s) return;
+          let comments = (Array.isArray(s.comments) ? s.comments : []) as Rec[];
+          if (comments.some((c) => c.id === scComment.id)) return; // replay
+          comments.push(scComment);
+          if (comments.length > 300) comments = comments.slice(-300);
+          s.comments = comments; scAdded = true;
+          await saveShorts(scSvId, list);
+        });
+        if (scAdded) broadcast({ type: "short_comment", serverId: scSvId, shortId: scId, comment: scComment }, ws);
         break;
       }
 
