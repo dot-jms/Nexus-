@@ -169,6 +169,28 @@ const _EPHEMERAL_TYPES = new Set([
   'vcall_signal','status_update','history_request','history_serve',
 ]);
 const _wsQueue = [];
+// Actions that change saved data. If the socket is down when one happens, the UI has already updated
+// optimistically, so losing it on a refresh means the server never hears about it and its own copy
+// wins on the next load ("I deleted it / made it, refreshed, and it was undone"). Those are kept in
+// localStorage (per account) until they've actually been sent.
+const _DURABLE_TYPES = new Set(['server_delete','channel_add','channel_update','channel_remove','server_update',
+  'leave_server','join_server','kick_member','roles_update','role_assign']);
+const _outboxKey = () => 'nx-outbox-' + (S.user?.name || '').toLowerCase();
+function _saveOutbox() {
+  if (!S.user) return;
+  try {
+    const items = _wsQueue.filter(o => _DURABLE_TYPES.has(o.type));
+    if (items.length) localStorage.setItem(_outboxKey(), JSON.stringify(items)); else localStorage.removeItem(_outboxKey());
+  } catch {}
+}
+function _loadOutbox() {
+  if (!S.user) return;
+  try {
+    const items = JSON.parse(localStorage.getItem(_outboxKey()) || '[]');
+    const have = new Set(_wsQueue.map(o => JSON.stringify(o)));
+    items.forEach(o => { if (!have.has(JSON.stringify(o))) _wsQueue.push(o); });
+  } catch {}
+}
 function wsSend(o) {
   if (S.ws?.readyState === 1) {
     S.ws.send(JSON.stringify({ ...o, token: S.token }));
@@ -178,6 +200,10 @@ function wsSend(o) {
   if (!_EPHEMERAL_TYPES.has(o.type)) {
     _wsQueue.push(o);
     if (_wsQueue.length > 200) _wsQueue.shift(); // safety cap
+    if (_DURABLE_TYPES.has(o.type)) {
+      _saveOutbox();
+      if (typeof toast === 'function') toast('📡 Offline — saved, will sync when reconnected');
+    }
   }
   return false;
 }
@@ -186,4 +212,5 @@ function _flushWsQueue() {
     const o = _wsQueue.shift();
     S.ws.send(JSON.stringify({ ...o, token: S.token }));
   }
+  _saveOutbox();
 }

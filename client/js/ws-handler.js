@@ -45,6 +45,7 @@ function handleIn(msg) {
       clearTimeout(_identifyTimer); _identifyTimer = null; // ← handshake complete, cancel timeout
       dbg('← identified: backend sent ' + (msg.servers?.length||0) + ' server(s)', (msg.servers?.length ? 'ok' : 'warn'));
       // FIX #9: Flush any messages that were queued while we were offline
+      _loadOutbox(); // actions left unsent by a refresh while offline
       setTimeout(_flushWsQueue, 100);
       // Reconcile the local cache with the server's truth: deleted servers, and servers this account
       // isn't actually a member of, are dropped instead of lingering as dead, un-chattable entries.
