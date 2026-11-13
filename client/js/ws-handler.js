@@ -46,6 +46,15 @@ function handleIn(msg) {
       dbg('← identified: backend sent ' + (msg.servers?.length||0) + ' server(s)', (msg.servers?.length ? 'ok' : 'warn'));
       // FIX #9: Flush any messages that were queued while we were offline
       setTimeout(_flushWsQueue, 100);
+      // Reconcile the local cache with the server's truth: deleted servers, and servers this account
+      // isn't actually a member of, are dropped instead of lingering as dead, un-chattable entries.
+      {
+        const gone = [...(msg.removedServerIds || [])];
+        const iOwn = id => { const s = S.servers.find(x => x.id === id); return s && ((s.ownerId||'').toLowerCase() === (S.user.name||'').toLowerCase() || s.isOwner === true); };
+        // missing = not in the database and not deleted on purpose: only the owner can re-register it
+        (msg.missingServerIds || []).forEach(id => { if (!iOwn(id)) gone.push(id); });
+        gone.forEach(id => dropServerLocally(id));
+      }
       if (msg.user) {
         S.user.systemRole = msg.user.systemRole || S.user.systemRole;
         S.user.coAdmin    = msg.user.coAdmin    ?? S.user.coAdmin;
@@ -132,7 +141,8 @@ function handleIn(msg) {
         const knownByServer = new Set((msg.servers||[]).map(s=>s.id));
         S.servers.forEach(sv => {
           const iAmOwner = (sv.ownerId||'').toLowerCase() === (S.user?.name||'').toLowerCase() || sv.isOwner === true;
-          if (!knownByServer.has(sv.id) && iAmOwner) {
+          const reallyMissing = msg.missingServerIds ? msg.missingServerIds.includes(sv.id) : true;
+          if (!knownByServer.has(sv.id) && iAmOwner && reallyMissing) {
             console.log('[nexus] owned server missing from backend — re-registering:', sv.id, sv.name);
             dbg('⚠ owned server not in backend, re-registering: "' + sv.name + '"', 'warn');
             const reCreateMsg = {type:'server_create', serverId:sv.id, name:sv.name,
@@ -149,7 +159,24 @@ function handleIn(msg) {
     case 'auth_required':
       dbg('✕ auth_required — session expired', 'err');
       toast('⚠️ Session expired — please sign in again');
-      signOut();
+      signOut(true);
+      break;
+    case 'server_gone':
+      // server refused a create/update/join because that server was deleted
+      if (dropServerLocally(msg.serverId)) toast('🗑 That server no longer exists');
+      break;
+    case 'join_ok':
+      // joined for real: pull history for every text channel (server copy + online members' copies)
+      prefetchServerHistory(msg.serverId);
+      break;
+    case 'history_request':
+      servePeerHistory(msg);
+      break;
+    case 'history_peers':
+      break;
+    case 'leave_server':
+      if ((msg.user||'') === S.user.name) { dropServerLocally(msg.serverId); }
+      else if (S.members[msg.serverId]) { S.members[msg.serverId] = S.members[msg.serverId].filter(m => m.name !== msg.user); if (S.curSv?.id === msg.serverId) renderMbs(); }
       break;
     case 'server_create_ok':
       _pendingServerCreates.delete(msg.serverId);
@@ -314,7 +341,8 @@ function handleIn(msg) {
       const acSv = S.servers.find(sv => sv.id === msg.serverId);
       if (acSv) {
         if (!acSv.channels) acSv.channels = [];
-        acSv.channels.push(msg.channel);
+        // the server echoes our own channel_add back to us; don't add it twice
+        if (!acSv.channels.some(c => c.id === msg.channel.id)) acSv.channels.push(msg.channel);
         persist();
         if (S.curSv?.id === msg.serverId) { S.curSv.channels = acSv.channels; renderChs(); }
       }
@@ -342,6 +370,7 @@ function handleIn(msg) {
       break;
     }
 
+    case 'server_channel_removed':
     case 'server_channel_deleted': {
       const dcSv = S.servers.find(sv => sv.id === msg.serverId);
       if (dcSv && dcSv.channels) {
@@ -670,6 +699,9 @@ function handleIn(msg) {
       break;
     case 'member_list':
       S.members[msg.serverId]=msg.members||[];
+      // seed avatars/colors so messages (which no longer carry the sender's avatar) render them
+      (msg.members||[]).forEach(m => { if (!m?.name) return; const p = profileCache[m.name] || (profileCache[m.name] = {}); if (m.pfp !== undefined) p.pfp = m.pfp || null; if (m.color) p.color = m.color; });
+      if (S.curSv?.id === msg.serverId && S.curCh) renderMsgs(S.curCh.id);
       // Always sync memberCount from actual member list — includes offline members
       { const mlSv = S.servers.find(s => s.id === msg.serverId);
         if (mlSv) { mlSv.memberCount = (msg.members||[]).length; persist(); renderDiscover(); } }
@@ -1091,6 +1123,8 @@ function handleIn(msg) {
     }
     case 'error':
       toast('⚠️ ' + (msg.message || 'Server error'));
+      // a join the server refused: undo the optimistic "Joined" so we don't show a server we're not in
+      if (msg.context === 'join_server' && msg.serverId) dropServerLocally(msg.serverId);
       // Password change error — show in form
       if (msg.context === 'change_password') {
         const errEl = document.getElementById('chpw-err');

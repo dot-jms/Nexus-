@@ -31,9 +31,11 @@ function initAuth() {
   ['su-user','su-pass'].forEach(id=>document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')doSignup();}));
 
   // Auto-login from saved session token — no prompts, just boot
-  // lsGet first; fall back to sessionStorage so Ctrl+Shift+R (hard refresh,
-  // which wipes localStorage) doesn't log everyone out.
-  const sess = lsGet('nx-session') || ssGet('nx-session');
+  // sessionStorage is per-tab, localStorage is shared by every tab. Reading localStorage first meant that
+  // logging into a second account in another tab replaced the session for ALL tabs, so refreshing the
+  // first tab silently booted it as the other account (wrong servers, "my messages are gone", etc).
+  // So: this tab's own session wins; localStorage is only the fallback for a brand-new tab.
+  const sess = ssGet('nx-session') || lsGet('nx-session');
   if (sess?.token && sess?.user) {
     S.user = sess.user;
     S.token = sess.token;
@@ -98,8 +100,8 @@ function onAuthOk(resp) {
   }
 }
 
-function signOut() {
-  if (!confirm('Sign out?')) return;
+function signOut(force) {
+  if (force !== true && !confirm('Sign out?')) return;
   // FIX #13: Clear per-user cached data (servers, messages, DMs) in addition to the
   // session token. Without this, the next person using the device inherits all data
   // until the relay overwrites it — a real privacy risk on shared devices.
@@ -107,6 +109,7 @@ function signOut() {
     if (S.user?.name) localStorage.removeItem('nx-data-' + S.user.name.toLowerCase());
     localStorage.removeItem('nx-session');
     localStorage.removeItem('nx-pending-creates');
+    _pendingServerCreates.clear(); _pendingRetryCount.clear(); _pendingLastSent.clear();
     // Also clear sessionStorage fallback so hard-refresh doesn't resurrect signed-out session
     sessionStorage.removeItem('nx-session');
     if (S.user?.name) sessionStorage.removeItem('nx-data-' + S.user.name.toLowerCase());

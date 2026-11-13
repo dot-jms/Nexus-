@@ -82,6 +82,7 @@ function selectCh(id) {
   const msgs = S.messages[id]||[];
   const lastTs = msgs.length ? msgs[msgs.length-1].ts : 0;
   wsSend({type:'get_history', channelId:id, since:lastTs||0});
+  requestPeerHistory(id, S.curSv?.id);
   updatePinnedBar();
 }
 function markUnread(chId){ document.querySelector(`.ch-it[data-id="${chId}"]`)?.classList.add('unread'); }
@@ -133,4 +134,53 @@ function updateChSettings(id, changes) {
   Object.assign(ch, changes);
   persist(); renderChs();
   wsSend({type:'channel_update', serverId:sv.id, channelId:id, changes});
+}
+
+
+// ══════════════════════════════════
+// PEER-TO-PEER HISTORY + LOCAL SERVER CLEANUP
+// ══════════════════════════════════
+// Ask the other online members of this server for messages we're missing (anything older or newer than
+// what we have cached). The relay only forwards; answers are merged by the existing 'history' handler.
+function requestPeerHistory(chId, svId) {
+  if (!chId || !svId) return;
+  const arr = S.messages[chId] || [];
+  wsSend({ type: 'history_request', serverId: svId, channelId: chId,
+    since: arr.length ? arr[arr.length - 1].ts : 0, before: arr.length ? arr[0].ts : 0 });
+}
+function prefetchServerHistory(svId) {
+  const sv = S.servers.find(s => s.id === svId); if (!sv) return;
+  (sv.channels || []).filter(c => c.type === 'text').forEach((c, i) => setTimeout(() => {
+    wsSend({ type: 'get_history', channelId: c.id, since: 0 });
+    requestPeerHistory(c.id, svId);
+  }, i * 400));
+}
+// Another member asked for history: send what we have, outside the window they already hold.
+function servePeerHistory(req) {
+  if (!S.servers.some(s => s.id === req.serverId)) return;
+  const arr = S.messages[req.channelId] || [];
+  const since = Number(req.since) || 0, before = Number(req.before) || 0;
+  const slim = m => ({ id: m.id, channelId: m.channelId, serverId: m.serverId, author: m.author, authorTag: m.authorTag,
+    authorColor: m.authorColor, text: m.text, ts: m.ts, reactions: m.reactions || [], edited: m.edited, voiceMsg: m.voiceMsg,
+    attachments: (m.attachments || []).map(a => (a && typeof a.url === 'string' && a.url.startsWith('data:')) ? { ...a, url: '', _stripped: true } : a) });
+  const out = arr.filter(m => m && m.id && (!since && !before ? true : (m.ts > since || m.ts < before))).slice(-300).map(slim);
+  for (let i = 0; i < out.length; i += 100) wsSend({ type: 'history_serve', reqId: req.reqId, messages: out.slice(i, i + 100) });
+}
+// Remove a server from this client (deleted, kicked, join refused, or we left on another tab).
+function dropServerLocally(id) {
+  const sv = S.servers.find(s => s.id === id);
+  if (sv) (sv.channels || []).forEach(ch => delete S.messages[ch.id]);
+  S.servers = S.servers.filter(s => s.id !== id);
+  S.discServers = S.discServers.filter(s => s.id !== id);
+  _pendingServerCreates.delete(id); _pendingRetryCount.delete(id); _pendingLastSent.delete(id); _savePending();
+  persist();
+  const wasCur = S.curSv?.id === id;
+  renderSvs();
+  if (wasCur) {
+    S.curSv = null; S.curCh = null;
+    document.getElementById('sv-nm').textContent = '—';
+    document.getElementById('ch-list').innerHTML = ''; document.getElementById('members').innerHTML = '';
+    if (S.servers.length) selectSv(S.servers[0].id); else showWelcome();
+  }
+  return !!sv;
 }

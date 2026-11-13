@@ -100,6 +100,7 @@ function showRailCtx(sv, e) {
       document.getElementById('members').innerHTML='';
       showWelcome();
       toast('🗑 Server deleted');
+      _pendingServerCreates.delete(sv.id); _pendingRetryCount.delete(sv.id); _pendingLastSent.delete(sv.id); _savePending();
       wsSend({type:'server_delete', serverId:sv.id});
     }, true);
   } else {

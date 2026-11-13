@@ -39,7 +39,9 @@ function connectWS() {
     _reconnectAttempts = 0;
     S.wsConnecting = false; S.wsOk = true; setWS('connected'); hideBanner();
     dbg('✓ WS connected', 'ok');
-    wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null,token:S.token});
+    wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null,token:S.token,
+      // lets the server tell us which cached servers were deleted / we're no longer in
+      knownServerIds:(S.servers||[]).map(s=>s.id)});
     dbg('→ identify sent', 'info');
     // Identify timeout: if server doesn't send 'identified' within 10s, the
     // connection is silently stuck (e.g. Deno cold-start not finishing). Force reconnect.
@@ -130,6 +132,9 @@ function _retryPending() {
   if (S.ws?.readyState !== 1) return;
   const now = Date.now();
   _pendingServerCreates.forEach((msg, id) => {
+    // nx-pending-creates lives in localStorage, which every account on this browser shares. Only ever
+    // retry creates that belong to the account signed in right now.
+    if ((msg.ownerId || '').toLowerCase() !== (S.user?.name || '').toLowerCase()) return;
     // Don't retry if we sent this less than 3 seconds ago — avoids double-fire
     // when _retryPending is called right after the initial wsSend (e.g. from identified)
     const lastSent = _pendingLastSent.get(id) || 0;
@@ -161,7 +166,7 @@ setInterval(_retryPending, 4000);
 const _EPHEMERAL_TYPES = new Set([
   'typing','get_history','get_members','get_server_list','get_server_info',
   'identify','join_channel','voice_join','voice_leave','voice_signal',
-  'vcall_signal','status_update',
+  'vcall_signal','status_update','history_request','history_serve',
 ]);
 const _wsQueue = [];
 function wsSend(o) {

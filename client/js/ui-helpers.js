@@ -103,7 +103,36 @@ function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36
 function hash(s){let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}return Math.abs(h);}
 
 // ── PERSIST ──
-function persist(){if(!S.user)return;lsSet('nx-data-'+S.user.name.toLowerCase(),{servers:S.servers,messages:S.messages,dms:S.dms,dmMessages:S.dmMessages,friends:S.friends,friendReqs:S.friendReqs});}
+// Every message used to be cached with the sender's full avatar and any inline image/video, so
+// localStorage hit its quota after a few dozen messages and every later save silently failed
+// (hence "messages gone after refresh"). Cache a slimmed copy instead, and degrade gracefully.
+function _slimMsgs(map, level){
+  const out = {};
+  const keep = level >= 2 ? 100 : 400;
+  for (const [k, arr] of Object.entries(map || {})) {
+    out[k] = (arr || []).slice(-keep).map(m => {
+      if (!m) return m;
+      const bigAtt = (m.attachments || []).some(a => a && typeof a.url === 'string' && a.url.startsWith('data:'));
+      if (!m.authorPfp && !bigAtt) return m;
+      const c = { ...m }; delete c.authorPfp;
+      if (c.attachments) c.attachments = c.attachments.map(a =>
+        (a && typeof a.url === 'string' && a.url.startsWith('data:') && (level >= 1 || a.url.length > 60000 || a.type === 'video'))
+          ? { ...a, url: '', _stripped: true } : a);
+      return c;
+    });
+  }
+  return out;
+}
+function persist(){
+  if (!S.user) return;
+  const key = 'nx-data-' + S.user.name.toLowerCase();
+  for (const level of [0, 1, 2]) {
+    const blob = JSON.stringify({ servers:S.servers, messages:_slimMsgs(S.messages, level), dms:S.dms, dmMessages:_slimMsgs(S.dmMessages, level), friends:S.friends, friendReqs:S.friendReqs });
+    try { localStorage.setItem(key, blob); try { sessionStorage.setItem(key, blob); } catch(_) {} return; }
+    catch(e) { /* quota — retry with a smaller copy */ }
+  }
+  console.warn('[nexus] could not cache data locally (storage full)');
+}
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k));}catch{return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));sessionStorage.setItem(k,JSON.stringify(v));}catch{}}
 // ssGet: fallback read from sessionStorage (survives Ctrl+Shift+R hard refresh which wipes localStorage)

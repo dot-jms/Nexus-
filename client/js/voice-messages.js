@@ -17,7 +17,7 @@ function startVoiceRec() {
       reader.onload = ev => {
         const dur = vmSeconds;
         const msg = { id: uid(), channelId: S.curCh.id, serverId: S.curSv?.id,
-          author: S.user.name, authorTag: S.user.tag, authorColor: S.user.color, authorPfp: S.user.pfp||null,
+          author: S.user.name, authorTag: S.user.tag, authorColor: S.user.color,
           text: '', voiceMsg: ev.target.result, voiceDur: dur,
           attachments: [], ts: Date.now(), reactions: [] };
         // Check size — base64 audio should be small but guard against huge recordings

@@ -88,7 +88,7 @@ function sendMsg() {
   if(!text&&!S.files.length) return;
   if (editingMsgId) { if(text) commitEdit(text); else cancelEdit(); inp.value=''; inp.style.height='auto'; updSnd(); return; }
   if(!S.curCh){toast('Pick a channel first');return;}
-  const msg={id:uid(),channelId:S.curCh.id,serverId:S.curSv?.id,author:S.user.name,authorTag:S.user.tag,authorColor:S.user.color,authorPfp:S.user.pfp||null,text,attachments:S.files.map(f=>({name:f.name,url:f.url,type:f.mt,size:fmtB(f.size)})),ts:Date.now(),reactions:[]};
+  const msg={id:uid(),channelId:S.curCh.id,serverId:S.curSv?.id,author:S.user.name,authorTag:S.user.tag,authorColor:S.user.color,text,attachments:S.files.map(f=>({name:f.name,url:f.url,type:f.mt,size:fmtB(f.size)})),ts:Date.now(),reactions:[]};
   addMsg(msg);
   // Fast path: append single message node instead of full re-render
   appendMsgDOM(msg);
