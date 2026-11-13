@@ -92,16 +92,19 @@ function showRailCtx(sv, e) {
     ctxItem('🗑 Delete Server', () => {
       if (!confirm(`Permanently delete "${sv.name}"? This cannot be undone.`)) return;
       const wasCur = S.curSv?.id === sv.id;
-      (sv.channels||[]).forEach(ch => delete S.messages[ch.id]);
-      S.servers = S.servers.filter(s=>s.id!==sv.id);
-      persist(); S.curSv=null; S.curCh=null; renderSvs();
-      document.getElementById('sv-nm').textContent='—';
-      document.getElementById('ch-list').innerHTML='';
-      document.getElementById('members').innerHTML='';
-      showWelcome();
-      toast('🗑 Server deleted');
-      _pendingServerCreates.delete(sv.id); _pendingRetryCount.delete(sv.id); _pendingLastSent.delete(sv.id); _savePending();
+      // Server first, UI second (an error while redrawing must not stop the delete being sent)
       wsSend({type:'server_delete', serverId:sv.id});
+      _pendingServerCreates.delete(sv.id); _pendingRetryCount.delete(sv.id); _pendingLastSent.delete(sv.id); _savePending();
+      try {
+        (sv.channels||[]).forEach(ch => delete S.messages[ch.id]);
+        S.servers = S.servers.filter(s=>s.id!==sv.id);
+        persist(); S.curSv=null; S.curCh=null; renderSvs();
+        document.getElementById('sv-nm').textContent='—';
+        document.getElementById('ch-list').innerHTML='';
+        document.getElementById('members').innerHTML='';
+        showWelcome();
+        toast('🗑 Server deleted');
+      } catch (e) { console.error('[nexus] delete UI error', e); toast('⚠️ Deleted, but the screen failed to update: ' + e.message); }
     }, true);
   } else {
     ctxSep();

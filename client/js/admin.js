@@ -509,17 +509,20 @@ function deleteServer() {
   const sv = S.curSv; if (!sv) return;
   if ((sv.ownerId||'').toLowerCase() !== (S.user.name||'').toLowerCase()) { toast('Only the server owner can delete it'); return; }
   if (!confirm(`Permanently delete "${sv.name}"? This cannot be undone.`)) return;
-  (sv.channels||[]).forEach(ch => delete S.messages[ch.id]);
-  S.servers = S.servers.filter(s=>s.id!==sv.id);
-  persist(); closeM('sv-settings');
-  S.curSv = null; S.curCh = null;
-  renderSvs();
-  document.getElementById('sv-nm').textContent='—';
-  document.getElementById('ch-list').innerHTML='';
-  document.getElementById('members').innerHTML='';
-  showWelcome();
-  toast('🗑 Server deleted');
-  wsSend({type:'server_delete', serverId:sv.id});
+  wsSend({type:'server_delete', serverId:sv.id}); // server first, UI second
+  _pendingServerCreates.delete(sv.id); _pendingRetryCount.delete(sv.id); _pendingLastSent.delete(sv.id); _savePending();
+  try {
+    (sv.channels||[]).forEach(ch => delete S.messages[ch.id]);
+    S.servers = S.servers.filter(s=>s.id!==sv.id);
+    persist(); closeM('sv-settings');
+    S.curSv = null; S.curCh = null;
+    renderSvs();
+    document.getElementById('sv-nm').textContent='—';
+    document.getElementById('ch-list').innerHTML='';
+    document.getElementById('members').innerHTML='';
+    showWelcome();
+    toast('🗑 Server deleted');
+  } catch (e) { console.error('[nexus] delete UI error', e); toast('⚠️ Deleted, but the screen failed to update: ' + e.message); }
 }
 
 function leaveServer() {

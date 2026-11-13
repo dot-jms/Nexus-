@@ -1,3 +1,39 @@
+diff --git a/js/admin.js b/js/admin.js
+index 9f9f3ed..c338ab7 100644
+--- a/js/admin.js
++++ b/js/admin.js
+@@ -509,17 +509,20 @@ function deleteServer() {
+   const sv = S.curSv; if (!sv) return;
+   if ((sv.ownerId||'').toLowerCase() !== (S.user.name||'').toLowerCase()) { toast('Only the server owner can delete it'); return; }
+   if (!confirm(`Permanently delete "${sv.name}"? This cannot be undone.`)) return;
+-  (sv.channels||[]).forEach(ch => delete S.messages[ch.id]);
+-  S.servers = S.servers.filter(s=>s.id!==sv.id);
+-  persist(); closeM('sv-settings');
+-  S.curSv = null; S.curCh = null;
+-  renderSvs();
+-  document.getElementById('sv-nm').textContent='—';
+-  document.getElementById('ch-list').innerHTML='';
+-  document.getElementById('members').innerHTML='';
+-  showWelcome();
+-  toast('🗑 Server deleted');
+-  wsSend({type:'server_delete', serverId:sv.id});
++  wsSend({type:'server_delete', serverId:sv.id}); // server first, UI second
++  _pendingServerCreates.delete(sv.id); _pendingRetryCount.delete(sv.id); _pendingLastSent.delete(sv.id); _savePending();
++  try {
++    (sv.channels||[]).forEach(ch => delete S.messages[ch.id]);
++    S.servers = S.servers.filter(s=>s.id!==sv.id);
++    persist(); closeM('sv-settings');
++    S.curSv = null; S.curCh = null;
++    renderSvs();
++    document.getElementById('sv-nm').textContent='—';
++    document.getElementById('ch-list').innerHTML='';
++    document.getElementById('members').innerHTML='';
++    showWelcome();
++    toast('🗑 Server deleted');
++  } catch (e) { console.error('[nexus] delete UI error', e); toast('⚠️ Deleted, but the screen failed to update: ' + e.message); }
+ }
+ 
+ function leaveServer() {
 diff --git a/js/auth.js b/js/auth.js
 index 684846a..345cfa6 100644
 --- a/js/auth.js
@@ -37,7 +73,7 @@ index 684846a..345cfa6 100644
      sessionStorage.removeItem('nx-session');
      if (S.user?.name) sessionStorage.removeItem('nx-data-' + S.user.name.toLowerCase());
 diff --git a/js/channels.js b/js/channels.js
-index 3e55344..b8cf7d1 100644
+index 3e55344..cc17435 100644
 --- a/js/channels.js
 +++ b/js/channels.js
 @@ -82,6 +82,7 @@ function selectCh(id) {
@@ -48,7 +84,28 @@ index 3e55344..b8cf7d1 100644
    updatePinnedBar();
  }
  function markUnread(chId){ document.querySelector(`.ch-it[data-id="${chId}"]`)?.classList.add('unread'); }
-@@ -134,3 +135,52 @@ function updateChSettings(id, changes) {
+@@ -89,11 +90,15 @@ function addCh() {
+   const raw=document.getElementById('ch-in').value.trim(); if(!raw||!S.curSv) return;
+   const name=raw.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+   const newCh = {id:uid(),name,type:S.chType,desc:''};
+-  S.curSv.channels.push(newCh); persist(); closeM('ach'); renderChs();
+-  selectCh(newCh.id);
+-  toast('✅ #'+name+' created'); document.getElementById('ch-in').value='';
+-  // Use dedicated channel_add — writes directly to KV on server
+-  wsSend({type:'channel_add', serverId:S.curSv.id, channel:newCh});
++  const svId = S.curSv.id;
++  // Tell the server FIRST. This used to be the last line, so any error while redrawing the UI above it
++  // meant the channel was never sent: it looked created, then vanished on refresh.
++  wsSend({type:'channel_add', serverId:svId, channel:newCh});
++  try {
++    S.curSv.channels.push(newCh); persist(); closeM('ach'); renderChs();
++    selectCh(newCh.id);
++    toast('✅ #'+name+' created'); document.getElementById('ch-in').value='';
++  } catch (e) { console.error('[nexus] addCh UI error', e); toast('⚠️ Channel saved, but the screen failed to update: ' + e.message); }
+ }
+ function deleteCh(id) {
+   const sv = S.curSv; if (!sv) return;
+@@ -134,3 +139,52 @@ function updateChSettings(id, changes) {
    persist(); renderChs();
    wsSend({type:'channel_update', serverId:sv.id, channelId:id, changes});
  }
@@ -115,17 +172,37 @@ index 20e798d..ca1ea96 100644
    // Fast path: append single message node instead of full re-render
    appendMsgDOM(msg);
 diff --git a/js/servers.js b/js/servers.js
-index 068ed8a..0b0570b 100644
+index 068ed8a..f57263d 100644
 --- a/js/servers.js
 +++ b/js/servers.js
-@@ -100,6 +100,7 @@ function showRailCtx(sv, e) {
-       document.getElementById('members').innerHTML='';
-       showWelcome();
-       toast('🗑 Server deleted');
-+      _pendingServerCreates.delete(sv.id); _pendingRetryCount.delete(sv.id); _pendingLastSent.delete(sv.id); _savePending();
+@@ -92,15 +92,19 @@ function showRailCtx(sv, e) {
+     ctxItem('🗑 Delete Server', () => {
+       if (!confirm(`Permanently delete "${sv.name}"? This cannot be undone.`)) return;
+       const wasCur = S.curSv?.id === sv.id;
+-      (sv.channels||[]).forEach(ch => delete S.messages[ch.id]);
+-      S.servers = S.servers.filter(s=>s.id!==sv.id);
+-      persist(); S.curSv=null; S.curCh=null; renderSvs();
+-      document.getElementById('sv-nm').textContent='—';
+-      document.getElementById('ch-list').innerHTML='';
+-      document.getElementById('members').innerHTML='';
+-      showWelcome();
+-      toast('🗑 Server deleted');
++      // Server first, UI second (an error while redrawing must not stop the delete being sent)
        wsSend({type:'server_delete', serverId:sv.id});
++      _pendingServerCreates.delete(sv.id); _pendingRetryCount.delete(sv.id); _pendingLastSent.delete(sv.id); _savePending();
++      try {
++        (sv.channels||[]).forEach(ch => delete S.messages[ch.id]);
++        S.servers = S.servers.filter(s=>s.id!==sv.id);
++        persist(); S.curSv=null; S.curCh=null; renderSvs();
++        document.getElementById('sv-nm').textContent='—';
++        document.getElementById('ch-list').innerHTML='';
++        document.getElementById('members').innerHTML='';
++        showWelcome();
++        toast('🗑 Server deleted');
++      } catch (e) { console.error('[nexus] delete UI error', e); toast('⚠️ Deleted, but the screen failed to update: ' + e.message); }
      }, true);
    } else {
+     ctxSep();
 diff --git a/js/ui-helpers.js b/js/ui-helpers.js
 index 5d27398..2c6b519 100644
 --- a/js/ui-helpers.js
@@ -182,7 +259,7 @@ index a694d9b..399aa17 100644
            attachments: [], ts: Date.now(), reactions: [] };
          // Check size — base64 audio should be small but guard against huge recordings
 diff --git a/js/websocket.js b/js/websocket.js
-index 52c7f95..4e77911 100644
+index 52c7f95..9096b23 100644
 --- a/js/websocket.js
 +++ b/js/websocket.js
 @@ -39,7 +39,9 @@ function connectWS() {
@@ -250,12 +327,21 @@ index 52c7f95..4e77911 100644
    }
    return false;
  }
-@@ -181,4 +212,5 @@ function _flushWsQueue() {
+@@ -181,4 +212,14 @@ function _flushWsQueue() {
      const o = _wsQueue.shift();
      S.ws.send(JSON.stringify({ ...o, token: S.token }));
    }
 +  _saveOutbox();
  }
++
++
++// Surface uncaught errors as a toast (rate-limited) so a silent failure can't hide behind a normal-looking UI.
++(function(){
++  let last = 0;
++  const show = (m) => { const n = Date.now(); if (n - last < 4000) return; last = n; try { toast('⚠️ JS error: ' + String(m).slice(0, 140)); } catch (_) {} };
++  window.addEventListener('error', e => { console.error('[nexus] uncaught', e.error || e.message); show(e.message); });
++  window.addEventListener('unhandledrejection', e => { console.error('[nexus] unhandled rejection', e.reason); show(e.reason?.message || e.reason); });
++})();
 diff --git a/js/ws-handler.js b/js/ws-handler.js
 index 39d6738..2906871 100644
 --- a/js/ws-handler.js

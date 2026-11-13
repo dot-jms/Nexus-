@@ -90,11 +90,15 @@ function addCh() {
   const raw=document.getElementById('ch-in').value.trim(); if(!raw||!S.curSv) return;
   const name=raw.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
   const newCh = {id:uid(),name,type:S.chType,desc:''};
-  S.curSv.channels.push(newCh); persist(); closeM('ach'); renderChs();
-  selectCh(newCh.id);
-  toast('✅ #'+name+' created'); document.getElementById('ch-in').value='';
-  // Use dedicated channel_add — writes directly to KV on server
-  wsSend({type:'channel_add', serverId:S.curSv.id, channel:newCh});
+  const svId = S.curSv.id;
+  // Tell the server FIRST. This used to be the last line, so any error while redrawing the UI above it
+  // meant the channel was never sent: it looked created, then vanished on refresh.
+  wsSend({type:'channel_add', serverId:svId, channel:newCh});
+  try {
+    S.curSv.channels.push(newCh); persist(); closeM('ach'); renderChs();
+    selectCh(newCh.id);
+    toast('✅ #'+name+' created'); document.getElementById('ch-in').value='';
+  } catch (e) { console.error('[nexus] addCh UI error', e); toast('⚠️ Channel saved, but the screen failed to update: ' + e.message); }
 }
 function deleteCh(id) {
   const sv = S.curSv; if (!sv) return;

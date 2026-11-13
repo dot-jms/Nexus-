@@ -214,3 +214,12 @@ function _flushWsQueue() {
   }
   _saveOutbox();
 }
+
+
+// Surface uncaught errors as a toast (rate-limited) so a silent failure can't hide behind a normal-looking UI.
+(function(){
+  let last = 0;
+  const show = (m) => { const n = Date.now(); if (n - last < 4000) return; last = n; try { toast('⚠️ JS error: ' + String(m).slice(0, 140)); } catch (_) {} };
+  window.addEventListener('error', e => { console.error('[nexus] uncaught', e.error || e.message); show(e.message); });
+  window.addEventListener('unhandledrejection', e => { console.error('[nexus] unhandled rejection', e.reason); show(e.reason?.message || e.reason); });
+})();
