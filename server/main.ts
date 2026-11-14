@@ -107,6 +107,12 @@ function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
   next.finally(() => { if (_locks.get(key) === next) _locks.delete(key); }).catch(() => {});
   return next;
 }
+const SERVER_RECORD_WRITERS = new Set([
+  "channel_add", "channel_update", "channel_remove", "roles_update", "role_assign", "server_update",
+  "server_create", "server_delete", "join_server", "leave_server", "kick_member",
+  "admin_add_channel", "admin_delete_channel", "admin_rename_server", "admin_set_server_icon",
+  "admin_set_server_desc", "admin_set_server_public", "admin_transfer_ownership",
+]);
 // Peer-to-peer history relay: reqId → who asked, for which server/channel (expires after 60s)
 const historyRequests = new Map<string, { requester: string; serverId: string; channelId: string; exp: number }>();
 const historyRequestLast = new Map<string, number>(); // "user:channel" → last request time (rate limit)
@@ -368,6 +374,53 @@ async function recountMembers(serverId: string): Promise<number> {
   return n;
 }
 
+// ─── Per-channel "who can send messages" ────────────────────────────────────
+// A channel may carry sendRoles: string[] (role ids). Empty/absent = everyone. The owner (and platform
+// admins) can always send. Role ids: "mod", custom role ids, and "member" (anyone with no role).
+function cleanSendRoles(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return [...new Set(v.filter((x): x is string => typeof x === "string" && x.length > 0 && x.length <= 64))].slice(0, 50);
+}
+function isServerOwner(sv: Record<string, unknown>, username: string): boolean {
+  const owner = (sv.ownerIdLower as string) || ((sv.ownerId as string) || "").toLowerCase();
+  return owner === username.toLowerCase();
+}
+function roleIdOf(sv: Record<string, unknown>, username: string): string {
+  const lower = username.toLowerCase();
+  const mr = (sv.memberRoles as Record<string, string>) || {};
+  const assigned = mr[username] ?? Object.entries(mr).find(([k]) => k.toLowerCase() === lower)?.[1];
+  if (assigned === "mod") return "mod";
+  if (assigned && ((sv.roles as Array<{ id: string }>) || []).some((r) => r.id === assigned)) return assigned;
+  return "member"; // same rule the client's getMyRole uses
+}
+function canSendInChannel(sv: Record<string, unknown>, ch: Record<string, unknown>, username: string, isPower: boolean): boolean {
+  const allowed = cleanSendRoles(ch.sendRoles);
+  if (!allowed.length || isPower || isServerOwner(sv, username)) return true;
+  return allowed.includes(roleIdOf(sv, username));
+}
+// Which server does this channel belong to? msg.serverId comes from the client, so it is only a hint:
+// the channel must really be in that server, otherwise we look it up ourselves (a client can't dodge a
+// restriction by naming a different server).
+const channelServerCache = new Map<string, string>();
+const unknownChannels = new Map<string, number>();
+async function resolveChannel(channelId: string, claimed?: string): Promise<{ sv: Record<string, unknown>; ch: Record<string, unknown> } | null> {
+  const tryServer = async (id: string) => {
+    const sv = (await kv.get<Record<string, unknown>>(["servers", id])).value;
+    const ch = (sv?.channels as Array<Record<string, unknown>> | undefined)?.find((c) => c.id === channelId);
+    return sv && ch ? { sv, ch } : null;
+  };
+  const cached = channelServerCache.get(channelId);
+  if (cached) { const r = await tryServer(cached); if (r) return r; channelServerCache.delete(channelId); }
+  if ((unknownChannels.get(channelId) || 0) > Date.now()) return null;
+  if (claimed) { const r = await tryServer(claimed); if (r) { channelServerCache.set(channelId, claimed); return r; } }
+  for await (const item of kv.list<Record<string, unknown>>({ prefix: ["servers"] })) {
+    const ch = (item.value?.channels as Array<Record<string, unknown>> | undefined)?.find((c) => c.id === channelId);
+    if (item.value && ch) { channelServerCache.set(channelId, item.value.id as string); return { sv: item.value, ch }; }
+  }
+  unknownChannels.set(channelId, Date.now() + 30_000); // don't rescan for every message to a channel that doesn't exist
+  return null;
+}
+
 // Owner / platform admin, or a member whose role grants the permission (mirrors the client's hasPerm)
 function canManageServer(sv: Record<string, unknown>, username: string, perm: string, isPower: boolean): boolean {
   if (isPower) return true;
@@ -512,7 +565,13 @@ Deno.serve((req) => {
     let msg: Record<string, unknown>;
     try { msg = JSON.parse(e.data as string); } catch { return; }
     try {
-      await handleMsg(ws, msg);
+      // Handlers that read a whole server record, change one field and write it back must not overlap on
+      // the same server, or whichever finishes last silently erases the other's change (e.g. roles_update
+      // racing role_assign, or a channel edit racing a join). Run them one at a time per server.
+      const lockKey = SERVER_RECORD_WRITERS.has(msg.type as string) && typeof msg.serverId === "string" && msg.serverId
+        ? "server:" + msg.serverId : null;
+      if (lockKey) await withLock(lockKey, () => handleMsg(ws, msg));
+      else await handleMsg(ws, msg);
     } catch (err) {
       console.error(`[onmessage] unhandled error type=${msg.type}:`, err);
     }
@@ -1096,6 +1155,14 @@ Deno.serve((req) => {
           ws.send(JSON.stringify({ type: "error", message: `Your account is frozen: ${freeze.reason}` }));
           break;
         }
+        // Role-restricted channel: only the roles the owner picked may send here
+        {
+          const target = await resolveChannel(msg.channelId as string, msg.serverId as string);
+          if (target && !canSendInChannel(target.sv, target.ch, senderName, isPowerUser)) {
+            ws.send(JSON.stringify({ type: "message_rejected", id: msg.id, channelId: msg.channelId, message: "You don't have permission to send messages in this channel." }));
+            break;
+          }
+        }
         // Slowmode check
         const slowSecs = slowmodes.get(msg.channelId as string) || 0;
         if (slowSecs > 0 && !isPowerUser) {
@@ -1294,6 +1361,10 @@ Deno.serve((req) => {
           break;
         }
         if (((caEntry.value.channels as Array<{ id: string }>) || []).some((c) => c.id === caCh.id)) break; // already there
+        if ("sendRoles" in caCh) {
+          if (isServerOwner(caEntry.value, senderName) || isPowerUser) caCh.sendRoles = cleanSendRoles(caCh.sendRoles);
+          else delete caCh.sendRoles;
+        }
         const caChannels = [...((caEntry.value.channels as unknown[]) || []), caCh];
         const caUpdated  = { ...caEntry.value, channels: caChannels };
         if (!(await safeKvSet(["servers", caSvId], caUpdated))) {
@@ -1320,21 +1391,29 @@ Deno.serve((req) => {
           break;
         }
         // Patch the matching channel inside the channels array
+        const cuApplied: Record<string, unknown> = {};
+        if (typeof cuChanges.name === "string") cuApplied.name = cuChanges.name.slice(0, 64);
+        if (typeof cuChanges.desc === "string") cuApplied.desc = cuChanges.desc.slice(0, 256);
+        if (typeof cuChanges.isPublic === "boolean") cuApplied.isPublic = cuChanges.isPublic;
+        if (Array.isArray(cuChanges.allowedRoles)) cuApplied.allowedRoles = cuChanges.allowedRoles;
+        if ("sendRoles" in cuChanges) {
+          // choosing who may speak is the server creator's call (or a platform admin's), not any channel manager's
+          if (isServerOwner(cuEntry.value, senderName) || isPowerUser) cuApplied.sendRoles = cleanSendRoles(cuChanges.sendRoles);
+          else ws.send(JSON.stringify({ type: "error", message: "Only the server owner can choose who can send messages in a channel." }));
+        }
         const cuChannels = ((cuEntry.value.channels as unknown[]) || []).map((c: unknown) => {
           const ch = c as Record<string, unknown>;
-          if (ch.id !== cuChId) return ch;
-          // Whitelist safe fields: name, desc, isPublic, allowedRoles
-          const patch: Record<string, unknown> = {};
-          if (typeof cuChanges.name === "string") patch.name = cuChanges.name.slice(0, 64);
-          if (typeof cuChanges.desc === "string") patch.desc = cuChanges.desc.slice(0, 256);
-          if (typeof cuChanges.isPublic === "boolean") patch.isPublic = cuChanges.isPublic;
-          if (Array.isArray(cuChanges.allowedRoles)) patch.allowedRoles = cuChanges.allowedRoles;
-          return { ...ch, ...patch };
+          return ch.id === cuChId ? { ...ch, ...cuApplied } : ch;
         });
         const cuUpdated = { ...cuEntry.value, channels: cuChannels };
-        await kv.set(["servers", cuSvId], cuUpdated);
+        if (!(await safeKvSet(["servers", cuSvId], cuUpdated))) {
+          ws.send(JSON.stringify({ type: "error", message: "Couldn't save that channel change." }));
+          ws.send(JSON.stringify({ type: "server_info", server: cuEntry.value }));
+          break;
+        }
         if (publicServers.has(cuSvId)) publicServers.set(cuSvId, cuUpdated);
-        broadcastToServer(cuSvId, { type: "server_channel_updated", serverId: cuSvId, channelId: cuChId, changes: cuChanges, by: senderName }, null);
+        // broadcast the sanitized patch: the raw client object used to be forwarded to every member
+        broadcastToServer(cuSvId, { type: "server_channel_updated", serverId: cuSvId, channelId: cuChId, changes: cuApplied, by: senderName }, null);
         break;
       }
 
@@ -1490,8 +1569,13 @@ Deno.serve((req) => {
           const stored = ruEntry.value;
           const storedOwnerLower = (stored.ownerIdLower as string || (stored.ownerId as string || "").toLowerCase());
           if (storedOwnerLower === senderName.toLowerCase() || isAdmin || isCoAdmin) {
-            await kv.set(ruKey, { ...stored, roles: msg.roles });
-            if (publicServers.has(ruSvId)) publicServers.get(ruSvId)!.roles = msg.roles;
+            const ruRoles = msg.roles;
+            const ruOk = Array.isArray(ruRoles) && ruRoles.length <= 50 && byteLen(ruRoles) <= 20_000 &&
+              ruRoles.every((r) => r && typeof r.id === "string" && r.id && r.id.length <= 64 && typeof r.name === "string");
+            if (!ruOk) { ws.send(JSON.stringify({ type: "error", message: "Those roles couldn't be saved." })); break; }
+            if (await safeKvSet(ruKey, { ...stored, roles: ruRoles })) {
+              if (publicServers.has(ruSvId)) publicServers.get(ruSvId)!.roles = ruRoles;
+            }
           }
         }
         broadcast(msg, ws);
@@ -1512,6 +1596,9 @@ Deno.serve((req) => {
             break;
           }
           const memberRoles = (stored.memberRoles as Record<string,string> || {});
+          const raKnown = msg.role === "member" || !msg.role || msg.role === "mod" ||
+            ((stored.roles as Array<{ id: string }>) || []).some((r) => r.id === msg.role);
+          if (!raKnown) { ws.send(JSON.stringify({ type: "error", message: "That role doesn't exist." })); break; }
           if (msg.role === 'member' || !msg.role) {
             delete memberRoles[msg.target as string];
           } else {

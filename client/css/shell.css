@@ -423,3 +423,9 @@ body.in-dm #vcall-bar, body.in-dm #pinned-bar, body.in-dm #voice-bar { max-heigh
 .search-result-meta { margin-bottom: 2px; font-size: 12px; color: var(--text-muted); }
 .search-result-text { font-size: 14px; color: var(--text-normal); }
 .search-highlight { padding: 0 2px; border-radius: 2px; background: rgba(240,178,50,.3); color: var(--text-header); }
+
+/* role-restricted channels */
+.ch-lock { font-size: 11px; opacity: .6; margin-left: 4px; flex-shrink: 0; }
+.inp-row.inp-locked { opacity: .55; transition: opacity var(--fast, .15s) linear; }
+.inp-row.inp-locked .in-l, .inp-row.inp-locked .in-r { pointer-events: none; }
+.inp-row.inp-locked textarea { cursor: not-allowed; }

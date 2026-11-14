@@ -30,6 +30,7 @@ function renderChs() {
   // one DOM write, not one per channel
   el.innerHTML = group('text','Text Channels',chs.filter(c=>c.type==='text')) + group('voice','Voice Channels',chs.filter(c=>c.type==='voice'));
   hlCh();
+  applyComposerPerm();
 }
 function chHTML(c){
   const canDel = S.curSv && hasPerm(S.curSv,'manage_channels') && (S.curSv.channels||[]).length > 1;
@@ -39,7 +40,7 @@ function chHTML(c){
   // Right-click opens a menu (rename / topic / copy ID / delete, depending on what you're allowed to do)
   const ctxStr = `oncontextmenu="showChCtx(event,'${c.id}')"`;
   const tipText = canManage ? 'Double-click to rename, right-click for more' : 'Right-click for options';
-  return `<div class="ch-it" data-id="${c.id}" onclick="selectCh('${c.id}')" ondblclick="renameCh('${c.id}')" ${ctxStr} title="${tipText}"><span class="ico">${chIcon(c.type)}</span><span class="ch-name">${esc(c.name)}</span><span class="un-dot"></span>${delBtn}</div>`;
+  return `<div class="ch-it" data-id="${c.id}" onclick="selectCh('${c.id}')" ondblclick="renameCh('${c.id}')" ${ctxStr} title="${tipText}"><span class="ico">${chIcon(c.type)}</span><span class="ch-name">${esc(c.name)}</span>${(Array.isArray(c.sendRoles)&&c.sendRoles.length)?'<span class="ch-lock" title="Only some roles can send messages here">🔒</span>':''}<span class="un-dot"></span>${delBtn}</div>`;
 }
 function hlCh(){ document.querySelectorAll('.ch-it').forEach(el=>{ el.classList.toggle('act',el.dataset.id===S.curCh?.id); if(el.dataset.id===S.curCh?.id) el.classList.remove('unread'); }); }
 function selectCh(id) {
@@ -50,6 +51,7 @@ function selectCh(id) {
   document.getElementById('ch-desc').textContent=ch.desc||'';
   document.getElementById('ch-ico').innerHTML=chIcon(ch.type);
   document.getElementById('msg-in').placeholder=`Message #${ch.name}`;
+  applyComposerPerm();
   document.getElementById('ch-hd').style.display='flex';
   const msgsEl = document.getElementById('msgs');
   if (ch.type==='voice') {
@@ -174,6 +176,7 @@ function showChCtx(e, id) {
     add('✏️ Rename Channel', () => renameCh(id));
     add('📝 Edit Topic', () => editChTopic(id));
   }
+  if (getMyRole(sv) === 'owner' || isPlatformPower()) add('🔒 Who Can Send Messages', () => openChPerms(id));
   add('📋 Copy Channel ID', () => { navigator.clipboard?.writeText(id); toast('📋 Channel ID copied'); });
   if (canManage && (sv.channels||[]).length > 1) { sep(); add('🗑 Delete Channel', () => deleteCh(id), true); }
   document.body.appendChild(ctx);
@@ -243,4 +246,88 @@ function dropServerLocally(id) {
     if (S.servers.length) selectSv(S.servers[0].id); else showWelcome();
   }
   return !!sv;
+}
+
+
+// ══════════════════════════════════
+// WHO CAN SEND MESSAGES IN A CHANNEL
+// ══════════════════════════════════
+// A channel can carry sendRoles (role ids). Empty/absent = everyone. The owner can always send.
+// Role ids match getMyRole(): 'owner' | 'mod' | a custom role id | 'member' (no role).
+// This only drives the UI; the server enforces it too.
+function canSendInChannel(sv, ch) {
+  if (!sv || !ch) return true;
+  const allowed = ch.sendRoles;
+  if (!Array.isArray(allowed) || !allowed.length) return true;
+  if (isPlatformPower()) return true;
+  const mine = getMyRole(sv);
+  return mine === 'owner' || allowed.includes(mine);
+}
+let _composerLocked = false;
+function applyComposerPerm() {
+  const inp = document.getElementById('msg-in'); if (!inp) return;
+  const ch = S.curCh ? ((S.curSv?.channels || []).find(c => c.id === S.curCh.id) || S.curCh) : null;
+  const ok = !ch || canSendInChannel(S.curSv, ch);
+  inp.disabled = !ok;
+  inp.closest('.inp-row')?.classList.toggle('inp-locked', !ok);
+  if (!ok) { inp.value = ''; inp.placeholder = "🔒 You don't have permission to send messages in this channel"; _composerLocked = true; }
+  else if (_composerLocked) { inp.placeholder = ch ? `Message #${ch.name}` : 'Message'; _composerLocked = false; }
+}
+
+// Owner-only dialog: pick which roles may send in a channel
+function openChPerms(id) {
+  const sv = S.curSv; if (!sv) return;
+  if (!(getMyRole(sv) === 'owner' || isPlatformPower())) { toast('Only the server owner can change this'); return; }
+  const ch = (sv.channels || []).find(c => c.id === id); if (!ch) return;
+  document.getElementById('chperm-ov')?.remove();
+  const cur = new Set(Array.isArray(ch.sendRoles) ? ch.sendRoles : []);
+  const restricted = cur.size > 0;
+  const seen = new Set(); const roles = [];
+  [...DEFAULT_ROLES.filter(r => r.id !== 'owner'), ...(sv.roles || [])].forEach(r => {
+    const eff = getEffectiveRole(sv, r.id) || r;
+    if (!seen.has(eff.id)) { seen.add(eff.id); roles.push(eff); }
+  });
+  const row = (rid, name, color, checked, disabled, sub) =>
+    `<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:${disabled?'default':'pointer'};${disabled?'opacity:.6':''}">
+      <input type="checkbox" value="${esc(rid)}" ${checked?'checked':''} ${disabled?'disabled':''}>
+      <span style="width:10px;height:10px;border-radius:50%;background:${esc(color||'#9090a8')};flex-shrink:0"></span>
+      <span style="font-weight:600;font-size:14px">${esc(name)}</span>${sub?`<span style="font-size:12px;color:var(--t3)">${esc(sub)}</span>`:''}</label>`;
+  const rows = row('owner', 'Owner', '#fbbf24', true, true, 'always can')
+    + roles.map(r => row(r.id, r.name, r.color, cur.has(r.id), false, r.id === 'member' ? 'everyone without a role' : '')).join('');
+  const ov = document.createElement('div');
+  ov.className = 'overlay'; ov.id = 'chperm-ov';
+  ov.innerHTML = `<div class="modal">
+    <div class="modal-t">🔒 Who can send messages</div>
+    <div class="modal-s">#${esc(ch.name)} · everyone can still read this channel. The owner can always send.</div>
+    <div class="ct-row">
+      <div class="ct-opt${restricted?'':' sel'}" id="cp-all" onclick="cpMode(false)">Everyone</div>
+      <div class="ct-opt${restricted?' sel':''}" id="cp-sel" onclick="cpMode(true)">Only selected roles</div>
+    </div>
+    <div id="cp-list" style="max-height:260px;overflow-y:auto;margin:6px 0 10px;transition:opacity .15s;${restricted?'':'opacity:.4;pointer-events:none'}">${rows}</div>
+    <div style="font-size:12px;color:var(--t3);margin-bottom:10px">Leave every role unchecked to make this channel read-only for everyone except the owner.</div>
+    <div class="m-row">
+      <button class="btn-g" onclick="closeChPerms()">Cancel</button>
+      <button class="btn-p" onclick="saveChPerms('${esc(id)}')">Save</button>
+    </div></div>`;
+  ov.addEventListener('mousedown', e => { if (e.target === ov) closeChPerms(); });
+  document.body.appendChild(ov);
+  requestAnimationFrame(() => ov.classList.add('open')); // animate in
+}
+function cpMode(selected) {
+  document.getElementById('cp-all')?.classList.toggle('sel', !selected);
+  document.getElementById('cp-sel')?.classList.toggle('sel', selected);
+  const list = document.getElementById('cp-list');
+  if (list) { list.style.opacity = selected ? '1' : '.4'; list.style.pointerEvents = selected ? '' : 'none'; }
+}
+function closeChPerms() {
+  const ov = document.getElementById('chperm-ov'); if (!ov) return;
+  ov.classList.remove('open'); setTimeout(() => ov.remove(), 220); // animate out
+}
+function saveChPerms(id) {
+  const selected = document.getElementById('cp-sel')?.classList.contains('sel');
+  let roles = selected ? [...document.querySelectorAll('#cp-list input:checked:not(:disabled)')].map(i => i.value) : [];
+  if (selected && !roles.length) roles = ['owner']; // read-only: nobody but the owner
+  updateChSettings(id, { sendRoles: roles });
+  closeChPerms();
+  toast(roles.length ? '🔒 Channel permissions updated' : '🔓 Everyone can send messages here');
 }

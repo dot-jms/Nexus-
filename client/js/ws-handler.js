@@ -29,7 +29,7 @@ function handleIn(msg) {
         if (msg.role === 'member') delete sv.memberRoles[msg.target];
         else sv.memberRoles[msg.target] = msg.role;
         persist();
-        if (S.curSv?.id === msg.serverId) { renderMbs(); buildSvDropdown(); }
+        if (S.curSv?.id === msg.serverId) { renderMbs(); buildSvDropdown(); applyComposerPerm(); }
       }
       // Notify the person who got the role
       if (msg.target === S.user.name) {
@@ -158,6 +158,17 @@ function handleIn(msg) {
       toast('⚠️ Session expired — please sign in again');
       signOut(true);
       break;
+    case 'message_rejected': {
+      // the server refused it (e.g. we lost the role that lets us send here): take it back off the screen
+      const arr = S.messages[msg.channelId];
+      if (arr) { const i = arr.findIndex(m => m.id === msg.id); if (i >= 0) arr.splice(i, 1); }
+      persist();
+      if (S.curCh?.id === msg.channelId) renderMsgs(msg.channelId);
+      toast('🔒 ' + (msg.message || "You can't send messages in this channel"));
+      const rsv = S.servers.find(s => s.channels?.some(c => c.id === msg.channelId));
+      if (rsv) wsSend({ type: 'get_server_info', serverId: rsv.id }); // refresh roles/permissions
+      break;
+    }
     case 'server_gone':
       // server refused a create/update/join because that server was deleted
       if (dropServerLocally(msg.serverId)) toast('🗑 That server no longer exists');
@@ -803,6 +814,7 @@ function handleIn(msg) {
         persist();
         renderSvs();
         if (si.shorts) shortsSyncNew();
+        if (S.curSv?.id === sv.id) { renderChs(); applyComposerPerm(); }
         if (S.curSv?.id === sv.id) { renderChs(); document.getElementById('sv-nm').textContent = sv.name; buildSvDropdown(); }
       }
       break;

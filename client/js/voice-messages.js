@@ -6,6 +6,7 @@ let vmStream = null, vmRecorder = null, vmChunks = [], vmTimer = null, vmSeconds
 function startVoiceRec() {
   if (vmRecorder) return;
   if (!S.curCh) { toast('Select a channel first'); return; }
+  if (!canSendInChannel(S.curSv, S.curCh)) { toast("🔒 You don't have permission to send messages in this channel"); return; }
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
     vmStream = stream;
     vmChunks = []; vmSeconds = 0;
