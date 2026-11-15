@@ -166,7 +166,7 @@ setInterval(_retryPending, 4000);
 const _EPHEMERAL_TYPES = new Set([
   'typing','get_history','get_members','get_server_list','get_server_info',
   'identify','join_channel','voice_join','voice_leave','voice_signal',
-  'vcall_signal','status_update','history_request','history_serve',
+  'vcall_signal','status_update','history_request','history_serve','get_profiles',
 ]);
 const _wsQueue = [];
 // Actions that change saved data. If the socket is down when one happens, the UI has already updated
@@ -174,7 +174,7 @@ const _wsQueue = [];
 // wins on the next load ("I deleted it / made it, refreshed, and it was undone"). Those are kept in
 // localStorage (per account) until they've actually been sent.
 const _DURABLE_TYPES = new Set(['server_delete','channel_add','channel_update','channel_remove','server_update',
-  'leave_server','join_server','kick_member','roles_update','role_assign','short_post','short_like','short_comment']);
+  'leave_server','join_server','kick_member','roles_update','role_assign','short_post','short_like','short_comment','profile_update']);
 const _outboxKey = () => 'nx-outbox-' + (S.user?.name || '').toLowerCase();
 function _saveOutbox() {
   if (!S.user) return;

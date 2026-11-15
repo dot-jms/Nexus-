@@ -12,6 +12,18 @@ index 328ba31..ae5d194 100644
 +.inp-row.inp-locked { opacity: .55; transition: opacity var(--fast, .15s) linear; }
 +.inp-row.inp-locked .in-l, .inp-row.inp-locked .in-r { pointer-events: none; }
 +.inp-row.inp-locked textarea { cursor: not-allowed; }
+diff --git a/index.html b/index.html
+index c01f2e5..0a78e61 100644
+--- a/index.html
++++ b/index.html
+@@ -1084,6 +1084,7 @@
+ </div>
+ <!-- ── AUTO-UPDATE SERVICE WORKER ── -->
+ <!-- scripts run last, so every element they touch at boot already exists -->
++<div id="toasts"></div>
+ <script src="js/state.js"></script>
+ <script src="js/auth.js"></script>
+ <script src="js/app.js"></script>
 diff --git a/js/admin.js b/js/admin.js
 index 9f9f3ed..c338ab7 100644
 --- a/js/admin.js
@@ -385,11 +397,43 @@ index 3e55344..bee4758 100644
 +  closeChPerms();
 +  toast(roles.length ? '🔒 Channel permissions updated' : '🔓 Everyone can send messages here');
  }
+diff --git a/js/members.js b/js/members.js
+index e481e3f..3683523 100644
+--- a/js/members.js
++++ b/js/members.js
+@@ -13,8 +13,8 @@ function renderMbs() {
+     if(!members.length) return;
+     html+=`<div class="mb-cat">${title} — ${members.length}</div>`;
+     members.forEach(m=>{
+-      const avContent=m.pfp?`<img src="${m.pfp}" alt="">`:`${m.name[0].toUpperCase()}`;
+-      const avBg=m.pfp?'transparent':(m.color||COLORS[hash(m.name)%COLORS.length]);
++      const avContent=safeUrl(m.pfp)?`<img src="${safeUrl(m.pfp)}" alt="">`:`${m.name[0].toUpperCase()}`;
++      const avBg=safeUrl(m.pfp)?'transparent':(m.color||COLORS[hash(m.name)%COLORS.length]);
+       const badge=roleLabel(sv,m.name);
+       const myRole=getMyRole(sv);
+       const canCtx=(myRole==='owner'||myRole==='mod')&&m.name!==S.user.name;
 diff --git a/js/messages.js b/js/messages.js
-index 20e798d..312d3d1 100644
+index 20e798d..e9cb101 100644
 --- a/js/messages.js
 +++ b/js/messages.js
-@@ -88,7 +88,8 @@ function sendMsg() {
+@@ -30,6 +30,7 @@ function buildMsg(m,grp) {
+   // Falls back to the pfp snapshotted at send time, then to initials.
+   let livePfp = isMe ? (S.user.pfp||null) : (profileCache[m.author]?.pfp !== undefined ? profileCache[m.author].pfp : m.authorPfp);
+   livePfp=safeUrl(livePfp);
++  if(!isMe && !profileCache[m.author]?.name) _needProfile(m.author); // fetch their picture/profile once
+   const avInner=livePfp?`<img src="${livePfp}" alt="">`:`<span>${init}</span>`;
+   let atts='';
+   (m.attachments||[]).forEach(a=>{
+@@ -66,7 +67,7 @@ function buildMsg(m,grp) {
+   if((m.reactions||[]).length){ reacts='<div class="m-reacts">'+m.reactions.map(r=>`<div class="react${r.users?.includes(S.user?.name)?' me':''}" onclick="toggleReact('${m.id}','${r.emoji}')">${r.emoji}<span>${r.count}</span></div>`).join('')+'</div>'; }
+   const lead = grp
+     ? `<div class="m-gutter"><span class="m-gtime">${fmtClock(m.ts)}</span></div>`
+-    : `<div class="m-av" style="background:${livePfp?'transparent':ac}" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${avInner}</div>`;
++    : `<div class="m-av" data-author="${esc(m.author)}" style="background:${livePfp?'transparent':ac}" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${avInner}</div>`;
+   return `<div class="msg${grp?' grouped':''}" data-id="${m.id}">
+     ${lead}
+     <div class="m-body">
+@@ -88,7 +89,8 @@ function sendMsg() {
    if(!text&&!S.files.length) return;
    if (editingMsgId) { if(text) commitEdit(text); else cancelEdit(); inp.value=''; inp.style.height='auto'; updSnd(); return; }
    if(!S.curCh){toast('Pick a channel first');return;}
@@ -399,21 +443,137 @@ index 20e798d..312d3d1 100644
    addMsg(msg);
    // Fast path: append single message node instead of full re-render
    appendMsgDOM(msg);
+diff --git a/js/profile-edit.js b/js/profile-edit.js
+index cb9222c..58f827c 100644
+--- a/js/profile-edit.js
++++ b/js/profile-edit.js
+@@ -147,17 +147,22 @@ function saveProfile() {
+   const bio = (document.getElementById('profile-bio-in')?.value||'').slice(0,160);
+   const website = document.getElementById('profile-website-in')?.value.trim()||'';
+   const twitter = document.getElementById('profile-twitter-in')?.value.trim().replace('@','')||'';
+-  S.user.color = selColor; S.user.pfp = newPfp||null;
+-  S.user.bio = bio; S.user.socials = {website, twitter};
+-  lsSet('nx-session', {token:S.token, user:S.user}); persist();
+-  updateUser(); closeM('profile-edit-modal'); toast('✅ Profile updated');
+-  Object.values(S.messages).forEach(arr => {
+-    arr.forEach(m => { if(m.author===S.user.name){m.authorColor=S.user.color;m.authorPfp=S.user.pfp||null;} });
+-  });
+-  Object.values(S.dmMessages).forEach(arr => {
+-    arr.forEach(m => { if(m.author===S.user.name){m.authorColor=S.user.color;m.authorPfp=S.user.pfp||null;} });
+-  });
+-  if (S.curCh) renderMsgs(S.curCh.id);
+-  if (curDM) renderDMMessages(curDM);
+-  wsSend({type:'profile_update', user:S.user.name, color:S.user.color, pfp:S.user.pfp||null, bio, socials:{website,twitter}});
++  const _color = selColor, _pfp = newPfp || null;
++  // Send to the server FIRST. This used to be the very last line, after several redraws, so if any of
++  // them threw, the new picture was never sent: it looked saved, then was gone after a refresh.
++  wsSend({type:'profile_update', user:S.user.name, color:_color, pfp:_pfp, bio, socials:{website,twitter}});
++  try {
++    S.user.color = selColor; S.user.pfp = newPfp||null;
++    S.user.bio = bio; S.user.socials = {website, twitter};
++    lsSet('nx-session', {token:S.token, user:S.user}); persist();
++    updateUser(); closeM('profile-edit-modal'); toast('✅ Profile updated');
++    Object.values(S.messages).forEach(arr => {
++      arr.forEach(m => { if(m.author===S.user.name){m.authorColor=S.user.color;m.authorPfp=S.user.pfp||null;} });
++    });
++    Object.values(S.dmMessages).forEach(arr => {
++      arr.forEach(m => { if(m.author===S.user.name){m.authorColor=S.user.color;m.authorPfp=S.user.pfp||null;} });
++    });
++    refreshAvatars(S.user.name);
++    if (curDM) renderDMMessages(curDM);
++  } catch (e) { console.error('[nexus] saveProfile UI error', e); toast('⚠️ Saved, but the screen failed to update: ' + e.message); }
+ }
 diff --git a/js/profile-page.js b/js/profile-page.js
-index 478fce9..b79a086 100644
+index 478fce9..077b97d 100644
 --- a/js/profile-page.js
 +++ b/js/profile-page.js
-@@ -4,7 +4,8 @@
+@@ -3,16 +3,72 @@
+ // ══════════════════════════════════════════════════════════════════
  const profileCache = {}; // username → profile data
  
++let _openProfileName = null;
  function openProfilePage(username) {
 -  const data = profileCache[username] || buildLocalProfile(username);
++  _openProfileName = username;
 +  const cached = profileCache[username];
 +  const data = (cached && cached.name) ? cached : buildLocalProfile(username);
    renderProfilePage(data);
    document.getElementById('profile-page').classList.add('open');
++  // Show what we have instantly, then ask the server for the full, current profile (picture, bio,
++  // "member since"): member lists and live updates don't carry all of it.
++  if (username !== S.user?.name) requestProfileNow(username);
++}
++
++// ── public profiles on demand ──
++// People whose avatar/profile we don't have (authors of old messages, people who left the server, ...) are
++// requested once, in batches, so an avatar no longer depends on which server's member list is loaded.
++const _profileAsked = new Set(), _profilePending = new Set();
++let _profileTimer = null;
++function _needProfile(name) {
++  if (!name || _profileAsked.has(name) || name === S.user?.name) return;
++  _profilePending.add(name);
++  clearTimeout(_profileTimer); _profileTimer = setTimeout(flushProfileRequests, 150);
++}
++function flushProfileRequests() {
++  if (!_profilePending.size || S.ws?.readyState !== 1) return; // retried when the connection (re)identifies
++  const names = [..._profilePending].slice(0, 60);
++  names.forEach(n => { _profilePending.delete(n); _profileAsked.add(n); });
++  wsSend({ type: 'get_profiles', names });
++  if (_profilePending.size) { clearTimeout(_profileTimer); _profileTimer = setTimeout(flushProfileRequests, 150); }
++}
++function requestProfileNow(name) { _profileAsked.delete(name); _profilePending.add(name); flushProfileRequests(); }
++function applyProfiles(list) {
++  let changed = false;
++  (list || []).forEach(p => {
++    if (!p?.name) return;
++    profileCache[p.name] = { ...(profileCache[p.name] || {}), ...p };
++    Object.values(S.members || {}).forEach(arr => {
++      const m = arr.find(x => x.name === p.name);
++      if (m) Object.assign(m, { pfp: p.pfp, color: p.color, bio: p.bio, socials: p.socials, createdAt: p.createdAt });
++    });
++    const dm = S.dms.find(d => d.name === p.name); if (dm) dm.pfp = p.pfp;
++    changed = true;
++  });
++  if (!changed) return;
++  refreshAvatars();
++  if (S.curSv) renderMbs();
++  renderDMs();
++  // an open profile page for one of them now gets the fresh data
++  if (document.getElementById('profile-page')?.classList.contains('open') && _openProfileName) {
++    const d = profileCache[_openProfileName]; if (d?.name) renderProfilePage(d);
++  }
++}
++// Patch avatars already on screen from the cache, in place (a full re-render would jump the scroll position)
++function refreshAvatars(onlyName) {
++  document.querySelectorAll('#msgs .m-av[data-author]').forEach(el => {
++    const a = el.dataset.author; if (onlyName && a !== onlyName) return;
++    const isMe = a === S.user?.name, c = profileCache[a];
++    const pfp = safeUrl(isMe ? (S.user.pfp || null) : (c && c.pfp !== undefined ? c.pfp : null));
++    if (pfp) { el.style.background = 'transparent'; if (!el.querySelector('img') || el.querySelector('img').getAttribute('src') !== pfp) el.innerHTML = `<img src="${pfp}" alt="">`; }
++    else if (isMe || (c && c.pfp === null)) { if (c?.color || isMe) el.style.background = (isMe ? S.user.color : c.color); el.innerHTML = `<span>${esc((a || '?')[0].toUpperCase())}</span>`; }
++  });
  }
-@@ -153,7 +154,7 @@ let _hoverPopup = null;
+ 
+ function buildLocalProfile(username) {
+   // Build from local state: server members, DM contacts, etc.
+   const isSelf = username === S.user?.name;
+-  if (isSelf) return { name: S.user.name, tag: S.user.tag, color: S.user.color, pfp: S.user.pfp, bio: S.user.bio||'', socials: S.user.socials||{}, systemRole: S.user.systemRole, coAdmin: S.user.coAdmin };
++  if (isSelf) return { name: S.user.name, tag: S.user.tag, color: S.user.color, pfp: S.user.pfp, bio: S.user.bio||'', socials: S.user.socials||{}, systemRole: S.user.systemRole, coAdmin: S.user.coAdmin, createdAt: S.user.createdAt };
+   // Check members list
+   for (const svId in S.members) {
+     const m = (S.members[svId]||[]).find(x=>x.name===username);
+@@ -33,8 +89,8 @@ function renderProfilePage(u) {
+   document.getElementById('pp-banner').style.background = `${u.color||'#5865f2'}33`;
+   // Avatar
+   const avEl = document.getElementById('pp-av');
+-  avEl.style.background = u.pfp ? 'transparent' : (u.color||COLORS[0]);
+-  avEl.innerHTML = u.pfp ? `<img src="${u.pfp}" style="width:100%;height:100%;object-fit:cover">` : esc(u.name[0]?.toUpperCase()||'?');
++  avEl.style.background = safeUrl(u.pfp) ? 'transparent' : (u.color||COLORS[0]);
++  avEl.innerHTML = safeUrl(u.pfp) ? `<img src="${safeUrl(u.pfp)}" style="width:100%;height:100%;object-fit:cover">` : esc(u.name[0]?.toUpperCase()||'?');
+   // Edit/admin button area
+   const editBtn = document.getElementById('pp-edit-btn');
+   if (isSelf) {
+@@ -153,7 +209,7 @@ let _hoverPopup = null;
  function showUserHover(username, anchorEl) {
    clearTimeout(_hoverTimer);
    _hoverTimer = setTimeout(() => {
@@ -848,11 +1008,47 @@ index 60b7d6f..a1d5f4e 100644
  
  function shareShort(shortId) {
    const sv = S.servers.find(s => s.id === curShortsServerId); if (!sv) return;
+diff --git a/js/state.js b/js/state.js
+index 7a93080..a7960cf 100644
+--- a/js/state.js
++++ b/js/state.js
+@@ -2,6 +2,9 @@
+ // ║  paste your Railway WS URL here              ║
+ // ╚══════════════════════════════════════════════╝
+ const WS_URL = 'wss://nexus.dot-jms.deno.net';
++// The newest server this client is written for. If the server is older (not redeployed yet), saves for newer
++// features are silently ignored and "disappear" on refresh, so the client warns loudly instead.
++const REQUIRED_SERVER_PROTOCOL = 4;
+ 
+ // ── STATE ──
+ const S = {
 diff --git a/js/ui-helpers.js b/js/ui-helpers.js
-index 5d27398..2c6b519 100644
+index 5d27398..c9fd79f 100644
 --- a/js/ui-helpers.js
 +++ b/js/ui-helpers.js
-@@ -103,7 +103,36 @@ function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36
+@@ -33,8 +33,8 @@ function showHome() {
+   const dmsEl = document.getElementById('home-recent-dms');
+   const recent = [...S.dms].sort((a,b)=>(b.lastTs||0)-(a.lastTs||0)).slice(0,5);
+   dmsEl.innerHTML = recent.length ? recent.map(dm => {
+-    const bg = dm.pfp ? 'transparent' : COLORS[hash(dm.name) % COLORS.length];
+-    const av = dm.pfp ? `<img src="${dm.pfp}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : dm.name[0].toUpperCase();
++    const bg = safeUrl(dm.pfp) ? 'transparent' : COLORS[hash(dm.name) % COLORS.length];
++    const av = safeUrl(dm.pfp) ? `<img src="${safeUrl(dm.pfp)}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : dm.name[0].toUpperCase();
+     return `<div class="home-row" onclick="openOrCreateDM('${dm.name}',null)">
+       <div class="home-row-av" style="background:${bg}">${av}</div>
+       <div style="min-width:0;flex:1"><div style="font-size:13px;font-weight:600">${esc(dm.name)}</div><div style="font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(dm.last||'No messages yet')}</div></div>
+@@ -85,7 +85,9 @@ function updateUser(){
+     adminBtn.remove();
+   }
+ }
+-function toast(msg,type){const c=document.getElementById('toasts'),t=document.createElement('div');t.className='toast'+(type?' '+type:'');const icons={ok:'✓ ',err:'✕ ',warn:'⚠ '};t.textContent=(icons[type]||'')+msg;c.appendChild(t);setTimeout(()=>t.remove(),3200);}
++// The #toasts container was missing from index.html, so every toast() threw a TypeError and aborted whatever
++// function called it (including the saves that came after it). Never rely on the markup being there.
++function toast(msg,type){let c=document.getElementById('toasts');if(!c){c=document.createElement('div');c.id='toasts';document.body.appendChild(c);}const t=document.createElement('div');t.className='toast'+(type?' '+type:'');const icons={ok:'✓ ',err:'✕ ',warn:'⚠ '};t.textContent=(icons[type]||'')+msg;c.appendChild(t);setTimeout(()=>t.remove(),3200);}
+ 
+ // ── FORMATTERS ──
+ function fmtTxt(t){if(!t)return'';return fmtCustomEmoji(esc(t).replace(/@(\w+)/g,'<span class="mention">@$1</span>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>'));}
+@@ -103,7 +105,36 @@ function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36
  function hash(s){let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}return Math.abs(h);}
  
  // ── PERSIST ──
@@ -912,7 +1108,7 @@ index a694d9b..db8f86f 100644
            attachments: [], ts: Date.now(), reactions: [] };
          // Check size — base64 audio should be small but guard against huge recordings
 diff --git a/js/websocket.js b/js/websocket.js
-index 52c7f95..399d9ba 100644
+index 52c7f95..cc82904 100644
 --- a/js/websocket.js
 +++ b/js/websocket.js
 @@ -39,7 +39,9 @@ function connectWS() {
@@ -941,7 +1137,7 @@ index 52c7f95..399d9ba 100644
    'typing','get_history','get_members','get_server_list','get_server_info',
    'identify','join_channel','voice_join','voice_leave','voice_signal',
 -  'vcall_signal','status_update',
-+  'vcall_signal','status_update','history_request','history_serve',
++  'vcall_signal','status_update','history_request','history_serve','get_profiles',
  ]);
  const _wsQueue = [];
 +// Actions that change saved data. If the socket is down when one happens, the UI has already updated
@@ -949,7 +1145,7 @@ index 52c7f95..399d9ba 100644
 +// wins on the next load ("I deleted it / made it, refreshed, and it was undone"). Those are kept in
 +// localStorage (per account) until they've actually been sent.
 +const _DURABLE_TYPES = new Set(['server_delete','channel_add','channel_update','channel_remove','server_update',
-+  'leave_server','join_server','kick_member','roles_update','role_assign','short_post','short_like','short_comment']);
++  'leave_server','join_server','kick_member','roles_update','role_assign','short_post','short_like','short_comment','profile_update']);
 +const _outboxKey = () => 'nx-outbox-' + (S.user?.name || '').toLowerCase();
 +function _saveOutbox() {
 +  if (!S.user) return;
@@ -996,7 +1192,7 @@ index 52c7f95..399d9ba 100644
 +  window.addEventListener('unhandledrejection', e => { console.error('[nexus] unhandled rejection', e.reason); show(e.reason?.message || e.reason); });
 +})();
 diff --git a/js/ws-handler.js b/js/ws-handler.js
-index 39d6738..c19b984 100644
+index 39d6738..0bed7ae 100644
 --- a/js/ws-handler.js
 +++ b/js/ws-handler.js
 @@ -29,7 +29,7 @@ function handleIn(msg) {
@@ -1008,11 +1204,13 @@ index 39d6738..c19b984 100644
        }
        // Notify the person who got the role
        if (msg.target === S.user.name) {
-@@ -45,7 +45,17 @@ function handleIn(msg) {
+@@ -45,12 +45,26 @@ function handleIn(msg) {
        clearTimeout(_identifyTimer); _identifyTimer = null; // ← handshake complete, cancel timeout
        dbg('← identified: backend sent ' + (msg.servers?.length||0) + ' server(s)', (msg.servers?.length ? 'ok' : 'warn'));
        // FIX #9: Flush any messages that were queued while we were offline
++      checkServerProtocol(msg.protocol);
 +      _loadOutbox(); // actions left unsent by a refresh while offline
++      flushProfileRequests(); // profiles we wanted before the connection was up
        setTimeout(_flushWsQueue, 100);
 +      // Reconcile the local cache with the server's truth: deleted servers, and servers this account
 +      // isn't actually a member of, are dropped instead of lingering as dead, un-chattable entries.
@@ -1026,7 +1224,14 @@ index 39d6738..c19b984 100644
        if (msg.user) {
          S.user.systemRole = msg.user.systemRole || S.user.systemRole;
          S.user.coAdmin    = msg.user.coAdmin    ?? S.user.coAdmin;
-@@ -91,12 +101,8 @@ function handleIn(msg) {
+         // pfp is sent separately via user_pfp — don't touch it here
+         S.user.tag        = msg.user.tag        || S.user.tag;
++        S.user.color      = msg.user.color      || S.user.color;
++        S.user.createdAt  = msg.user.createdAt  || S.user.createdAt;
+         S.user.bio        = msg.user.bio        || S.user.bio;
+         S.user.socials    = msg.user.socials    || S.user.socials;
+         lsSet('nx-session', { token: S.token, user: S.user });
+@@ -91,12 +105,8 @@ function handleIn(msg) {
                existing.isOwner = (ss.ownerId||'').toLowerCase() === (S.user.name||'').toLowerCase();
                // Merge persisted pins — server is authoritative, client may have stale cache
                if (ss.pins) existing.pins = { ...(existing.pins||{}), ...ss.pins };
@@ -1041,7 +1246,7 @@ index 39d6738..c19b984 100644
                // Restore custom emoji names — data will be fetched p2p when needed
                if (ss.customEmojiNames?.length) {
                  if (!existing.customEmojis) existing.customEmojis = [];
-@@ -111,7 +117,7 @@ function handleIn(msg) {
+@@ -111,7 +121,7 @@ function handleIn(msg) {
            }
          });
          if (svChanged) {
@@ -1050,7 +1255,7 @@ index 39d6738..c19b984 100644
            S.servers.forEach(sv => wsSend({type:'get_server_info', serverId:sv.id}));
            if (!S.curSv && S.servers.length) selectSv(S.servers[0].id);
          } else if (msg.servers?.length) {
-@@ -132,7 +138,8 @@ function handleIn(msg) {
+@@ -132,7 +142,8 @@ function handleIn(msg) {
          const knownByServer = new Set((msg.servers||[]).map(s=>s.id));
          S.servers.forEach(sv => {
            const iAmOwner = (sv.ownerId||'').toLowerCase() === (S.user?.name||'').toLowerCase() || sv.isOwner === true;
@@ -1060,12 +1265,15 @@ index 39d6738..c19b984 100644
              console.log('[nexus] owned server missing from backend — re-registering:', sv.id, sv.name);
              dbg('⚠ owned server not in backend, re-registering: "' + sv.name + '"', 'warn');
              const reCreateMsg = {type:'server_create', serverId:sv.id, name:sv.name,
-@@ -149,7 +156,35 @@ function handleIn(msg) {
+@@ -149,7 +160,38 @@ function handleIn(msg) {
      case 'auth_required':
        dbg('✕ auth_required — session expired', 'err');
        toast('⚠️ Session expired — please sign in again');
 -      signOut();
 +      signOut(true);
++      break;
++    case 'profiles':
++      applyProfiles(msg.profiles);
 +      break;
 +    case 'message_rejected': {
 +      // the server refused it (e.g. we lost the role that lets us send here): take it back off the screen
@@ -1097,7 +1305,7 @@ index 39d6738..c19b984 100644
        break;
      case 'server_create_ok':
        _pendingServerCreates.delete(msg.serverId);
-@@ -314,7 +349,8 @@ function handleIn(msg) {
+@@ -314,7 +356,8 @@ function handleIn(msg) {
        const acSv = S.servers.find(sv => sv.id === msg.serverId);
        if (acSv) {
          if (!acSv.channels) acSv.channels = [];
@@ -1107,7 +1315,7 @@ index 39d6738..c19b984 100644
          persist();
          if (S.curSv?.id === msg.serverId) { S.curSv.channels = acSv.channels; renderChs(); }
        }
-@@ -342,6 +378,7 @@ function handleIn(msg) {
+@@ -342,6 +385,7 @@ function handleIn(msg) {
        break;
      }
  
@@ -1115,7 +1323,7 @@ index 39d6738..c19b984 100644
      case 'server_channel_deleted': {
        const dcSv = S.servers.find(sv => sv.id === msg.serverId);
        if (dcSv && dcSv.channels) {
-@@ -670,6 +707,13 @@ function handleIn(msg) {
+@@ -670,6 +714,13 @@ function handleIn(msg) {
        break;
      case 'member_list':
        S.members[msg.serverId]=msg.members||[];
@@ -1125,11 +1333,11 @@ index 39d6738..c19b984 100644
 +        if (!m?.name || m.name === S.user?.name) return;
 +        profileCache[m.name] = { ...(profileCache[m.name] || {}), ...m, name: m.name };
 +      });
-+      if (S.curSv?.id === msg.serverId && S.curCh) renderMsgs(S.curCh.id);
++      refreshAvatars(); // patch avatars in place (a full re-render would jump the scroll position)
        // Always sync memberCount from actual member list — includes offline members
        { const mlSv = S.servers.find(s => s.id === msg.serverId);
          if (mlSv) { mlSv.memberCount = (msg.members||[]).length; persist(); renderDiscover(); } }
-@@ -703,6 +747,7 @@ function handleIn(msg) {
+@@ -703,6 +754,7 @@ function handleIn(msg) {
          S.messages[msg.channelId].sort((a,b) => a.ts - b.ts);
          persist();
          if (S.curCh?.id === msg.channelId) renderMsgs(msg.channelId);
@@ -1137,7 +1345,7 @@ index 39d6738..c19b984 100644
        }
        break;
      }
-@@ -739,6 +784,7 @@ function handleIn(msg) {
+@@ -739,6 +791,7 @@ function handleIn(msg) {
        } else if (S.curCh?.id === vsChId) {
          renderMsgs(vsChId);
        }
@@ -1145,7 +1353,7 @@ index 39d6738..c19b984 100644
        break;
      }
      case 'server_info': {
-@@ -760,10 +806,15 @@ function handleIn(msg) {
+@@ -760,10 +813,15 @@ function handleIn(msg) {
          if (si.roles !== undefined)        sv.roles       = si.roles;
          if (si.memberRoles !== undefined)  sv.memberRoles = si.memberRoles;
          if (si.banner !== undefined)       sv.banner      = si.banner;
@@ -1161,7 +1369,7 @@ index 39d6738..c19b984 100644
          if (S.curSv?.id === sv.id) { renderChs(); document.getElementById('sv-nm').textContent = sv.name; buildSvDropdown(); }
        }
        break;
-@@ -870,17 +921,21 @@ function handleIn(msg) {
+@@ -870,17 +928,21 @@ function handleIn(msg) {
        break;
      case 'short_post': {
        const sv = S.servers.find(s => s.id === msg.serverId);
@@ -1186,7 +1394,25 @@ index 39d6738..c19b984 100644
        break;
      }
      case 'custom_emoji_add': {
-@@ -1091,6 +1146,8 @@ function handleIn(msg) {
+@@ -929,7 +991,7 @@ function handleIn(msg) {
+     case 'profile_update': {
+       const updUser = msg.user;
+       // Update profileCache first
+-      if (!profileCache[updUser]) profileCache[updUser] = {};
++      if (!profileCache[updUser]) profileCache[updUser] = { name: updUser };
+       if (msg.color) profileCache[updUser].color = msg.color;
+       if (msg.pfp !== undefined) profileCache[updUser].pfp = msg.pfp;
+       if (msg.bio !== undefined) profileCache[updUser].bio = msg.bio;
+@@ -978,7 +1040,7 @@ function handleIn(msg) {
+       });
+       persist();
+       if (S.curSv) renderMbs();
+-      if (S.curCh) renderMsgs(S.curCh.id);
++      refreshAvatars(updUser);
+       if (curDM && (curDM === updUser || S.dmMessages[curDM]?.some(m => m.author === updUser))) renderDMMessages(curDM);
+       break;
+     }
+@@ -1091,6 +1153,8 @@ function handleIn(msg) {
      }
      case 'error':
        toast('⚠️ ' + (msg.message || 'Server error'));
@@ -1195,3 +1421,20 @@ index 39d6738..c19b984 100644
        // Password change error — show in form
        if (msg.context === 'change_password') {
          const errEl = document.getElementById('chpw-err');
+@@ -1187,3 +1251,16 @@ function handleIn(msg) {
+ function setWS(s){ document.getElementById('ws-dot').className='ws-dot '+s; document.getElementById('ws-txt').textContent=s; }
+ function setBanner(t){ const b=document.getElementById('banner'); b.textContent=t; b.classList.add('show'); }
+ function hideBanner(){ document.getElementById('banner').classList.remove('show'); }
++
++
++// A server that hasn't been redeployed ignores newer messages (e.g. channel permissions, profile fields); the
++// change looks applied on screen and is gone after a refresh. Make that obvious.
++function checkServerProtocol(p) {
++  document.getElementById('proto-warn')?.remove();
++  if (typeof p === 'number' && p >= REQUIRED_SERVER_PROTOCOL) return;
++  const bar = document.createElement('div');
++  bar.id = 'proto-warn';
++  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#b45309;color:#fff;padding:9px 14px;font:600 13px system-ui,sans-serif;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.4)';
++  bar.innerHTML = `⚠️ The Nexus <b>server is out of date</b> (it reports ${typeof p === 'number' ? 'v' + p : 'no version'}, this client needs v${REQUIRED_SERVER_PROTOCOL}). Redeploy the latest <code>main.ts</code> or some changes won't be saved. <span style="cursor:pointer;margin-left:12px;opacity:.8" onclick="this.parentNode.remove()">✕</span>`;
++  document.body.appendChild(bar);
++}

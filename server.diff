@@ -1,8 +1,19 @@
 diff --git a/main.ts b/main.ts
-index 20da523..b2cf1b0 100644
+index 20da523..38291c1 100644
 --- a/main.ts
 +++ b/main.ts
-@@ -107,6 +107,20 @@ function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+@@ -10,6 +10,10 @@
+ // changes every cold start and triggers spurious client reloads on Deno Deploy free tier.
+ const DEPLOY_VERSION = "v1";
+ console.log(`[nexus] deploy version: ${DEPLOY_VERSION}`);
++// Bumped whenever the client and server must change together. The client compares this on every connect and
++// warns if the server it talks to is older than it needs (a stale deploy looks fine until you refresh).
++const PROTOCOL = 4;
++console.log(`[nexus] server protocol v${PROTOCOL}`);
+ 
+ // ─── KV setup ───────────────────────────────────────────────────────────────
+ const kv = await Deno.openKv();
+@@ -107,6 +111,20 @@ function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
    next.finally(() => { if (_locks.get(key) === next) _locks.delete(key); }).catch(() => {});
    return next;
  }
@@ -23,7 +34,7 @@ index 20da523..b2cf1b0 100644
  // Login throttle: 8 failures / 5 min per username
  const loginFails = new Map<string, { n: number; t: number }>();
  
-@@ -206,23 +220,221 @@ function isBanned(username: string): boolean {
+@@ -206,23 +224,262 @@ function isBanned(username: string): boolean {
  
  // ─── FIX: Helper to add a server to a user's membership index ───────────────
  // Always uses lowercase username as the KV key to avoid case mismatches.
@@ -134,6 +145,28 @@ index 20da523..b2cf1b0 100644
 +  }
 +  // Keep every connected client's in-memory membership in sync
 +  for (const [, ci] of clients) (ci.serverIds as Set<string> | undefined)?.delete(serverId);
++}
++
++// ─── Profile pictures / public profile ──────────────────────────────────────
++// A picture is stored in the account record (which must fit one 64 KiB KV value) and later placed straight
++// into <img src="..."> on every client, so only real, size-limited images are accepted.
++const PFP_MAX_CHARS = 60_000;
++function validPfp(v: unknown): v is string {
++  return typeof v === "string" && v.length <= PFP_MAX_CHARS && /^data:image\/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(v);
++}
++function safePfp(v: unknown): string | null { return validPfp(v) ? v : null; }
++function cleanSocials(v: unknown, fallback: unknown): Record<string, string> {
++  const src = (v && typeof v === "object" ? v : (fallback && typeof fallback === "object" ? fallback : {})) as Record<string, unknown>;
++  const ok = (s: unknown) => typeof s === "string" && s.length <= 100 && /^[^\s"'<>]*$/.test(s) && !/^(?:javascript|data|vbscript):/i.test(s) ? s : "";
++  return { website: ok(src.website), twitter: ok(src.twitter) };
++}
++// The only account fields other people may see. One shape, used everywhere, always from the saved account.
++function profileOf(a: Record<string, unknown>): Record<string, unknown> {
++  return {
++    name: a.name, tag: a.tag, color: a.color, pfp: safePfp(a.pfp), bio: typeof a.bio === "string" ? a.bio : "",
++    socials: cleanSocials(a.socials, null), createdAt: a.createdAt || null,
++    systemRole: a.systemRole, coAdmin: a.coAdmin,
++  };
 +}
 +
 +// ─── Shorts ─────────────────────────────────────────────────────────────────
@@ -254,10 +287,29 @@ index 20da523..b2cf1b0 100644
 +  const builtinMod = ["manage_messages", "kick_members", "pin_messages", "invite_members"];
 +  const perms = overrides[roleId]?.perms ?? custom?.perms ?? (roleId === "mod" ? builtinMod : []);
 +  return perms.includes("*") || perms.includes(perm);
++}
++
++// ─── Backfill "member since" for accounts created before createdAt was stored ───────────────────────
++{
++  const earliest = new Map<string, number>();
++  const note = (who: string, t: number) => { if (who && t > 0 && (!earliest.has(who) || t < earliest.get(who)!)) earliest.set(who, t); };
++  for await (const item of kv.list<Record<string, unknown>>({ prefix: ["server_member"] })) note(String(item.key[2]).toLowerCase(), Number(item.value?.joinedAt) || 0);
++  for await (const item of kv.list<Record<string, unknown>>({ prefix: ["servers"] })) {
++    const owner = ((item.value?.ownerIdLower as string) || ((item.value?.ownerId as string) || "")).toLowerCase();
++    note(owner, Number(item.value?.createdAt) || 0);
++  }
++  let filled = 0;
++  for await (const item of kv.list<Record<string, unknown>>({ prefix: ["accounts"] })) {
++    const a = item.value;
++    if (!a || a.createdAt) continue;
++    const est = earliest.get(String(a.name || "").toLowerCase());
++    if (est && await safeKvSet(item.key, { ...a, createdAt: est, createdAtEstimated: true })) filled++;
++  }
++  if (filled) console.log(`[startup] backfilled createdAt for ${filled} older account(s) (earliest known activity)`);
  }
  
  // ─── Load persisted servers into memory on startup ──────────────────────────
-@@ -239,11 +451,30 @@ async function removeServerFromUser(username: string, serverId: string) {
+@@ -239,11 +496,30 @@ async function removeServerFromUser(username: string, serverId: string) {
    for await (const item of allIter) allKeys.push(JSON.stringify(item.key));
    console.log(`[startup] KV keys (${allKeys.length} total): ${allKeys.slice(0, 20).join(", ")}`);
  
@@ -289,7 +341,7 @@ index 20da523..b2cf1b0 100644
  
    // FIX #3: Restore persisted bans. Expired ones are cleaned up here so they
    // don't accumulate in KV indefinitely.
-@@ -334,7 +565,13 @@ Deno.serve((req) => {
+@@ -334,7 +610,13 @@ Deno.serve((req) => {
      let msg: Record<string, unknown>;
      try { msg = JSON.parse(e.data as string); } catch { return; }
      try {
@@ -304,7 +356,52 @@ index 20da523..b2cf1b0 100644
      } catch (err) {
        console.error(`[onmessage] unhandled error type=${msg.type}:`, err);
      }
-@@ -469,6 +706,10 @@ Deno.serve((req) => {
+@@ -368,7 +650,7 @@ Deno.serve((req) => {
+         name: username,
+         tag,
+         color: msg.color || "#6c63ff",
+-        pfp: msg.pfp || null,
++        pfp: safePfp(msg.pfp),
+         passwordHash: await hashPw(password),
+         systemRole: "user",
+         coAdmin: false,
+@@ -380,7 +662,7 @@ Deno.serve((req) => {
+       // FIX #7: Sessions expire after 30 days
+       await kv.set(["sessions", token], username.toLowerCase(), { expireIn: 30 * 24 * 60 * 60 * 1000 });
+       console.log(`Registered: ${username}`);
+-      ws.send(JSON.stringify({ type: "auth_ok", token, user: { name: acct.name, tag: acct.tag, color: acct.color, pfp: acct.pfp, systemRole: acct.systemRole, coAdmin: false } }));
++      ws.send(JSON.stringify({ type: "auth_ok", token, user: { name: acct.name, tag: acct.tag, color: acct.color, pfp: safePfp(acct.pfp), createdAt: acct.createdAt || null, systemRole: acct.systemRole, coAdmin: false } }));
+       return;
+     }
+ 
+@@ -426,7 +708,7 @@ Deno.serve((req) => {
+       const firstLogin = !acct.hasLoggedIn;
+       if (!acct.hasLoggedIn) await kv.set(key, { ...acct, hasLoggedIn: true, lastToken: token });
+       else await kv.set(key, { ...acct, lastToken: token });
+-      ws.send(JSON.stringify({ type: "auth_ok", token, firstLogin: !!firstLogin, user: { name: acct.name, tag: acct.tag, color: acct.color, pfp: acct.pfp, systemRole: acct.systemRole, coAdmin: acct.coAdmin || false } }));
++      ws.send(JSON.stringify({ type: "auth_ok", token, firstLogin: !!firstLogin, user: { name: acct.name, tag: acct.tag, color: acct.color, pfp: safePfp(acct.pfp), createdAt: acct.createdAt || null, systemRole: acct.systemRole, coAdmin: acct.coAdmin || false } }));
+       return;
+     }
+ 
+@@ -442,7 +724,7 @@ Deno.serve((req) => {
+       const password = msg.password as string || "";
+       const tag = msg.tag as string || "0000";
+       const color = msg.color as string || "#6c63ff";
+-      const pfp = msg.pfp || null;
++      const pfp = safePfp(msg.pfp);
+       if (!username || !password || password.length < 4) {
+         ws.send(JSON.stringify({ type: "auth_error", message: "Username and password (min 4 chars) required." })); return;
+       }
+@@ -457,7 +739,7 @@ Deno.serve((req) => {
+       sessions.set(token, username.toLowerCase());
+       // FIX #7: Sessions expire after 30 days
+       await kv.set(["sessions", token], username.toLowerCase(), { expireIn: 30 * 24 * 60 * 60 * 1000 });
+-      ws.send(JSON.stringify({ type: "auth_ok", token, user: { name: acct.name, tag: acct.tag, color: acct.color, pfp: acct.pfp, systemRole: "user", coAdmin: false }, migrated: true }));
++      ws.send(JSON.stringify({ type: "auth_ok", token, user: { name: acct.name, tag: acct.tag, color: acct.color, pfp: safePfp(acct.pfp), createdAt: acct.createdAt || null, systemRole: "user", coAdmin: false }, migrated: true }));
+       return;
+     }
+ 
+@@ -469,6 +751,10 @@ Deno.serve((req) => {
        return;
      }
  
@@ -315,7 +412,29 @@ index 20da523..b2cf1b0 100644
      // ── auth_change_password — allowed before full identify ───────────────
      if (msg.type === "auth_change_password") {
        const oldPassword = msg.oldPassword as string || "";
-@@ -580,24 +821,40 @@ Deno.serve((req) => {
+@@ -514,8 +800,8 @@ Deno.serve((req) => {
+       clients.set(ws, {
+         name: tokenUser,
+         tag: "0000",
+-        color: msg.color || "#6c63ff",
+-        pfp: msg.pfp || null,
++        color: "#6c63ff",
++        pfp: null,
+         token: msg.token,
+         systemRole: "user",
+         coAdmin: false,
+@@ -529,8 +815,8 @@ Deno.serve((req) => {
+       clients.set(ws, {
+         name,
+         tag: acct?.tag || "0000",
+-        color: msg.color || acct?.color || "#6c63ff",
+-        pfp: msg.pfp || acct?.pfp || null,
++        color: acct?.color || "#6c63ff", // from the saved account; whatever the client claims is ignored
++        pfp: safePfp(acct?.pfp),
+         token: msg.token,
+         systemRole: acct?.systemRole || "user",
+         coAdmin: acct?.coAdmin || false,
+@@ -580,24 +866,40 @@ Deno.serve((req) => {
            }
          }
          if (recovered.length) {
@@ -359,7 +478,7 @@ index 20da523..b2cf1b0 100644
          if (svEntry.value) {
            const sv = svEntry.value;
            // Load pins for all channels in this server
-@@ -627,6 +884,25 @@ Deno.serve((req) => {
+@@ -627,11 +929,30 @@ Deno.serve((req) => {
        }
        console.log(`[identify] sending ${userServers.length} servers to ${name}`);
  
@@ -385,16 +504,42 @@ index 20da523..b2cf1b0 100644
        const friendsRaw = ((await kv.get<unknown[]>(["friends", tokenUser])).value || []) as Record<string, unknown>[];
        // Enrich friends with current pfp from their account records
        const friendsList = await Promise.all(friendsRaw.map(async f => {
-@@ -652,6 +928,8 @@ Deno.serve((req) => {
-             socials: acct?.socials || {}
+         const fAcct = await kv.get<Record<string, unknown>>(["accounts", (f.name as string || "").toLowerCase()]);
+-        return { ...f, pfp: fAcct.value?.pfp || f.pfp || null, color: fAcct.value?.color || f.color || null };
++        return { ...f, pfp: safePfp(fAcct.value?.pfp) || safePfp(f.pfp), color: fAcct.value?.color || f.color || null };
+       }));
+       const pendingReqs: unknown[] = [];
+       const reqIter = kv.list({ prefix: ["friend_requests", tokenUser] });
+@@ -649,13 +970,17 @@ Deno.serve((req) => {
+             systemRole: acct?.systemRole || "user",
+             coAdmin: acct?.coAdmin || false,
+             bio: acct?.bio || "",
+-            socials: acct?.socials || {}
++            socials: acct?.socials || {},
++            createdAt: acct?.createdAt || null,
            },
            servers: userServers,
++          protocol: PROTOCOL,
 +          removedServerIds,
 +          missingServerIds,
          }));
          // Always send pfp state: send null explicitly if the user has none,
          // so the client can clear a stale cached pfp after an admin wipe.
-@@ -824,19 +1102,7 @@ Deno.serve((req) => {
+-        ws.send(JSON.stringify({ type: "user_pfp", pfp: acct?.pfp || null }));
++        ws.send(JSON.stringify({ type: "user_pfp", pfp: safePfp(acct?.pfp) }));
+         if ((friendsList as unknown[]).length || (pendingReqs as unknown[]).length) {
+           ws.send(JSON.stringify({ type: "friends_data", friends: friendsList, friendRequests: pendingReqs }));
+         }
+@@ -689,7 +1014,7 @@ Deno.serve((req) => {
+               name: displayName,
+               lastTs: (last?._stored as number || last?.ts as number || 0),
+               last: (last?.text as string || (Array.isArray((last as Record<string,unknown>)?.attachments) ? "[attachment]" : "")),
+-              pfp: (otherAcct.value?.pfp as string | null) ?? null,
++              pfp: safePfp(otherAcct.value?.pfp),
+             });
+           }
+           if (dmContactsMap.size > 0) {
+@@ -824,19 +1149,7 @@ Deno.serve((req) => {
      if (msg.type === "admin_delete_server") {
        if (!isPowerUser) { ws.send(JSON.stringify({ type: "error", message: "No permission." })); return; }
        const adminDelId = msg.serverId as string;
@@ -415,7 +560,62 @@ index 20da523..b2cf1b0 100644
        broadcast({ type: "server_delete", serverId: adminDelId, by: senderName });
        ws.send(JSON.stringify({ type: "success", message: "Server deleted." }));
        return;
-@@ -889,6 +1155,14 @@ Deno.serve((req) => {
+@@ -845,27 +1158,37 @@ Deno.serve((req) => {
+     if (msg.type === "profile_update") {
+       const key = ["accounts", senderName.toLowerCase()];
+       const entry = await kv.get<Record<string, unknown>>(key);
+-      // BUG 10 FIX: Validate color is a proper hex string before storing.
+-      // An unvalidated raw string could be stored and rendered directly in CSS, 
+-      // allowing style injection. Reject anything that isn't a valid 3 or 6-digit hex color.
++      if (!entry.value) return;
++      // Validate color: it ends up in CSS, so only a proper hex string is stored.
+       const rawColor = msg.color as string || "";
+       const safeColor = /^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/.test(rawColor)
+         ? rawColor
+-        : (entry.value?.color as string || "#6c63ff");
+-      const safeBio = (msg.bio as string ?? (entry.value?.bio as string) ?? "").slice(0, 160);
+-      if (entry.value) {
+-        await kv.set(key, { ...entry.value, color: safeColor, pfp: msg.pfp !== undefined ? msg.pfp : entry.value.pfp, bio: safeBio, socials: msg.socials ?? entry.value.socials });
+-      }
+-      if (info) {
+-        (info as Record<string, unknown>).color = safeColor;
+-        (info as Record<string, unknown>).pfp = msg.pfp;
+-        (info as Record<string, unknown>).bio = safeBio;
+-      }
+-      // Broadcast to all OTHER clients (they need to update their caches/renders)
+-      broadcast({ ...msg, color: safeColor, bio: safeBio }, ws);
+-      // Also confirm back to sender with the authoritative values (color may have been sanitized)
++        : (entry.value.color as string || "#6c63ff");
++      const safeBio = (typeof msg.bio === "string" ? msg.bio : (entry.value.bio as string) ?? "").slice(0, 160);
++      const socials = cleanSocials(msg.socials, entry.value.socials);
++      // The picture is only touched when the message actually carries one. null removes it; anything that
++      // isn't a real, small image is refused (and the old one is kept) instead of being half-saved.
++      let newPfp: string | null = safePfp(entry.value.pfp);
++      if ("pfp" in msg) {
++        if (msg.pfp === null) newPfp = null;
++        else if (validPfp(msg.pfp)) newPfp = msg.pfp;
++        else ws.send(JSON.stringify({ type: "error", message: "That picture couldn't be saved. Use a JPEG, PNG, WebP or GIF under about 45 KB." }));
++      }
++      const updatedAcct = { ...entry.value, color: safeColor, pfp: newPfp, bio: safeBio, socials };
++      if (!(await safeKvSet(key, updatedAcct))) {
++        ws.send(JSON.stringify({ type: "error", message: "Couldn't save your profile. Try a smaller picture." }));
++        return;
++      }
++      // Every open tab of this user now reflects the saved profile
++      for (const [, ci] of clients) {
++        if ((ci.name as string)?.toLowerCase() === senderName.toLowerCase()) { ci.color = safeColor; ci.pfp = newPfp; ci.bio = safeBio; }
++      }
++      // Tell everyone else. Built from what was SAVED and from the logged-in name, never from the raw message:
++      // before, `user` was whatever the client typed, so anyone could overwrite another person's profile on
++      // everybody's screen.
++      broadcast({ type: "profile_update", user: entry.value.name, color: safeColor, pfp: newPfp, bio: safeBio, socials }, ws);
+       if (ws.readyState === WebSocket.OPEN) {
+-        ws.send(JSON.stringify({ type: "profile_update_confirm", color: safeColor, pfp: msg.pfp ?? null, bio: safeBio, socials: msg.socials ?? {} }));
++        ws.send(JSON.stringify({ type: "profile_update_confirm", color: safeColor, pfp: newPfp, bio: safeBio, socials }));
+       }
+       return;
+     }
+@@ -889,6 +1212,14 @@ Deno.serve((req) => {
            ws.send(JSON.stringify({ type: "error", message: `Your account is frozen: ${freeze.reason}` }));
            break;
          }
@@ -430,7 +630,7 @@ index 20da523..b2cf1b0 100644
          // Slowmode check
          const slowSecs = slowmodes.get(msg.channelId as string) || 0;
          if (slowSecs > 0 && !isPowerUser) {
-@@ -903,33 +1177,22 @@ Deno.serve((req) => {
+@@ -903,33 +1234,22 @@ Deno.serve((req) => {
            slowmodeLastPost.set(slowKey, Date.now());
          }
          const chKey = ["ch_history", msg.channelId as string];
@@ -478,7 +678,7 @@ index 20da523..b2cf1b0 100644
          broadcast(msg, ws);
          break;
        }
-@@ -946,6 +1209,72 @@ Deno.serve((req) => {
+@@ -946,6 +1266,72 @@ Deno.serve((req) => {
          break;
        }
  
@@ -551,7 +751,7 @@ index 20da523..b2cf1b0 100644
        case "ping":
          // Keepalive — reply immediately so client knows connection is alive
          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "pong", ts: msg.ts }));
-@@ -954,11 +1283,37 @@ Deno.serve((req) => {
+@@ -954,11 +1340,37 @@ Deno.serve((req) => {
        case "typing":
        case "member_join":
        case "member_leave":
@@ -590,7 +790,7 @@ index 20da523..b2cf1b0 100644
        case "pin_message": {
          // Persist to KV so pins survive cache clears
          const pinSvId = msg.serverId as string;
-@@ -997,12 +1352,26 @@ Deno.serve((req) => {
+@@ -997,12 +1409,26 @@ Deno.serve((req) => {
          if (!caSvId || !caCh?.id || !caCh?.name) break;
          const caEntry = await kv.get<Record<string, unknown>>(["servers", caSvId]);
          if (!caEntry.value) break;
@@ -621,7 +821,7 @@ index 20da523..b2cf1b0 100644
          if (publicServers.has(caSvId)) publicServers.set(caSvId, caUpdated);
          broadcastToServer(caSvId, { type: "server_channel_added", serverId: caSvId, channel: caCh, by: senderName }, null);
          break;
-@@ -1016,24 +1385,35 @@ Deno.serve((req) => {
+@@ -1016,24 +1442,35 @@ Deno.serve((req) => {
          if (!cuSvId || !cuChId || !cuChanges) break;
          const cuEntry = await kv.get<Record<string, unknown>>(["servers", cuSvId]);
          if (!cuEntry.value) break;
@@ -669,7 +869,7 @@ index 20da523..b2cf1b0 100644
          break;
        }
  
-@@ -1044,14 +1424,24 @@ Deno.serve((req) => {
+@@ -1044,14 +1481,24 @@ Deno.serve((req) => {
          if (!crSvId || !crChId) break;
          const crEntry = await kv.get<Record<string, unknown>>(["servers", crSvId]);
          if (!crEntry.value) break;
@@ -698,7 +898,7 @@ index 20da523..b2cf1b0 100644
          broadcastToServer(crSvId, { type: "server_channel_removed", serverId: crSvId, channelId: crChId, by: senderName }, null);
          break;
        }
-@@ -1179,8 +1569,13 @@ Deno.serve((req) => {
+@@ -1179,8 +1626,13 @@ Deno.serve((req) => {
            const stored = ruEntry.value;
            const storedOwnerLower = (stored.ownerIdLower as string || (stored.ownerId as string || "").toLowerCase());
            if (storedOwnerLower === senderName.toLowerCase() || isAdmin || isCoAdmin) {
@@ -714,7 +914,7 @@ index 20da523..b2cf1b0 100644
            }
          }
          broadcast(msg, ws);
-@@ -1201,6 +1596,9 @@ Deno.serve((req) => {
+@@ -1201,6 +1653,9 @@ Deno.serve((req) => {
              break;
            }
            const memberRoles = (stored.memberRoles as Record<string,string> || {});
@@ -724,7 +924,7 @@ index 20da523..b2cf1b0 100644
            if (msg.role === 'member' || !msg.role) {
              delete memberRoles[msg.target as string];
            } else {
-@@ -1374,6 +1772,30 @@ Deno.serve((req) => {
+@@ -1374,6 +1829,30 @@ Deno.serve((req) => {
  
        case "server_create": {
          console.log(`[server_create] RECEIVED from ${senderName} id=${msg.serverId} name=${msg.name}`);
@@ -755,7 +955,7 @@ index 20da523..b2cf1b0 100644
          // FIX: store ownerId as the canonical display name from the account record,
          // but guarantee it's always findable via case-insensitive lookup.
          // senderName comes from acct.name (display name), which is fine for display.
-@@ -1386,8 +1808,11 @@ Deno.serve((req) => {
+@@ -1386,8 +1865,11 @@ Deno.serve((req) => {
            ownerIdLower: senderName.toLowerCase(), // FIX: add lowercased copy for reliable matching
            isPublic: msg.isPublic !== false,
          };
@@ -768,7 +968,7 @@ index 20da523..b2cf1b0 100644
  
          // Verify it actually wrote
          const verifyWrite = await kv.get(["servers", msg.serverId as string]);
-@@ -1395,6 +1820,7 @@ Deno.serve((req) => {
+@@ -1395,6 +1877,7 @@ Deno.serve((req) => {
  
          await kv.set(["server_member", msg.serverId as string, senderName], { joinedAt: Date.now() });
          await addServerToUser(senderName, msg.serverId as string);
@@ -776,29 +976,87 @@ index 20da523..b2cf1b0 100644
  
          // Verify user_servers index
          const verifyIndex = await kv.get(["user_servers", senderName.toLowerCase()]);
-@@ -1417,7 +1843,10 @@ Deno.serve((req) => {
+@@ -1417,49 +1900,39 @@ Deno.serve((req) => {
  
        case "server_update": {
          const sid = msg.serverId as string;
 +        if (await isTombstoned(sid)) { ws.send(JSON.stringify({ type: "server_gone", serverId: sid })); break; }
++        // Always start from the stored record. This handler used to merge the message onto the IN-MEMORY copy
++        // (per server instance, easily stale) and write that back, so a stale copy silently reverted channels,
++        // roles and permissions that had been saved since. server_update edits a server; it never creates one.
          const existing = await kv.get<Record<string, unknown>>(["servers", sid]);
-+        // server_update edits a server, it never creates one (server_create does that).
-+        if (!existing.value && !publicServers.has(sid)) break;
-         // FIX: Guard - only owner or admin can update a server
-         const svForCheck = existing.value || publicServers.get(sid);
-         if (svForCheck) {
-@@ -1432,6 +1861,10 @@ Deno.serve((req) => {
-         const safeMsg = { ...msg as Record<string, unknown> };
-         delete safeMsg.ownerId;
-         delete safeMsg.ownerIdLower;
-+        if (typeof safeMsg.icon === "string" && byteLen(safeMsg.icon) > 45_000) {
-+          delete safeMsg.icon;
-+          ws.send(JSON.stringify({ type: "error", message: "That server icon is too large to save. Pick a smaller image." }));
+-        // FIX: Guard - only owner or admin can update a server
+-        const svForCheck = existing.value || publicServers.get(sid);
+-        if (svForCheck) {
+-          const storedOwnerLower = (svForCheck.ownerIdLower as string || (svForCheck.ownerId as string || "").toLowerCase());
+-          if (storedOwnerLower !== senderName.toLowerCase() && !isAdmin && !isCoAdmin) {
+-            console.log(`[server_update] BLOCKED: ${senderName} tried to update server ${sid} owned by ${svForCheck.ownerId}`);
+-            break;
+-          }
++        if (!existing.value) break;
++        const storedOwnerLower = (existing.value.ownerIdLower as string || (existing.value.ownerId as string || "").toLowerCase());
++        if (storedOwnerLower !== senderName.toLowerCase() && !isAdmin && !isCoAdmin) {
++          console.log(`[server_update] BLOCKED: ${senderName} tried to update server ${sid} owned by ${existing.value.ownerId}`);
++          break;
+         }
+-        // FIX: Never allow ownerId to be changed via server_update
+-        // Remove ownerId/ownerIdLower from msg copy so they can't overwrite stored owner
+-        const safeMsg = { ...msg as Record<string, unknown> };
+-        delete safeMsg.ownerId;
+-        delete safeMsg.ownerIdLower;
+-        if (publicServers.has(sid)) {
+-          const sv = publicServers.get(sid)!;
+-          // Preserve ownerId/ownerIdLower from stored record
+-          const preservedOwner = { ownerId: sv.ownerId, ownerIdLower: sv.ownerIdLower || (sv.ownerId as string || "").toLowerCase() };
+-          if (safeMsg.isPublic === false) {
+-            publicServers.delete(sid);
+-            await kv.set(["servers", sid], { ...sv, ...safeMsg, ...preservedOwner, isPublic: false });
+-          } else {
+-            const updated = { ...sv, ...safeMsg, ...preservedOwner };
+-            publicServers.set(sid, updated);
+-            await kv.set(["servers", sid], updated);
+-          }
+-        } else if (safeMsg.isPublic === true) {
+-          const base = existing.value || {};
+-          const preservedOwner = { ownerId: (base.ownerId as string) || senderName, ownerIdLower: (base.ownerIdLower as string) || senderName.toLowerCase() };
+-          const updated = { ...base, id: sid, name: safeMsg.name, desc: safeMsg.desc || "", icon: safeMsg.icon || null, color: safeMsg.color || "#6c63ff", memberCount: safeMsg.memberCount || 1, createdAt: safeMsg.createdAt || Date.now(), channels: safeMsg.channels || [], ...preservedOwner, isPublic: true };
+-          publicServers.set(sid, updated);
+-          await kv.set(["servers", sid], updated);
+-        } else if (existing.value) {
+-          const preservedOwner = { ownerId: existing.value.ownerId, ownerIdLower: existing.value.ownerIdLower || (existing.value.ownerId as string || "").toLowerCase() };
+-          await kv.set(["servers", sid], { ...existing.value, ...safeMsg, ...preservedOwner });
++        // Only these fields can change here. The client also sends its whole channel list, memberCount and
++        // createdAt with every settings save: applying those overwrote the real data with whatever the sender's
++        // cache held (channels, who-can-send locks, deleted channels coming back...). Channels, roles and
++        // counts have their own messages and are never taken from here. Owner fields come from the record.
++        const upd: Record<string, unknown> = {};
++        if (typeof msg.name === "string" && msg.name.trim()) upd.name = msg.name.trim().slice(0, 64);
++        if (typeof msg.desc === "string") upd.desc = msg.desc.slice(0, 256);
++        if (typeof msg.color === "string" && /^#[0-9a-fA-F]{3,8}$/.test(msg.color)) upd.color = msg.color;
++        if (typeof msg.isPublic === "boolean") upd.isPublic = msg.isPublic;
++        if (msg.icon === null) upd.icon = null;
++        else if (typeof msg.icon === "string") {
++          if (byteLen(msg.icon) <= 45_000) upd.icon = msg.icon;
++          else ws.send(JSON.stringify({ type: "error", message: "That server icon is too large to save. Pick a smaller image." }));
 +        }
-         if (publicServers.has(sid)) {
-           const sv = publicServers.get(sid)!;
-           // Preserve ownerId/ownerIdLower from stored record
-@@ -1476,18 +1909,11 @@ Deno.serve((req) => {
++        const updatedSv = { ...existing.value, ...upd };
++        if (!(await safeKvSet(["servers", sid], updatedSv))) {
++          ws.send(JSON.stringify({ type: "error", message: "Couldn't save the server settings." }));
++          break;
+         }
+-        // Broadcast the update — strip channels so clients don't overwrite
+-        // channel state with potentially stale data (channels are managed via
+-        // dedicated channel_add / channel_remove / channel_update messages)
+-        const finalSv = (await kv.get<Record<string, unknown>>(["servers", sid])).value || publicServers.get(sid);
+-        const { channels: _stripChannels, ...msgWithoutChannels } = msg as Record<string, unknown>;
+-        broadcast({ ...msgWithoutChannels, ownerId: finalSv?.ownerId }, ws);
++        if (updatedSv.isPublic !== false) publicServers.set(sid, updatedSv); else publicServers.delete(sid);
++        // Tell members only what actually changed
++        broadcast({ type: "server_update", serverId: sid, ...upd, ownerId: updatedSv.ownerId }, ws);
+         break;
+       }
+ 
+@@ -1476,18 +1949,11 @@ Deno.serve((req) => {
            ws.send(JSON.stringify({ type: "error", message: "Only the server owner can delete this server." }));
            break;
          }
@@ -822,7 +1080,7 @@ index 20da523..b2cf1b0 100644
          break;
        }
  
-@@ -1505,33 +1931,46 @@ Deno.serve((req) => {
+@@ -1505,33 +1971,46 @@ Deno.serve((req) => {
          }
          await kv.delete(["server_member", msg.serverId as string, senderName]);
          await removeServerFromUser(senderName, msg.serverId as string);
@@ -885,7 +1143,7 @@ index 20da523..b2cf1b0 100644
          break;
        }
  
-@@ -1540,6 +1979,7 @@ Deno.serve((req) => {
+@@ -1540,6 +2019,7 @@ Deno.serve((req) => {
          for (const sv of (msg.servers as unknown[] || [])) {
            const s = sv as Record<string, unknown>;
            if (!s.id) continue;
@@ -893,7 +1151,7 @@ index 20da523..b2cf1b0 100644
            // FIX: Check if server already exists - if so, preserve ownerId
            const existingSv = await kv.get<Record<string, unknown>>(["servers", s.id as string]);
            const existingOwner = existingSv.value?.ownerId;
-@@ -1549,18 +1989,31 @@ Deno.serve((req) => {
+@@ -1549,18 +2029,31 @@ Deno.serve((req) => {
              console.log(`[announce_servers] BLOCKED: ${senderName} tried to announce server ${s.id} owned by ${existingOwner}`);
              continue;
            }
@@ -937,7 +1195,7 @@ index 20da523..b2cf1b0 100644
          }
          break;
  
-@@ -1580,7 +2033,10 @@ Deno.serve((req) => {
+@@ -1580,7 +2073,10 @@ Deno.serve((req) => {
        case "get_server_info": {
          const svInfoEntry = await kv.get<Record<string, unknown>>(["servers", msg.serverId as string]);
          const svInfo = svInfoEntry.value || publicServers.get(msg.serverId as string);
@@ -949,7 +1207,45 @@ index 20da523..b2cf1b0 100644
          break;
        }
  
-@@ -1695,10 +2151,12 @@ Deno.serve((req) => {
+@@ -1611,7 +2107,7 @@ Deno.serve((req) => {
+             name: displayName,
+             lastTs: (last?._stored as number || last?.ts as number || 0),
+             last: (last?.text as string || (Array.isArray((last as Record<string,unknown>)?.attachments) ? "[attachment]" : "")),
+-            pfp: (otherAcct.value?.pfp as string | null) ?? null,
++            pfp: safePfp(otherAcct.value?.pfp),
+           });
+         }
+         const contacts2 = [...dmContactsMap2.values()].sort((a, b) => b.lastTs - a.lastTs);
+@@ -1678,7 +2174,27 @@ Deno.serve((req) => {
+             console.log(`[ghost-sweep] added missing member ${authorLower} to server ${svId}`);
+           }
+         }
+-        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "member_list", serverId: msg.serverId, members: [...onlineMembers, ...offlineMembers] }));
++        // One consistent profile per member, always read from the saved account. Online entries used to take
++        // the picture/color from per-connection state (whatever that client had claimed or last sent), which
++        // is why the same person's avatar differed depending on where you looked.
++        const memberOut: Record<string, unknown>[] = [];
++        for (const entry of [...onlineMembers, ...offlineMembers] as Record<string, unknown>[]) {
++          const acctNow = (await kv.get<Record<string, unknown>>(["accounts", String(entry.name).toLowerCase()])).value;
++          memberOut.push(acctNow ? { ...profileOf(acctNow), online: entry.online } : { ...entry, pfp: safePfp(entry.pfp) });
++        }
++        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "member_list", serverId: msg.serverId, members: memberOut }));
++        break;
++      }
++
++      // Look up public profiles by name (authors of messages you can see, people who left, etc.)
++      case "get_profiles": {
++        const gpNames = Array.isArray(msg.names) ? (msg.names as unknown[]).filter((n): n is string => typeof n === "string" && n.length <= 32) : [];
++        const gpOut: Record<string, unknown>[] = [];
++        for (const n of new Set(gpNames.slice(0, 60).map((x) => x.toLowerCase()))) {
++          const a = (await kv.get<Record<string, unknown>>(["accounts", n])).value;
++          if (a) gpOut.push(profileOf(a));
++        }
++        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "profiles", profiles: gpOut }));
+         break;
+       }
+ 
+@@ -1695,10 +2211,12 @@ Deno.serve((req) => {
          // an admin rename) always resolve to the same KV key.
          const dmKey = ["dm_history", [dmFrom.toLowerCase(), dmTo.toLowerCase()].sort().join(":")];
          const existing = await kv.get<unknown[]>(dmKey);
@@ -966,7 +1262,7 @@ index 20da523..b2cf1b0 100644
          sendToUser(dmTo, msg, true);
          break;
        }
-@@ -1822,61 +2280,62 @@ Deno.serve((req) => {
+@@ -1822,61 +2340,62 @@ Deno.serve((req) => {
        }
  
        case "short_post": {
@@ -1071,7 +1367,17 @@ index 20da523..b2cf1b0 100644
          break;
        }
  
-@@ -2876,7 +3335,7 @@ Deno.serve((req) => {
+@@ -2035,7 +2554,8 @@ Deno.serve((req) => {
+       case "admin_set_pfp": {
+         if (!isAdmin) { ws.send(JSON.stringify({ type: "error", message: "Only Puck can change profile pictures." })); break; }
+         const pfpTarget = (msg.target as string || "").trim().toLowerCase();
+-        const pfpData = msg.pfp as string || null;
++        const pfpData = msg.pfp === null ? null : (validPfp(msg.pfp) ? msg.pfp : undefined);
++        if (pfpData === undefined) { ws.send(JSON.stringify({ type: "error", message: "That isn't a valid picture (JPEG/PNG/WebP/GIF, under ~45 KB)." })); break; }
+         const pfpKey = ["accounts", pfpTarget];
+         const pfpEntry = await kv.get<Record<string, unknown>>(pfpKey);
+         if (!pfpEntry.value) { ws.send(JSON.stringify({ type: "error", message: "User not found." })); break; }
+@@ -2876,7 +3396,7 @@ Deno.serve((req) => {
          if (!isPowerUser) { ws.send(JSON.stringify({ type: "error", message: "No permission." })); break; }
          const auditLimit = Math.min(200, parseInt(msg.limit as string) || 50);
          const auditEntries: unknown[] = [];

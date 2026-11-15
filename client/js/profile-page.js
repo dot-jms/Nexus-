@@ -3,17 +3,72 @@
 // ══════════════════════════════════════════════════════════════════
 const profileCache = {}; // username → profile data
 
+let _openProfileName = null;
 function openProfilePage(username) {
+  _openProfileName = username;
   const cached = profileCache[username];
   const data = (cached && cached.name) ? cached : buildLocalProfile(username);
   renderProfilePage(data);
   document.getElementById('profile-page').classList.add('open');
+  // Show what we have instantly, then ask the server for the full, current profile (picture, bio,
+  // "member since"): member lists and live updates don't carry all of it.
+  if (username !== S.user?.name) requestProfileNow(username);
+}
+
+// ── public profiles on demand ──
+// People whose avatar/profile we don't have (authors of old messages, people who left the server, ...) are
+// requested once, in batches, so an avatar no longer depends on which server's member list is loaded.
+const _profileAsked = new Set(), _profilePending = new Set();
+let _profileTimer = null;
+function _needProfile(name) {
+  if (!name || _profileAsked.has(name) || name === S.user?.name) return;
+  _profilePending.add(name);
+  clearTimeout(_profileTimer); _profileTimer = setTimeout(flushProfileRequests, 150);
+}
+function flushProfileRequests() {
+  if (!_profilePending.size || S.ws?.readyState !== 1) return; // retried when the connection (re)identifies
+  const names = [..._profilePending].slice(0, 60);
+  names.forEach(n => { _profilePending.delete(n); _profileAsked.add(n); });
+  wsSend({ type: 'get_profiles', names });
+  if (_profilePending.size) { clearTimeout(_profileTimer); _profileTimer = setTimeout(flushProfileRequests, 150); }
+}
+function requestProfileNow(name) { _profileAsked.delete(name); _profilePending.add(name); flushProfileRequests(); }
+function applyProfiles(list) {
+  let changed = false;
+  (list || []).forEach(p => {
+    if (!p?.name) return;
+    profileCache[p.name] = { ...(profileCache[p.name] || {}), ...p };
+    Object.values(S.members || {}).forEach(arr => {
+      const m = arr.find(x => x.name === p.name);
+      if (m) Object.assign(m, { pfp: p.pfp, color: p.color, bio: p.bio, socials: p.socials, createdAt: p.createdAt });
+    });
+    const dm = S.dms.find(d => d.name === p.name); if (dm) dm.pfp = p.pfp;
+    changed = true;
+  });
+  if (!changed) return;
+  refreshAvatars();
+  if (S.curSv) renderMbs();
+  renderDMs();
+  // an open profile page for one of them now gets the fresh data
+  if (document.getElementById('profile-page')?.classList.contains('open') && _openProfileName) {
+    const d = profileCache[_openProfileName]; if (d?.name) renderProfilePage(d);
+  }
+}
+// Patch avatars already on screen from the cache, in place (a full re-render would jump the scroll position)
+function refreshAvatars(onlyName) {
+  document.querySelectorAll('#msgs .m-av[data-author]').forEach(el => {
+    const a = el.dataset.author; if (onlyName && a !== onlyName) return;
+    const isMe = a === S.user?.name, c = profileCache[a];
+    const pfp = safeUrl(isMe ? (S.user.pfp || null) : (c && c.pfp !== undefined ? c.pfp : null));
+    if (pfp) { el.style.background = 'transparent'; if (!el.querySelector('img') || el.querySelector('img').getAttribute('src') !== pfp) el.innerHTML = `<img src="${pfp}" alt="">`; }
+    else if (isMe || (c && c.pfp === null)) { if (c?.color || isMe) el.style.background = (isMe ? S.user.color : c.color); el.innerHTML = `<span>${esc((a || '?')[0].toUpperCase())}</span>`; }
+  });
 }
 
 function buildLocalProfile(username) {
   // Build from local state: server members, DM contacts, etc.
   const isSelf = username === S.user?.name;
-  if (isSelf) return { name: S.user.name, tag: S.user.tag, color: S.user.color, pfp: S.user.pfp, bio: S.user.bio||'', socials: S.user.socials||{}, systemRole: S.user.systemRole, coAdmin: S.user.coAdmin };
+  if (isSelf) return { name: S.user.name, tag: S.user.tag, color: S.user.color, pfp: S.user.pfp, bio: S.user.bio||'', socials: S.user.socials||{}, systemRole: S.user.systemRole, coAdmin: S.user.coAdmin, createdAt: S.user.createdAt };
   // Check members list
   for (const svId in S.members) {
     const m = (S.members[svId]||[]).find(x=>x.name===username);
@@ -34,8 +89,8 @@ function renderProfilePage(u) {
   document.getElementById('pp-banner').style.background = `${u.color||'#5865f2'}33`;
   // Avatar
   const avEl = document.getElementById('pp-av');
-  avEl.style.background = u.pfp ? 'transparent' : (u.color||COLORS[0]);
-  avEl.innerHTML = u.pfp ? `<img src="${u.pfp}" style="width:100%;height:100%;object-fit:cover">` : esc(u.name[0]?.toUpperCase()||'?');
+  avEl.style.background = safeUrl(u.pfp) ? 'transparent' : (u.color||COLORS[0]);
+  avEl.innerHTML = safeUrl(u.pfp) ? `<img src="${safeUrl(u.pfp)}" style="width:100%;height:100%;object-fit:cover">` : esc(u.name[0]?.toUpperCase()||'?');
   // Edit/admin button area
   const editBtn = document.getElementById('pp-edit-btn');
   if (isSelf) {

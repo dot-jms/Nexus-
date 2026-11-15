@@ -147,17 +147,22 @@ function saveProfile() {
   const bio = (document.getElementById('profile-bio-in')?.value||'').slice(0,160);
   const website = document.getElementById('profile-website-in')?.value.trim()||'';
   const twitter = document.getElementById('profile-twitter-in')?.value.trim().replace('@','')||'';
-  S.user.color = selColor; S.user.pfp = newPfp||null;
-  S.user.bio = bio; S.user.socials = {website, twitter};
-  lsSet('nx-session', {token:S.token, user:S.user}); persist();
-  updateUser(); closeM('profile-edit-modal'); toast('✅ Profile updated');
-  Object.values(S.messages).forEach(arr => {
-    arr.forEach(m => { if(m.author===S.user.name){m.authorColor=S.user.color;m.authorPfp=S.user.pfp||null;} });
-  });
-  Object.values(S.dmMessages).forEach(arr => {
-    arr.forEach(m => { if(m.author===S.user.name){m.authorColor=S.user.color;m.authorPfp=S.user.pfp||null;} });
-  });
-  if (S.curCh) renderMsgs(S.curCh.id);
-  if (curDM) renderDMMessages(curDM);
-  wsSend({type:'profile_update', user:S.user.name, color:S.user.color, pfp:S.user.pfp||null, bio, socials:{website,twitter}});
+  const _color = selColor, _pfp = newPfp || null;
+  // Send to the server FIRST. This used to be the very last line, after several redraws, so if any of
+  // them threw, the new picture was never sent: it looked saved, then was gone after a refresh.
+  wsSend({type:'profile_update', user:S.user.name, color:_color, pfp:_pfp, bio, socials:{website,twitter}});
+  try {
+    S.user.color = selColor; S.user.pfp = newPfp||null;
+    S.user.bio = bio; S.user.socials = {website, twitter};
+    lsSet('nx-session', {token:S.token, user:S.user}); persist();
+    updateUser(); closeM('profile-edit-modal'); toast('✅ Profile updated');
+    Object.values(S.messages).forEach(arr => {
+      arr.forEach(m => { if(m.author===S.user.name){m.authorColor=S.user.color;m.authorPfp=S.user.pfp||null;} });
+    });
+    Object.values(S.dmMessages).forEach(arr => {
+      arr.forEach(m => { if(m.author===S.user.name){m.authorColor=S.user.color;m.authorPfp=S.user.pfp||null;} });
+    });
+    refreshAvatars(S.user.name);
+    if (curDM) renderDMMessages(curDM);
+  } catch (e) { console.error('[nexus] saveProfile UI error', e); toast('⚠️ Saved, but the screen failed to update: ' + e.message); }
 }

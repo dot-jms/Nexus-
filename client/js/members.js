@@ -13,8 +13,8 @@ function renderMbs() {
     if(!members.length) return;
     html+=`<div class="mb-cat">${title} — ${members.length}</div>`;
     members.forEach(m=>{
-      const avContent=m.pfp?`<img src="${m.pfp}" alt="">`:`${m.name[0].toUpperCase()}`;
-      const avBg=m.pfp?'transparent':(m.color||COLORS[hash(m.name)%COLORS.length]);
+      const avContent=safeUrl(m.pfp)?`<img src="${safeUrl(m.pfp)}" alt="">`:`${m.name[0].toUpperCase()}`;
+      const avBg=safeUrl(m.pfp)?'transparent':(m.color||COLORS[hash(m.name)%COLORS.length]);
       const badge=roleLabel(sv,m.name);
       const myRole=getMyRole(sv);
       const canCtx=(myRole==='owner'||myRole==='mod')&&m.name!==S.user.name;

@@ -30,6 +30,7 @@ function buildMsg(m,grp) {
   // Falls back to the pfp snapshotted at send time, then to initials.
   let livePfp = isMe ? (S.user.pfp||null) : (profileCache[m.author]?.pfp !== undefined ? profileCache[m.author].pfp : m.authorPfp);
   livePfp=safeUrl(livePfp);
+  if(!isMe && !profileCache[m.author]?.name) _needProfile(m.author); // fetch their picture/profile once
   const avInner=livePfp?`<img src="${livePfp}" alt="">`:`<span>${init}</span>`;
   let atts='';
   (m.attachments||[]).forEach(a=>{
@@ -66,7 +67,7 @@ function buildMsg(m,grp) {
   if((m.reactions||[]).length){ reacts='<div class="m-reacts">'+m.reactions.map(r=>`<div class="react${r.users?.includes(S.user?.name)?' me':''}" onclick="toggleReact('${m.id}','${r.emoji}')">${r.emoji}<span>${r.count}</span></div>`).join('')+'</div>'; }
   const lead = grp
     ? `<div class="m-gutter"><span class="m-gtime">${fmtClock(m.ts)}</span></div>`
-    : `<div class="m-av" style="background:${livePfp?'transparent':ac}" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${avInner}</div>`;
+    : `<div class="m-av" data-author="${esc(m.author)}" style="background:${livePfp?'transparent':ac}" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${avInner}</div>`;
   return `<div class="msg${grp?' grouped':''}" data-id="${m.id}">
     ${lead}
     <div class="m-body">

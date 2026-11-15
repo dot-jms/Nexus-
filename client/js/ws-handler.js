@@ -45,7 +45,9 @@ function handleIn(msg) {
       clearTimeout(_identifyTimer); _identifyTimer = null; // ← handshake complete, cancel timeout
       dbg('← identified: backend sent ' + (msg.servers?.length||0) + ' server(s)', (msg.servers?.length ? 'ok' : 'warn'));
       // FIX #9: Flush any messages that were queued while we were offline
+      checkServerProtocol(msg.protocol);
       _loadOutbox(); // actions left unsent by a refresh while offline
+      flushProfileRequests(); // profiles we wanted before the connection was up
       setTimeout(_flushWsQueue, 100);
       // Reconcile the local cache with the server's truth: deleted servers, and servers this account
       // isn't actually a member of, are dropped instead of lingering as dead, un-chattable entries.
@@ -61,6 +63,8 @@ function handleIn(msg) {
         S.user.coAdmin    = msg.user.coAdmin    ?? S.user.coAdmin;
         // pfp is sent separately via user_pfp — don't touch it here
         S.user.tag        = msg.user.tag        || S.user.tag;
+        S.user.color      = msg.user.color      || S.user.color;
+        S.user.createdAt  = msg.user.createdAt  || S.user.createdAt;
         S.user.bio        = msg.user.bio        || S.user.bio;
         S.user.socials    = msg.user.socials    || S.user.socials;
         lsSet('nx-session', { token: S.token, user: S.user });
@@ -157,6 +161,9 @@ function handleIn(msg) {
       dbg('✕ auth_required — session expired', 'err');
       toast('⚠️ Session expired — please sign in again');
       signOut(true);
+      break;
+    case 'profiles':
+      applyProfiles(msg.profiles);
       break;
     case 'message_rejected': {
       // the server refused it (e.g. we lost the role that lets us send here): take it back off the screen
@@ -713,7 +720,7 @@ function handleIn(msg) {
         if (!m?.name || m.name === S.user?.name) return;
         profileCache[m.name] = { ...(profileCache[m.name] || {}), ...m, name: m.name };
       });
-      if (S.curSv?.id === msg.serverId && S.curCh) renderMsgs(S.curCh.id);
+      refreshAvatars(); // patch avatars in place (a full re-render would jump the scroll position)
       // Always sync memberCount from actual member list — includes offline members
       { const mlSv = S.servers.find(s => s.id === msg.serverId);
         if (mlSv) { mlSv.memberCount = (msg.members||[]).length; persist(); renderDiscover(); } }
@@ -984,7 +991,7 @@ function handleIn(msg) {
     case 'profile_update': {
       const updUser = msg.user;
       // Update profileCache first
-      if (!profileCache[updUser]) profileCache[updUser] = {};
+      if (!profileCache[updUser]) profileCache[updUser] = { name: updUser };
       if (msg.color) profileCache[updUser].color = msg.color;
       if (msg.pfp !== undefined) profileCache[updUser].pfp = msg.pfp;
       if (msg.bio !== undefined) profileCache[updUser].bio = msg.bio;
@@ -1033,7 +1040,7 @@ function handleIn(msg) {
       });
       persist();
       if (S.curSv) renderMbs();
-      if (S.curCh) renderMsgs(S.curCh.id);
+      refreshAvatars(updUser);
       if (curDM && (curDM === updUser || S.dmMessages[curDM]?.some(m => m.author === updUser))) renderDMMessages(curDM);
       break;
     }
@@ -1244,3 +1251,16 @@ function handleIn(msg) {
 function setWS(s){ document.getElementById('ws-dot').className='ws-dot '+s; document.getElementById('ws-txt').textContent=s; }
 function setBanner(t){ const b=document.getElementById('banner'); b.textContent=t; b.classList.add('show'); }
 function hideBanner(){ document.getElementById('banner').classList.remove('show'); }
+
+
+// A server that hasn't been redeployed ignores newer messages (e.g. channel permissions, profile fields); the
+// change looks applied on screen and is gone after a refresh. Make that obvious.
+function checkServerProtocol(p) {
+  document.getElementById('proto-warn')?.remove();
+  if (typeof p === 'number' && p >= REQUIRED_SERVER_PROTOCOL) return;
+  const bar = document.createElement('div');
+  bar.id = 'proto-warn';
+  bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#b45309;color:#fff;padding:9px 14px;font:600 13px system-ui,sans-serif;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.4)';
+  bar.innerHTML = `⚠️ The Nexus <b>server is out of date</b> (it reports ${typeof p === 'number' ? 'v' + p : 'no version'}, this client needs v${REQUIRED_SERVER_PROTOCOL}). Redeploy the latest <code>main.ts</code> or some changes won't be saved. <span style="cursor:pointer;margin-left:12px;opacity:.8" onclick="this.parentNode.remove()">✕</span>`;
+  document.body.appendChild(bar);
+}

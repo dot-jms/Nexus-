@@ -33,8 +33,8 @@ function showHome() {
   const dmsEl = document.getElementById('home-recent-dms');
   const recent = [...S.dms].sort((a,b)=>(b.lastTs||0)-(a.lastTs||0)).slice(0,5);
   dmsEl.innerHTML = recent.length ? recent.map(dm => {
-    const bg = dm.pfp ? 'transparent' : COLORS[hash(dm.name) % COLORS.length];
-    const av = dm.pfp ? `<img src="${dm.pfp}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : dm.name[0].toUpperCase();
+    const bg = safeUrl(dm.pfp) ? 'transparent' : COLORS[hash(dm.name) % COLORS.length];
+    const av = safeUrl(dm.pfp) ? `<img src="${safeUrl(dm.pfp)}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : dm.name[0].toUpperCase();
     return `<div class="home-row" onclick="openOrCreateDM('${dm.name}',null)">
       <div class="home-row-av" style="background:${bg}">${av}</div>
       <div style="min-width:0;flex:1"><div style="font-size:13px;font-weight:600">${esc(dm.name)}</div><div style="font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(dm.last||'No messages yet')}</div></div>
@@ -85,7 +85,9 @@ function updateUser(){
     adminBtn.remove();
   }
 }
-function toast(msg,type){const c=document.getElementById('toasts'),t=document.createElement('div');t.className='toast'+(type?' '+type:'');const icons={ok:'✓ ',err:'✕ ',warn:'⚠ '};t.textContent=(icons[type]||'')+msg;c.appendChild(t);setTimeout(()=>t.remove(),3200);}
+// The #toasts container was missing from index.html, so every toast() threw a TypeError and aborted whatever
+// function called it (including the saves that came after it). Never rely on the markup being there.
+function toast(msg,type){let c=document.getElementById('toasts');if(!c){c=document.createElement('div');c.id='toasts';document.body.appendChild(c);}const t=document.createElement('div');t.className='toast'+(type?' '+type:'');const icons={ok:'✓ ',err:'✕ ',warn:'⚠ '};t.textContent=(icons[type]||'')+msg;c.appendChild(t);setTimeout(()=>t.remove(),3200);}
 
 // ── FORMATTERS ──
 function fmtTxt(t){if(!t)return'';return fmtCustomEmoji(esc(t).replace(/@(\w+)/g,'<span class="mention">@$1</span>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>'));}
