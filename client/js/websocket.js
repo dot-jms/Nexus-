@@ -166,7 +166,7 @@ setInterval(_retryPending, 4000);
 const _EPHEMERAL_TYPES = new Set([
   'typing','get_history','get_members','get_server_list','get_server_info',
   'identify','join_channel','voice_join','voice_leave','voice_signal',
-  'vcall_signal','status_update','history_request','history_serve','get_profiles',
+  'vcall_signal','status_update','history_request','history_serve','get_profiles','ping','get_presence',
 ]);
 const _wsQueue = [];
 // Actions that change saved data. If the socket is down when one happens, the UI has already updated
@@ -223,3 +223,15 @@ function _flushWsQueue() {
   window.addEventListener('error', e => { console.error('[nexus] uncaught', e.error || e.message); show(e.message); });
   window.addEventListener('unhandledrejection', e => { console.error('[nexus] unhandled rejection', e.reason); show(e.reason?.message || e.reason); });
 })();
+
+
+// ── heartbeat ──
+// A connection can die without the browser noticing (laptop sleep, wifi drop). The server closes connections
+// that stay silent, which is what stops us showing as online when we're not; we ping every 20s so a healthy
+// connection is never silent, and if no answer comes back for a minute we reconnect instead of limping on.
+let _lastPong = Date.now();
+setInterval(() => {
+  if (!S.user || S.ws?.readyState !== 1) return;
+  wsSend({ type: 'ping', ts: Date.now() });
+  if (Date.now() - _lastPong > 60000) { console.warn('[nexus] no heartbeat answer for 60s, reconnecting'); try { S.ws.close(); } catch (_) {} }
+}, 20000);

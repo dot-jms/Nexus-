@@ -198,5 +198,5 @@ function loadUserData(){
   const d=lsGet('nx-data-'+S.user.name.toLowerCase())||{};
   S.servers=d.servers||[]; // fallback until relay confirms
   S.messages=d.messages||{}; S.dms=d.dms||[]; S.dmMessages=d.dmMessages||{};
-  S.friends=d.friends||[]; S.friendReqs=d.friendReqs||[];
+  S.friends=(d.friends||[]).map(f=>({...f,online:false,status:'offline'})); S.friendReqs=d.friendReqs||[];
 }

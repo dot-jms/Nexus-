@@ -1,8 +1,32 @@
+diff --git a/css/motion.css b/css/motion.css
+index 154ff68..dbb2738 100644
+--- a/css/motion.css
++++ b/css/motion.css
+@@ -24,8 +24,8 @@
+ #friends-view {
+   transition: transform .2s var(--ease), opacity .2s var(--ease), display .2s allow-discrete;
+ }
+-#friends-view[style*="display: none"] { transform: translateX(-24px); opacity: 0; }
+-@starting-style { #friends-view { transform: translateX(-24px); opacity: 0; } }
++#friends-view[style*="display: none"] { transform: translateY(10px); opacity: 0; }
++@starting-style { #friends-view { transform: translateY(10px); opacity: 0; } }
+ 
+ /* ───────── sidebar + member list slide away (and the chat grows smoothly) ───────── */
+ #sidebar {
 diff --git a/css/shell.css b/css/shell.css
-index 328ba31..ae5d194 100644
+index 328ba31..48af522 100644
 --- a/css/shell.css
 +++ b/css/shell.css
-@@ -423,3 +423,9 @@ body.in-dm #vcall-bar, body.in-dm #pinned-bar, body.in-dm #voice-bar { max-heigh
+@@ -346,7 +346,7 @@ body.in-dm #vcall-bar, body.in-dm #pinned-bar, body.in-dm #voice-bar { max-heigh
+ 
+ /* fixed side panels (shown/hidden through inline display; see motion.css) */
+ #notif-panel { position: fixed; top: 0; right: 0; bottom: 0; z-index: 99; width: 320px; flex-direction: column; background: var(--bg-secondary); box-shadow: -8px 0 24px rgba(0,0,0,.3); }
+-#friends-view { position: fixed; top: 0; bottom: 0; left: 72px; z-index: 105; width: 300px; flex-direction: column; background: var(--bg-secondary); box-shadow: 8px 0 24px rgba(0,0,0,.3); }
++#friends-view { position: fixed; top: 0; bottom: 0; left: 72px; right: 0; z-index: 105; flex-direction: column; background: var(--bg-primary); }
+ #shorts-view { position: fixed; inset: 0; z-index: 150; overflow: hidden; background: rgba(0,0,0,.4); }
+ .vcall-bar-row { display: flex; align-items: center; gap: 8px; }
+ .vcall-bar-dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: var(--green); animation: blink 1.5s infinite; }
+@@ -423,3 +423,64 @@ body.in-dm #vcall-bar, body.in-dm #pinned-bar, body.in-dm #voice-bar { max-heigh
  .search-result-meta { margin-bottom: 2px; font-size: 12px; color: var(--text-muted); }
  .search-result-text { font-size: 14px; color: var(--text-normal); }
  .search-highlight { padding: 0 2px; border-radius: 2px; background: rgba(240,178,50,.3); color: var(--text-header); }
@@ -12,10 +36,104 @@ index 328ba31..ae5d194 100644
 +.inp-row.inp-locked { opacity: .55; transition: opacity var(--fast, .15s) linear; }
 +.inp-row.inp-locked .in-l, .inp-row.inp-locked .in-r { pointer-events: none; }
 +.inp-row.inp-locked textarea { cursor: not-allowed; }
++
++/* ───────── Friends page ───────── */
++.fv-head { display: flex; align-items: center; gap: 16px; height: 48px; padding: 0 16px; flex-shrink: 0; border-bottom: 1px solid var(--divider); box-shadow: var(--elev-low); }
++.fv-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: var(--text-header); }
++.fv-vdiv { width: 1px; height: 24px; background: var(--divider); }
++.fv-tabs { display: flex; gap: 8px; flex: 1; min-width: 0; }
++.fv-tab { display: flex; align-items: center; gap: 6px; height: 28px; padding: 2px 10px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font: 600 14px var(--font); cursor: pointer; transition: background var(--fast) linear, color var(--fast) linear; }
++.fv-tab:hover { background: var(--bg-hover); color: var(--text-normal); }
++.fv-tab.act { background: var(--bg-selected); color: var(--text-header); }
++.fv-addtab { background: var(--green); color: #fff; }
++.fv-addtab:hover { background: #1f8f4e; color: #fff; }
++.fv-addtab.act { background: transparent; color: var(--green); }
++.fv-n { font-size: 12px; font-weight: 700; color: var(--text-muted); }
++.fv-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 5px; border-radius: 8px; background: var(--red); color: #fff; font-size: 11px; font-weight: 700; }
++.fv-body { flex: 1; display: flex; min-height: 0; }
++.fv-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
++.fv-searchbar { display: flex; align-items: center; gap: 14px; padding: 16px 20px 4px; flex-shrink: 0; }
++.fv-searchbar .m-inp { flex: 1; max-width: 640px; margin: 0; }
++.fv-summary { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
++.fv-scroll { flex: 1; overflow-y: auto; padding: 0 20px 28px; }
++.fv-sec { padding: 16px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: var(--text-secondary); }
++.fv-row, .fv-sugg { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md); }
++.fv-row { border-top: 1px solid var(--divider); cursor: pointer; transition: background var(--fast) linear; }
++.fv-row:first-of-type { border-top-color: transparent; }
++.fv-sec + .fv-row { border-top-color: transparent; }
++.fv-row:hover { background: var(--bg-hover); border-top-color: transparent; }
++.fv-row:hover + .fv-row { border-top-color: transparent; }
++.fv-av { position: relative; flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; font-weight: 700; }
++.fv-av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
++.fv-dot { position: absolute; right: -3px; bottom: -3px; width: 15px; height: 15px; border-radius: 50%; border: 3px solid var(--bg-primary); background: var(--text-faint); box-sizing: border-box; }
++.fv-dot.online { background: var(--green); } .fv-dot.idle { background: var(--yellow); } .fv-dot.dnd { background: var(--red); }
++.fv-info { flex: 1; min-width: 0; }
++.fv-name { font-size: 16px; font-weight: 600; color: var(--text-header); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
++.fv-sub { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
++.fv-sub.on { color: var(--text-secondary); }
++.fv-acts { display: flex; gap: 8px; }
++.fv-act { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; transition: background var(--fast) linear, color var(--fast) linear; }
++.fv-row:hover .fv-act { background: var(--bg-tertiary); }
++.fv-act:hover { color: var(--text-header); }
++.fv-act.ok:hover { color: var(--green); } .fv-act.danger:hover { color: var(--red); }
++.fv-empty { padding: 72px 20px; text-align: center; color: var(--text-muted); font-size: 14px; }
++.fv-empty .em { margin-bottom: 14px; font-size: 52px; line-height: 1; }
++.fv-empty b { display: block; margin-bottom: 6px; font-size: 17px; color: var(--text-header); }
++.fv-cta { margin-top: 18px; padding: 8px 18px; }
++.fv-addcard { max-width: 640px; margin-top: 24px; padding: 20px; border-radius: var(--radius-md); background: var(--bg-secondary); }
++.fv-addcard h3 { margin: 0 0 4px; font-size: 16px; color: var(--text-header); }
++.fv-addcard p { margin: 0; font-size: 14px; color: var(--text-muted); }
++.fv-addrow { display: flex; gap: 10px; margin-top: 14px; }
++.fv-addrow .m-inp { flex: 1; margin: 0; }
++.fv-msg { min-height: 18px; margin-top: 10px; font-size: 13px; }
++.fv-msg.ok { color: var(--green); } .fv-msg.err { color: var(--red); }
++.fv-side { width: 300px; flex-shrink: 0; padding: 16px; overflow-y: auto; border-left: 1px solid var(--divider); }
++.fv-sugg { padding: 8px; }
++.fv-sugg:hover { background: var(--bg-hover); }
++@media (max-width: 1000px) { .fv-side { display: none; } }
 diff --git a/index.html b/index.html
-index c01f2e5..0a78e61 100644
+index c01f2e5..12ad4ca 100644
 --- a/index.html
 +++ b/index.html
+@@ -504,23 +504,23 @@
+ 
+ <!-- FRIENDS PANEL -->
+ <div id="friends-view" style="display:none">
+-  <div style="padding:14px 14px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+-    <span style="font-size:14px;font-weight:800">Friends</span>
+-    <button class="ib" onclick="closeFriends()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+-  </div>
+-  <div style="padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0;display:flex;gap:8px">
+-    <input class="m-inp" id="friend-search-in" placeholder="Add friend by username" maxlength="24" style="flex:1;margin-bottom:0">
+-    <button class="btn-p" style="font-size:12px;padding:8px 12px;white-space:nowrap" onclick="sendFriendReq()">Add</button>
++  <div class="fv-head">
++    <div class="fv-title"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Friends</div>
++    <div class="fv-vdiv"></div>
++    <div class="fv-tabs">
++      <button class="fv-tab" id="fvt-online" onclick="friendsTab('online')">Online <span class="fv-n" id="fvn-online">0</span></button>
++      <button class="fv-tab" id="fvt-all" onclick="friendsTab('all')">All <span class="fv-n" id="fvn-all">0</span></button>
++      <button class="fv-tab" id="fvt-pending" onclick="friendsTab('pending')">Pending <span class="fv-badge" id="fv-pend-n" style="display:none">0</span></button>
++      <button class="fv-tab fv-addtab" id="fvt-add" onclick="friendsTab('add')">Add Friend</button>
++    </div>
++    <button class="ib" onclick="closeFriends()" title="Close (Esc)"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+   </div>
+-  <div style="flex:1;overflow-y:auto;padding:0 14px 14px">
+-    <div id="friend-reqs-section" style="display:none;margin-top:14px">
+-      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:8px">Pending Requests</div>
+-      <div id="friend-reqs-list"></div>
++  <div class="fv-body">
++    <div class="fv-main">
++      <div class="fv-searchbar" id="fv-searchbar"><input class="m-inp" id="fv-search" placeholder="Search friends" autocomplete="off" oninput="renderFriends()"><span class="fv-summary" id="fv-summary"></span></div>
++      <div class="fv-scroll" id="fv-scroll"></div>
+     </div>
+-    <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:16px;margin-bottom:8px">Online — <span id="friend-online-count">0</span></div>
+-    <div id="friends-online-list"></div>
+-    <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:16px;margin-bottom:8px">All Friends</div>
+-    <div id="friends-all-list"></div>
++    <aside class="fv-side" id="fv-side"></aside>
+   </div>
+ </div>
+ 
 @@ -1084,6 +1084,7 @@
  </div>
  <!-- ── AUTO-UPDATE SERVICE WORKER ── -->
@@ -61,7 +179,7 @@ index 9f9f3ed..c338ab7 100644
  
  function leaveServer() {
 diff --git a/js/auth.js b/js/auth.js
-index 684846a..345cfa6 100644
+index 684846a..738df52 100644
 --- a/js/auth.js
 +++ b/js/auth.js
 @@ -31,9 +31,11 @@ function initAuth() {
@@ -98,6 +216,13 @@ index 684846a..345cfa6 100644
      // Also clear sessionStorage fallback so hard-refresh doesn't resurrect signed-out session
      sessionStorage.removeItem('nx-session');
      if (S.user?.name) sessionStorage.removeItem('nx-data-' + S.user.name.toLowerCase());
+@@ -195,5 +198,5 @@ function loadUserData(){
+   const d=lsGet('nx-data-'+S.user.name.toLowerCase())||{};
+   S.servers=d.servers||[]; // fallback until relay confirms
+   S.messages=d.messages||{}; S.dms=d.dms||[]; S.dmMessages=d.dmMessages||{};
+-  S.friends=d.friends||[]; S.friendReqs=d.friendReqs||[];
++  S.friends=(d.friends||[]).map(f=>({...f,online:false,status:'offline'})); S.friendReqs=d.friendReqs||[];
+ }
 diff --git a/js/channels.js b/js/channels.js
 index 3e55344..bee4758 100644
 --- a/js/channels.js
@@ -397,21 +522,503 @@ index 3e55344..bee4758 100644
 +  closeChPerms();
 +  toast(roles.length ? '🔒 Channel permissions updated' : '🔓 Everyone can send messages here');
  }
+diff --git a/js/friends.js b/js/friends.js
+index 7250491..851baa1 100644
+--- a/js/friends.js
++++ b/js/friends.js
+@@ -1,140 +1,267 @@
+ // ══════════════════════════════════════════════
+-// FRIENDS SYSTEM
++// FRIENDS
+ // ══════════════════════════════════════════════
+-function showFriends() {
++// A full page (Online / All / Pending / Add Friend) instead of a side drawer. Presence (online / idle /
++// do-not-disturb / offline + last seen) comes from the server with the friends list and is pushed live, so
++// nothing here guesses from member lists any more.
++const FV = { tab: 'online', timer: null };
++const FV_ICON = {
++  chat:  '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
++  user:  '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
++  x:     '<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
++  check: '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>',
++  plus:  '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
++};
++
++function showFriends(tab) {
+   const panel = document.getElementById('friends-view');
+-  if (panel.style.display === 'flex') { closeFriends(); return; }
++  if (panel.style.display === 'flex' && !tab) { closeFriends(); return; }
+   document.getElementById('rail-friends').classList.add('act');
+   panel.style.display = 'flex';
+-  panel.style.flexDirection = 'column';
+-  renderFriends();
++  // land on Pending when somebody is waiting for an answer
++  friendsTab(tab || (pendingIncoming().length ? 'pending' : 'online'));
++  askFriendPresence();
++  clearInterval(FV.timer);
++  FV.timer = setInterval(() => { if (friendsOpen()) { askFriendPresence(); renderFriends(); } }, 30000); // safety net + "last seen" labels
+ }
+-
+ function closeFriends() {
+   document.getElementById('friends-view').style.display = 'none';
+   document.getElementById('rail-friends').classList.remove('act');
++  clearInterval(FV.timer);
++}
++function askFriendPresence() { if (S.wsOk && S.friends.length) wsSend({ type: 'get_presence', names: S.friends.map(f => f.name) }); }
++function friendsTab(t) {
++  FV.tab = t;
++  ['online', 'all', 'pending', 'add'].forEach(x => document.getElementById('fvt-' + x)?.classList.toggle('act', x === t));
++  const sb = document.getElementById('fv-searchbar'); if (sb) sb.style.display = t === 'add' ? 'none' : '';
++  renderFriends();
++  if (t === 'add') setTimeout(() => document.getElementById('fv-add-in')?.focus(), 60);
+ }
+ 
+-function renderFriends() {
+-  const onlineFriends = S.friends.filter(f => isOnline(f.name));
+-  const allFriends = S.friends;
+-  const reqs = S.friendReqs.filter(r => r.direction === 'in');
+-
+-  document.getElementById('friend-online-count').textContent = onlineFriends.length;
+-  document.getElementById('friend-reqs-section').style.display = reqs.length ? '' : 'none';
++// ── data helpers ──
++const pendingIncoming = () => S.friendReqs.filter(r => r.direction === 'in');
++const pendingOutgoing = () => S.friendReqs.filter(r => r.direction === 'out');
++const isFriend = name => S.friends.some(f => _nk(f.name) === _nk(name));
++function friendPresence(f) {
++  const on = f.online === true;
++  const st = on ? (f.status || 'online') : 'offline';
++  const text = on ? ({ online: 'Online', idle: 'Idle', dnd: 'Do Not Disturb' }[st] || 'Online')
++                  : (f.lastSeen ? 'Offline · last seen ' + timeAgo(f.lastSeen) : 'Offline');
++  return { on, st, text, cls: on ? st : 'off' };
++}
++function isOnline(name) { const f = S.friends.find(x => _nk(x.name) === _nk(name)); return !!f && f.online === true; }
++function timeAgo(ts) {
++  const s = Math.max(0, (Date.now() - ts) / 1000);
++  if (s < 60) return 'just now';
++  if (s < 3600) return Math.floor(s / 60) + 'm ago';
++  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
++  if (s < 86400 * 7) return Math.floor(s / 86400) + 'd ago';
++  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
++}
++function fvAvatar(name, pfp, color, dotCls) {
++  const url = safeUrl(pfp || profileCache[name]?.pfp || '');
++  const bg = url ? 'transparent' : (color || profileCache[name]?.color || COLORS[hash(name) % COLORS.length]);
++  const inner = url ? `<img src="${url}" alt="">` : esc((name || '?')[0].toUpperCase());
++  return `<div class="fv-av" style="background:${bg}">${inner}${dotCls ? `<span class="fv-dot ${dotCls}"></span>` : ''}</div>`;
++}
++function updateFriendBadge() {
++  const n = pendingIncoming().length;
++  const b = document.getElementById('fr-badge'); if (b) b.style.display = n ? '' : 'none';
++  const t = document.getElementById('fv-pend-n'); if (t) { t.textContent = n; t.style.display = n ? '' : 'none'; }
++}
++function updateHomeFriends() {
++  const el = document.getElementById('home-friends-count'); if (!el) return;
++  const online = S.friends.filter(f => f.online === true).length;
++  el.textContent = S.friends.length + ' friends' + (online ? ` · ${online} online` : '');
++}
+ 
+-  document.getElementById('friend-reqs-list').innerHTML = reqs.map(r => `
+-    <div class="friend-row">
+-      ${friendAvHTML(r.name, r.pfp, r.color)}
+-      <div style="flex:1"><div class="friend-name">${esc(r.name)}</div><div class="friend-tag">Sent you a friend request</div></div>
+-      <button class="btn-p" style="font-size:11px;padding:4px 10px;margin-right:4px" onclick="acceptFriend('${r.name}')">Accept</button>
+-      <button class="btn-g" style="font-size:11px;padding:4px 10px" onclick="declineFriend('${r.name}')">Decline</button>
+-    </div>`).join('') || '<div style="font-size:12px;color:var(--t3)">No pending requests</div>';
++// ── rendering ──
++function fvRow(f) {
++  const p = friendPresence(f);
++  return `<div class="fv-row" data-name="${esc(f.name)}" onclick="friendAct(event,'profile')">
++    ${fvAvatar(f.name, f.pfp, f.color, p.cls)}
++    <div class="fv-info"><div class="fv-name">${esc(f.name)}</div><div class="fv-sub ${p.on ? 'on' : ''}">${esc(p.text)}</div></div>
++    <div class="fv-acts">
++      <button class="fv-act" title="Message" onclick="friendAct(event,'dm')">${FV_ICON.chat}</button>
++      <button class="fv-act" title="View profile" onclick="friendAct(event,'profile')">${FV_ICON.user}</button>
++      <button class="fv-act danger" title="Remove friend" onclick="friendAct(event,'remove')">${FV_ICON.x}</button>
++    </div></div>`;
++}
++function fvReqRow(r) {
++  const incoming = r.direction === 'in';
++  return `<div class="fv-row" data-name="${esc(r.name)}" onclick="friendAct(event,'profile')">
++    ${fvAvatar(r.name, r.pfp, r.color)}
++    <div class="fv-info"><div class="fv-name">${esc(r.name)}</div><div class="fv-sub">${incoming ? 'Incoming friend request' : 'Outgoing friend request'}</div></div>
++    <div class="fv-acts">${incoming
++      ? `<button class="fv-act ok" title="Accept" onclick="friendAct(event,'accept')">${FV_ICON.check}</button>
++         <button class="fv-act danger" title="Decline" onclick="friendAct(event,'decline')">${FV_ICON.x}</button>`
++      : `<button class="fv-act danger" title="Cancel request" onclick="friendAct(event,'cancel')">${FV_ICON.x}</button>`}
++    </div></div>`;
++}
++const fvEmpty = (em, title, sub, btn) => `<div class="fv-empty"><div class="em">${em}</div><b>${title}</b><div>${sub}</div>${btn || ''}</div>`;
+ 
+-  document.getElementById('friends-online-list').innerHTML = onlineFriends.length ?
+-    onlineFriends.map(f => friendRowHTML(f)).join('') :
+-    '<div style="font-size:12px;color:var(--t3);padding:8px 0">No friends online</div>';
++function renderFriends() {
++  updateFriendBadge(); updateHomeFriends();
++  if (!friendsOpen()) return;
++  const scroll = document.getElementById('fv-scroll'); if (!scroll) return;
++  const q = _nk(document.getElementById('fv-search')?.value.trim());
++  const match = x => !q || _nk(x.name).includes(q);
++  const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
++  const friends = [...S.friends].sort(byName);
++  const on = friends.filter(f => friendPresence(f).on), off = friends.filter(f => !friendPresence(f).on);
++  const incoming = pendingIncoming().filter(match), outgoing = pendingOutgoing().filter(match);
+ 
+-  document.getElementById('friends-all-list').innerHTML = allFriends.length ?
+-    allFriends.map(f => friendRowHTML(f)).join('') :
+-    '<div style="font-size:12px;color:var(--t3);padding:8px 0">No friends yet. Add some!</div>';
+-}
++  const nOnline = document.getElementById('fvn-online'); if (nOnline) nOnline.textContent = on.length;
++  const nAll = document.getElementById('fvn-all'); if (nAll) nAll.textContent = friends.length;
++  const sum = document.getElementById('fv-summary');
++  if (sum) sum.textContent = friends.length ? `${on.length} online · ${friends.length} friend${friends.length === 1 ? '' : 's'}` : '';
+ 
+-function friendAvHTML(name, pfp, color) {
+-  const bg = pfp ? 'transparent' : (color || COLORS[hash(name)%COLORS.length]);
+-  const av = pfp ? `<img src="${pfp}">` : name[0].toUpperCase();
+-  const statusColor = isOnline(name) ? 'var(--green)' : 'var(--t3)';
+-  return `<div class="friend-av" style="background:${bg}">${av}<div class="friend-status" style="background:${statusColor}"></div></div>`;
++  let html = '';
++  if (FV.tab === 'online') {
++    const list = on.filter(match);
++    if (list.length) html = `<div class="fv-sec">Online — ${list.length}</div>` + list.map(fvRow).join('');
++    else if (!friends.length) html = fvEmpty('👋', 'No friends yet', 'Add people by username and they will show up here.', `<button class="btn-p fv-cta" onclick="friendsTab('add')">Add a friend</button>`);
++    else if (q) html = fvEmpty('🔍', 'No matches', `Nobody online matches “${esc(q)}”.`);
++    else html = fvEmpty('😴', 'Nobody is online right now', `${friends.length} of your friends ${friends.length === 1 ? 'is' : 'are'} offline.`, `<button class="btn-g fv-cta" onclick="friendsTab('all')">See all friends</button>`);
++  } else if (FV.tab === 'all') {
++    const a = on.filter(match), b = off.filter(match);
++    if (a.length) html += `<div class="fv-sec">Online — ${a.length}</div>` + a.map(fvRow).join('');
++    if (b.length) html += `<div class="fv-sec">Offline — ${b.length}</div>` + b.map(fvRow).join('');
++    if (!html) html = !friends.length
++      ? fvEmpty('👋', 'No friends yet', 'Add people by username and they will show up here.', `<button class="btn-p fv-cta" onclick="friendsTab('add')">Add a friend</button>`)
++      : fvEmpty('🔍', 'No matches', `Nobody matches “${esc(q)}”.`);
++  } else if (FV.tab === 'pending') {
++    if (incoming.length) html += `<div class="fv-sec">Incoming — ${incoming.length}</div>` + incoming.map(fvReqRow).join('');
++    if (outgoing.length) html += `<div class="fv-sec">Outgoing — ${outgoing.length}</div>` + outgoing.map(fvReqRow).join('');
++    if (!html) html = fvEmpty('📭', 'No pending requests', 'Friend requests you send or receive wait here until they are answered.');
++  } else { // add
++    html = `<div class="fv-addcard">
++      <h3>Add a friend</h3>
++      <p>Type their exact username. Usernames are not case sensitive.</p>
++      <div class="fv-addrow"><input class="m-inp" id="fv-add-in" placeholder="Enter a username" maxlength="24" autocomplete="off" onkeydown="if(event.key==='Enter')sendFriendReq()">
++      <button class="btn-p" onclick="sendFriendReq()">Send Friend Request</button></div>
++      <div class="fv-msg" id="fv-add-msg"></div></div>`;
++  }
++  // keep scroll position + search focus stable across live re-renders
++  const top = scroll.scrollTop, hadInput = document.activeElement?.id === 'fv-add-in', val = hadInput ? document.activeElement.value : '';
++  scroll.innerHTML = html;
++  scroll.scrollTop = top;
++  if (hadInput) { const i = document.getElementById('fv-add-in'); if (i) { i.value = val; i.focus(); } }
++  renderFriendSuggestions();
+ }
+ 
+-function friendRowHTML(f) {
+-  const online = isOnline(f.name);
+-  return `<div class="friend-row">
+-    ${friendAvHTML(f.name, f.pfp, f.color)}
+-    <div style="flex:1"><div class="friend-name">${esc(f.name)}</div><div class="friend-tag">${online?'Online':'Offline'}</div></div>
+-    <button class="btn-g" style="font-size:11px;padding:4px 10px;margin-right:4px" onclick="dmFriend('${f.name}')">💬 DM</button>
+-    <button class="btn-g" style="font-size:11px;padding:4px 10px;color:var(--red)" onclick="removeFriend('${f.name}')">✕</button>
+-  </div>`;
++// People you share a server with who aren't friends yet
++function renderFriendSuggestions() {
++  const side = document.getElementById('fv-side'); if (!side) return;
++  const taken = new Set([_nk(S.user?.name), ...S.friends.map(f => _nk(f.name)), ...S.friendReqs.map(r => _nk(r.name))]);
++  const seen = new Map();
++  S.servers.forEach(sv => (S.members[sv.id] || []).forEach(m => {
++    const k = _nk(m.name); if (!m.name || taken.has(k)) return;
++    const prev = seen.get(k);
++    if (!prev || (m.online === true && !prev.m.online)) seen.set(k, { m, sv: prev?.sv || sv });
++  }));
++  const list = [...seen.values()].sort((a, b) => (b.m.online === true) - (a.m.online === true) || a.m.name.localeCompare(b.m.name)).slice(0, 8);
++  side.innerHTML = `<div class="fv-sec" style="padding-top:0">People you may know</div>` + (list.length
++    ? list.map(({ m, sv }) => `<div class="fv-sugg" data-name="${esc(m.name)}">
++        ${fvAvatar(m.name, m.pfp, m.color, m.online === true ? (m.status || 'online') : 'off')}
++        <div class="fv-info"><div class="fv-name">${esc(m.name)}</div><div class="fv-sub">in ${esc(sv.name)}</div></div>
++        <button class="fv-act ok" title="Send friend request" onclick="friendAct(event,'add')">${FV_ICON.plus}</button></div>`).join('')
++    : `<div class="fv-sub" style="line-height:1.5">People from your servers will appear here, with a quick way to add them.</div>`);
+ }
+ 
+-function isOnline(name) {
+-  // Check against WS member lists — if they appear in any server's member list they're online
+-  return Object.values(S.members).some(list => list.some(m => m.name === name));
++// ── actions ──
++function friendAct(ev, act) {
++  ev.stopPropagation();
++  const name = ev.currentTarget.closest('[data-name]')?.dataset.name; if (!name) return;
++  ({ dm: dmFriend, profile: n => openProfilePage(n), remove: removeFriend, accept: acceptFriend, decline: declineFriend, cancel: cancelFriendReq, add: sendFriendReqTo })[act]?.(name);
+ }
+-
+ function sendFriendReqTo(name) {
+-  if (!name) return;
+-  if (S.friends.find(f=>f.name===name)) { toast(name+' is already your friend'); return; }
+-  wsSend({ type:'friend_request', to:name, from:S.user.name, fromColor:S.user.color, fromPfp:S.user.pfp||null });
+-  toast('👋 Friend request sent to '+name);
++  name = String(name || '').trim(); if (!name) return false;
++  const msgEl = () => document.getElementById('fv-add-msg');
++  const say = (t, ok) => { const el = msgEl(); if (el) { el.textContent = t; el.className = 'fv-msg ' + (ok ? 'ok' : 'err'); } };
++  if (_nk(name) === _nk(S.user.name)) { say("You can't add yourself.", false); toast("You can't add yourself"); return false; }
++  if (isFriend(name)) { say(`You're already friends with ${name}.`, false); toast('Already friends with ' + name); return false; }
++  if (pendingOutgoing().some(r => _nk(r.name) === _nk(name))) { say(`You already sent ${name} a request.`, false); toast('Request already sent'); return false; }
++  if (!S.wsOk) { say('Not connected to the server.', false); toast('Not connected'); return false; }
++  say('Sending…', true);
++  wsSend({ type: 'friend_request', to: name });   // the answer comes back as friend_request_result
++  return true;
+ }
+-
+ function sendFriendReq() {
+-  const name = document.getElementById('friend-search-in').value.trim();
+-  if (!name) return;
+-  if (name === S.user.name) { toast("You can't add yourself"); return; }
+-  if (S.friends.find(f => f.name === name)) { toast('Already friends with ' + name); return; }
+-  if (!S.wsOk) { toast('Not connected'); return; }
+-  wsSend({ type: 'friend_request', to: name, from: S.user.name, fromPfp: S.user.pfp||null, fromColor: S.user.color });
+-  // Add as outgoing pending
+-  if (!S.friendReqs.find(r => r.name === name)) {
+-    S.friendReqs.push({ name, direction: 'out', pfp: null });
+-    persist();
++  const el = document.getElementById('fv-add-in'); if (!el) return;
++  const name = el.value.trim(); if (!name) return;
++  if (sendFriendReqTo(name)) el.value = '';
++}
++const FRIEND_FAIL = {
++  not_found: n => `No user named “${n}”. Check the spelling.`,
++  self: () => "You can't add yourself.",
++  already_friends: n => `You're already friends with ${n}.`,
++  already_sent: n => `You already sent ${n} a request.`,
++  too_many: () => 'You have too many pending requests. Cancel some first.',
++  no_request: () => 'That request is no longer available.',
++};
++function onFriendRequestResult(msg) {
++  const el = document.getElementById('fv-add-msg');
++  if (msg.ok) {
++    if (!S.friendReqs.some(r => _nk(r.name) === _nk(msg.to) && r.direction === 'out'))
++      S.friendReqs.push({ name: msg.to, direction: 'out', pfp: msg.pfp || null, color: msg.color || null, ts: Date.now() });
++    persist(); renderFriends();
++    toast('👥 Friend request sent to ' + msg.to);
++    const m = document.getElementById('fv-add-msg'); if (m) { m.textContent = `Friend request sent to ${msg.to}.`; m.className = 'fv-msg ok'; }
++  } else {
++    const text = (FRIEND_FAIL[msg.reason] || (() => 'That request could not be sent.'))(msg.to);
++    if (el) { el.textContent = text; el.className = 'fv-msg err'; }
++    toast('⚠️ ' + text);
+   }
+-  document.getElementById('friend-search-in').value = '';
+-  toast('👥 Friend request sent to ' + name);
+ }
+-
+ function recvFriendReq(msg) {
+-  if (S.friends.find(f => f.name === msg.from)) return;
+-  if (!S.friendReqs.find(r => r.name === msg.from)) {
+-    S.friendReqs.push({ name: msg.from, direction: 'in', pfp: msg.fromPfp||null, color: msg.fromColor||null });
+-    persist(); if(document.getElementById('friends-view').style.display!=='none') renderFriends();
+-    playSound('friend_request');
+-    addNotif('👥', msg.from + ' sent you a friend request', () => showFriends());
+-    const badge = document.getElementById('fr-badge');
+-    badge.style.display = '';
++  if (isFriend(msg.from)) return;
++  if (S.friendReqs.some(r => _nk(r.name) === _nk(msg.from) && r.direction === 'in')) return;
++  S.friendReqs.push({ name: msg.from, direction: 'in', pfp: msg.fromPfp || null, color: msg.fromColor || null, ts: Date.now() });
++  persist(); renderFriends();
++  playSound('friend_request');
++  addNotif('👥', msg.from + ' sent you a friend request', () => showFriends('pending'));
++}
++function onFriendAdded(msg) {
++  const f = msg.friend; if (!f?.name) return;
++  const i = S.friends.findIndex(x => _nk(x.name) === _nk(f.name));
++  if (i >= 0) S.friends[i] = { ...S.friends[i], ...f }; else S.friends.push(f);
++  S.friendReqs = S.friendReqs.filter(r => _nk(r.name) !== _nk(f.name));
++  persist(); renderFriends();
++  if (msg.by && _nk(msg.by) !== _nk(S.user.name)) {   // they accepted MY request
++    playSound('friend_accept');
++    addNotif('✅', f.name + ' accepted your friend request!', () => showFriends('all'));
++    toast('✅ ' + f.name + ' accepted your friend request!');
+   }
+ }
+-
++function recvFriendAccept(msg) { onFriendAdded({ friend: { name: msg.from, pfp: msg.fromPfp || null }, by: msg.from }); } // older servers
+ function acceptFriend(name) {
+-  const req = S.friendReqs.find(r => r.name === name && r.direction === 'in');
+-  if (!req) return;
+-  S.friends.push({ name, pfp: req.pfp||null, color: req.color||null });
+-  S.friendReqs = S.friendReqs.filter(r => r.name !== name);
+-  persist(); renderFriends();
+-  wsSend({ type: 'friend_accept', to: name, from: S.user.name, fromPfp: S.user.pfp||null });
+-  document.getElementById('fr-badge').style.display = S.friendReqs.filter(r=>r.direction==='in').length ? '' : 'none';
+-  toast('✅ Now friends with ' + name);
++  const req = S.friendReqs.find(r => r.direction === 'in' && _nk(r.name) === _nk(name)); if (!req) return;
++  wsSend({ type: 'friend_accept', to: req.name });            // server first; its friend_added reply fills in presence
++  S.friends.push({ name: req.name, pfp: req.pfp || null, color: req.color || null, online: false, status: 'offline' });
++  S.friendReqs = S.friendReqs.filter(r => _nk(r.name) !== _nk(name));
++  persist(); renderFriends(); toast('✅ Now friends with ' + req.name);
+ }
+-
+ function declineFriend(name) {
+-  S.friendReqs = S.friendReqs.filter(r => r.name !== name);
+-  persist(); renderFriends();
+-  document.getElementById('fr-badge').style.display = S.friendReqs.filter(r=>r.direction==='in').length ? '' : 'none';
+-  wsSend({ type: 'friend_decline', to: name, from: S.user.name });
+-  toast('❌ Friend request declined');
++  wsSend({ type: 'friend_decline', to: name });
++  S.friendReqs = S.friendReqs.filter(r => !(r.direction === 'in' && _nk(r.name) === _nk(name)));
++  persist(); renderFriends(); toast('Friend request declined');
+ }
+-
+-function recvFriendAccept(msg) {
+-  if (!S.friends.find(f => f.name === msg.from)) {
+-    S.friends.push({ name: msg.from, pfp: msg.fromPfp||null });
+-    S.friendReqs = S.friendReqs.filter(r => r.name !== msg.from);
+-    persist(); if(document.getElementById('friends-view').style.display!=='none') renderFriends();
+-    playSound('friend_accept');
+-    addNotif('✅', msg.from + ' accepted your friend request!', () => showFriends());
+-    toast('✅ ' + msg.from + ' accepted your friend request!');
+-  }
++function cancelFriendReq(name) {
++  wsSend({ type: 'friend_cancel', to: name });
++  S.friendReqs = S.friendReqs.filter(r => !(r.direction === 'out' && _nk(r.name) === _nk(name)));
++  persist(); renderFriends(); toast('Friend request cancelled');
+ }
+-
+ function removeFriend(name) {
+-  if (!confirm('Remove ' + name + ' from friends?')) return;
+-  S.friends = S.friends.filter(f => f.name !== name);
+-  persist(); renderFriends(); toast('Removed ' + name);
++  if (!confirm('Remove ' + name + ' from your friends?')) return;
+   wsSend({ type: 'friend_remove', target: name });
++  S.friends = S.friends.filter(f => _nk(f.name) !== _nk(name));
++  persist(); renderFriends(); toast('Removed ' + name);
+ }
+-
+ function dmFriend(name) {
+-  openOrCreateDM(name, S.friends.find(f=>f.name===name)?.pfp||null);
+-  document.getElementById('friends-view').style.display = 'none';
++  openOrCreateDM(name, S.friends.find(f => _nk(f.name) === _nk(name))?.pfp || null);
++  closeFriends();
+ }
++document.addEventListener('keydown', e => {
++  if (e.key === 'Escape' && friendsOpen() && !document.querySelector('.overlay.open') && !document.getElementById('profile-page')?.classList.contains('open')) closeFriends();
++});
 diff --git a/js/members.js b/js/members.js
-index e481e3f..3683523 100644
+index e481e3f..7c27764 100644
 --- a/js/members.js
 +++ b/js/members.js
-@@ -13,8 +13,8 @@ function renderMbs() {
+@@ -1,23 +1,65 @@
+ // ── MEMBERS (real, from WS) ──
++// ── presence helpers ──
++const _nk = n => String(n || '').toLowerCase();           // names are matched case-insensitively everywhere
++// One entry per person (the server already does this; this protects against older data / races). If a person
++// appears twice, the online one wins.
++function dedupeMembers(list) {
++  const map = new Map();
++  (list || []).forEach(m => {
++    if (!m || !m.name) return;
++    const k = _nk(m.name), prev = map.get(k);
++    if (!prev || (m.online !== false && prev.online === false)) map.set(k, { ...(prev || {}), ...m });
++  });
++  return [...map.values()];
++}
++// Apply one person's presence everywhere we show it: every loaded member list and the friends list.
++function applyPresence(name, p, quiet) {
++  const k = _nk(name); let touched = false;
++  Object.values(S.members || {}).forEach(list => (list || []).forEach(m => {
++    if (_nk(m.name) !== k) return;
++    m.online = !!p.online; m.status = p.online ? p.status : undefined;
++    if (p.lastSeen !== undefined) m.lastSeen = p.lastSeen;
++    touched = true;
++  }));
++  const f = (S.friends || []).find(x => _nk(x.name) === k);
++  if (f) { f.online = !!p.online; f.status = p.online ? p.status : 'offline'; if (p.lastSeen !== undefined) f.lastSeen = p.lastSeen; touched = true; }
++  if (touched && !quiet) {
++    if (S.curSv) renderMbs();
++    if (friendsOpen()) renderFriends();
++  }
++  return touched;
++}
++// Ask the server for a server's member list. Every request has a number; replies older than the newest one we
++// already applied are ignored, so a slow reply can never overwrite a newer list.
++const _memReq = {}, _memApplied = {};
++function requestMembers(svId) {
++  if (!svId) return;
++  _memReq[svId] = (_memReq[svId] || 0) + 1;
++  wsSend({ type: 'get_members', serverId: svId, reqId: _memReq[svId] });
++}
++function friendsOpen() { const v = document.getElementById('friends-view'); return !!v && v.style.display !== 'none'; }
++
+ function renderMbs() {
+   const el=document.getElementById('members'); let html='';
+   if(!S.curSv){ el.innerHTML='<div class="mb-empty">No server selected</div>'; return; }
+   const sv=S.curSv;
+-  const mbs=S.members[sv.id]||[];
+-  // Self is always online
+-  const self={name:S.user.name,color:S.user.color,pfp:S.user.pfp||null,online:true};
+-  const all=[self,...mbs.filter(m=>m.name!==S.user.name)];
++  // Build one entry per person. I am always shown (online, with my own status) and never twice.
++  const byKey=new Map();
++  dedupeMembers(S.members[sv.id]||[]).forEach(m=>byKey.set(_nk(m.name),m));
++  const meKey=_nk(S.user.name), mine=byKey.get(meKey)||{};
++  byKey.set(meKey,{...mine,name:S.user.name,color:S.user.color,pfp:S.user.pfp||null,online:true,status:S.user.status});
++  const all=[...byKey.values()];
+   if(!all.length){ el.innerHTML='<div class="mb-empty">No members</div>'; return; }
+ 
+   const renderGroup=(title,members,isOffline=false)=>{
      if(!members.length) return;
      html+=`<div class="mb-cat">${title} — ${members.length}</div>`;
      members.forEach(m=>{
 -      const avContent=m.pfp?`<img src="${m.pfp}" alt="">`:`${m.name[0].toUpperCase()}`;
 -      const avBg=m.pfp?'transparent':(m.color||COLORS[hash(m.name)%COLORS.length]);
-+      const avContent=safeUrl(m.pfp)?`<img src="${safeUrl(m.pfp)}" alt="">`:`${m.name[0].toUpperCase()}`;
++      const avContent=safeUrl(m.pfp)?`<img src="${safeUrl(m.pfp)}" alt="">`:`${esc(m.name[0].toUpperCase())}`;
 +      const avBg=safeUrl(m.pfp)?'transparent':(m.color||COLORS[hash(m.name)%COLORS.length]);
        const badge=roleLabel(sv,m.name);
        const myRole=getMyRole(sv);
-       const canCtx=(myRole==='owner'||myRole==='mod')&&m.name!==S.user.name;
+-      const canCtx=(myRole==='owner'||myRole==='mod')&&m.name!==S.user.name;
++      const canCtx=(myRole==='owner'||myRole==='mod')&&_nk(m.name)!==meKey;
+       const statusBg=isOffline?'var(--t3)':(m.status==='idle'?'var(--yellow)':m.status==='dnd'?'var(--red)':m.status==='invisible'?'var(--t3)':'var(--green)');
+       const offlineStyle=isOffline?'opacity:0.5;':'';
+       html+=`<div class="mb-it" style="${offlineStyle}" onclick="openProfilePage('${esc(m.name)}')" oncontextmenu="${canCtx?`openMemberCtx('${esc(m.name)}',event)`:''}" onmouseenter="showUserHover('${esc(m.name)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" title="Click for profile${canCtx?' · Right-click for options':''}">
+@@ -28,26 +70,25 @@ function renderMbs() {
+     });
+   };
+ 
+-  // Group by role AND online status: online first, then offline
+-  const online=all.filter(m=>m.online!==false);
+-  const offline=all.filter(m=>m.online===false);
+-
+-  // Within online: sort by role
+-  const onOwners=online.filter(m=>getMemberRole(sv,m.name)==='owner');
+-  const onMods=online.filter(m=>getMemberRole(sv,m.name)==='mod');
+-  const onOthers=online.filter(m=>getMemberRole(sv,m.name)!=='owner'&&getMemberRole(sv,m.name)!=='mod');
+-  // Within offline: sort by role
+-  const offOwners=offline.filter(m=>getMemberRole(sv,m.name)==='owner');
+-  const offMods=offline.filter(m=>getMemberRole(sv,m.name)==='mod');
+-  const offOthers=offline.filter(m=>getMemberRole(sv,m.name)!=='owner'&&getMemberRole(sv,m.name)!=='mod');
+-
+-  if(online.length) {
+-    renderGroup('Online',onOwners.concat(onMods,onOthers));
+-  }
+-  if(offline.length) {
+-    // Show offline by role sub-group or flat depending on size
+-    renderGroup('Offline',offOwners.concat(offMods,offOthers),true);
+-  }
++  // Only an explicit online:true counts as online (a missing flag used to mean "online")
++  const online=all.filter(m=>m.online===true);
++  const offline=all.filter(m=>m.online!==true);
++  const byRole=(arr)=>{
++    const r=m=>getMemberRole(sv,m.name);
++    return arr.filter(m=>r(m)==='owner').concat(arr.filter(m=>r(m)==='mod'),arr.filter(m=>r(m)!=='owner'&&r(m)!=='mod'));
++  };
++  if(online.length) renderGroup('Online',byRole(online));
++  if(offline.length) renderGroup('Offline',byRole(offline),true);
+   el.innerHTML=html;
+ }
+ function toggleMb(){S.mbOpen=!S.mbOpen;document.getElementById('members').style.display=S.mbOpen?'':'none';}
++
++// Keep the list honest without depending on every individual event arriving: refresh the current server's
++// members when the tab becomes visible again and every 45s while it's open, and make sure connections that
++// died silently are noticed (below) so the server stops showing us online when we're not.
++document.addEventListener('visibilitychange', () => {
++  if (document.visibilityState !== 'visible' || !S.wsOk || !S.user) return;
++  if (S.curSv) requestMembers(S.curSv.id);
++  if ((S.friends || []).length) wsSend({ type: 'get_presence', names: S.friends.map(f => f.name) });
++});
++setInterval(() => { if (document.visibilityState === 'visible' && S.wsOk && S.user && S.curSv) requestMembers(S.curSv.id); }, 45000);
 diff --git a/js/messages.js b/js/messages.js
 index 20e798d..e9cb101 100644
 --- a/js/messages.js
@@ -583,9 +1190,18 @@ index 478fce9..077b97d 100644
      const popup = document.createElement('div');
      popup.className = 'user-hover-popup';
 diff --git a/js/servers.js b/js/servers.js
-index 068ed8a..f57263d 100644
+index 068ed8a..1d65b5a 100644
 --- a/js/servers.js
 +++ b/js/servers.js
+@@ -21,7 +21,7 @@ function selectSv(id) {
+   document.getElementById('rail-discover').classList.remove('act');
+   renderSvs(); renderChs(); renderMbs();
+   // Request member list from server
+-  wsSend({type:'get_members',serverId:id});
++  requestMembers(id);
+   const first=(S.curSv.channels||[]).find(c=>c.type==='text');
+   first?selectCh(first.id):showWelcome();
+ }
 @@ -92,15 +92,19 @@ function showRailCtx(sv, e) {
      ctxItem('🗑 Delete Server', () => {
        if (!confirm(`Permanently delete "${sv.name}"? This cannot be undone.`)) return;
@@ -1009,7 +1625,7 @@ index 60b7d6f..a1d5f4e 100644
  function shareShort(shortId) {
    const sv = S.servers.find(s => s.id === curShortsServerId); if (!sv) return;
 diff --git a/js/state.js b/js/state.js
-index 7a93080..a7960cf 100644
+index 7a93080..839a06b 100644
 --- a/js/state.js
 +++ b/js/state.js
 @@ -2,6 +2,9 @@
@@ -1018,10 +1634,35 @@ index 7a93080..a7960cf 100644
  const WS_URL = 'wss://nexus.dot-jms.deno.net';
 +// The newest server this client is written for. If the server is older (not redeployed yet), saves for newer
 +// features are silently ignored and "disappear" on refresh, so the client warns loudly instead.
-+const REQUIRED_SERVER_PROTOCOL = 4;
++const REQUIRED_SERVER_PROTOCOL = 5;
  
  // ── STATE ──
  const S = {
+diff --git a/js/status-pins.js b/js/status-pins.js
+index c23c803..beb2351 100644
+--- a/js/status-pins.js
++++ b/js/status-pins.js
+@@ -5,12 +5,17 @@ function toggleStatusMenu(e) {
+   e.stopPropagation();
+   document.getElementById('status-menu').classList.toggle('open');
+ }
+-function setStatus(s) {
++// Show a status on my own avatar dot (no message sent). The server remembers it, so it survives a refresh.
++function applyOwnStatus(s) {
++  if (!s) return;
+   S.user.status = s;
+   const dot = document.getElementById('u-dot');
+-  dot.className = 'u-dot' + (s === 'online' ? '' : ' ' + s);
++  if (dot) dot.className = 'u-dot' + (s === 'online' ? '' : ' ' + s);
++}
++function setStatus(s) {
++  applyOwnStatus(s);
+   document.getElementById('status-menu').classList.remove('open');
+-  wsSend({ type: 'status_update', user: S.user.name, status: s });
++  wsSend({ type: 'status_update', status: s });
+   toast('Status set to ' + s);
+   // Update status dots in member lists
+   if (S.curSv) renderMbs();
 diff --git a/js/ui-helpers.js b/js/ui-helpers.js
 index 5d27398..c9fd79f 100644
 --- a/js/ui-helpers.js
@@ -1108,7 +1749,7 @@ index a694d9b..db8f86f 100644
            attachments: [], ts: Date.now(), reactions: [] };
          // Check size — base64 audio should be small but guard against huge recordings
 diff --git a/js/websocket.js b/js/websocket.js
-index 52c7f95..cc82904 100644
+index 52c7f95..b16e638 100644
 --- a/js/websocket.js
 +++ b/js/websocket.js
 @@ -39,7 +39,9 @@ function connectWS() {
@@ -1137,7 +1778,7 @@ index 52c7f95..cc82904 100644
    'typing','get_history','get_members','get_server_list','get_server_info',
    'identify','join_channel','voice_join','voice_leave','voice_signal',
 -  'vcall_signal','status_update',
-+  'vcall_signal','status_update','history_request','history_serve','get_profiles',
++  'vcall_signal','status_update','history_request','history_serve','get_profiles','ping','get_presence',
  ]);
  const _wsQueue = [];
 +// Actions that change saved data. If the socket is down when one happens, the UI has already updated
@@ -1176,7 +1817,7 @@ index 52c7f95..cc82904 100644
    }
    return false;
  }
-@@ -181,4 +212,14 @@ function _flushWsQueue() {
+@@ -181,4 +212,26 @@ function _flushWsQueue() {
      const o = _wsQueue.shift();
      S.ws.send(JSON.stringify({ ...o, token: S.token }));
    }
@@ -1191,8 +1832,20 @@ index 52c7f95..cc82904 100644
 +  window.addEventListener('error', e => { console.error('[nexus] uncaught', e.error || e.message); show(e.message); });
 +  window.addEventListener('unhandledrejection', e => { console.error('[nexus] unhandled rejection', e.reason); show(e.reason?.message || e.reason); });
 +})();
++
++
++// ── heartbeat ──
++// A connection can die without the browser noticing (laptop sleep, wifi drop). The server closes connections
++// that stay silent, which is what stops us showing as online when we're not; we ping every 20s so a healthy
++// connection is never silent, and if no answer comes back for a minute we reconnect instead of limping on.
++let _lastPong = Date.now();
++setInterval(() => {
++  if (!S.user || S.ws?.readyState !== 1) return;
++  wsSend({ type: 'ping', ts: Date.now() });
++  if (Date.now() - _lastPong > 60000) { console.warn('[nexus] no heartbeat answer for 60s, reconnecting'); try { S.ws.close(); } catch (_) {} }
++}, 20000);
 diff --git a/js/ws-handler.js b/js/ws-handler.js
-index 39d6738..0bed7ae 100644
+index 39d6738..514de06 100644
 --- a/js/ws-handler.js
 +++ b/js/ws-handler.js
 @@ -29,7 +29,7 @@ function handleIn(msg) {
@@ -1204,11 +1857,14 @@ index 39d6738..0bed7ae 100644
        }
        // Notify the person who got the role
        if (msg.target === S.user.name) {
-@@ -45,12 +45,26 @@ function handleIn(msg) {
+@@ -45,12 +45,29 @@ function handleIn(msg) {
        clearTimeout(_identifyTimer); _identifyTimer = null; // ← handshake complete, cancel timeout
        dbg('← identified: backend sent ' + (msg.servers?.length||0) + ' server(s)', (msg.servers?.length ? 'ok' : 'warn'));
        // FIX #9: Flush any messages that were queued while we were offline
 +      checkServerProtocol(msg.protocol);
++      if (msg.user?.status) applyOwnStatus(msg.user.status);       // my status survives refreshes (server remembers it)
++      _lastPong = Date.now();
++      setTimeout(() => { if (S.curSv) requestMembers(S.curSv.id); }, 300); // events missed while disconnected
 +      _loadOutbox(); // actions left unsent by a refresh while offline
 +      flushProfileRequests(); // profiles we wanted before the connection was up
        setTimeout(_flushWsQueue, 100);
@@ -1231,7 +1887,7 @@ index 39d6738..0bed7ae 100644
          S.user.bio        = msg.user.bio        || S.user.bio;
          S.user.socials    = msg.user.socials    || S.user.socials;
          lsSet('nx-session', { token: S.token, user: S.user });
-@@ -91,12 +105,8 @@ function handleIn(msg) {
+@@ -91,12 +108,8 @@ function handleIn(msg) {
                existing.isOwner = (ss.ownerId||'').toLowerCase() === (S.user.name||'').toLowerCase();
                // Merge persisted pins — server is authoritative, client may have stale cache
                if (ss.pins) existing.pins = { ...(existing.pins||{}), ...ss.pins };
@@ -1246,7 +1902,7 @@ index 39d6738..0bed7ae 100644
                // Restore custom emoji names — data will be fetched p2p when needed
                if (ss.customEmojiNames?.length) {
                  if (!existing.customEmojis) existing.customEmojis = [];
-@@ -111,7 +121,7 @@ function handleIn(msg) {
+@@ -111,7 +124,7 @@ function handleIn(msg) {
            }
          });
          if (svChanged) {
@@ -1255,7 +1911,7 @@ index 39d6738..0bed7ae 100644
            S.servers.forEach(sv => wsSend({type:'get_server_info', serverId:sv.id}));
            if (!S.curSv && S.servers.length) selectSv(S.servers[0].id);
          } else if (msg.servers?.length) {
-@@ -132,7 +142,8 @@ function handleIn(msg) {
+@@ -132,7 +145,8 @@ function handleIn(msg) {
          const knownByServer = new Set((msg.servers||[]).map(s=>s.id));
          S.servers.forEach(sv => {
            const iAmOwner = (sv.ownerId||'').toLowerCase() === (S.user?.name||'').toLowerCase() || sv.isOwner === true;
@@ -1265,7 +1921,7 @@ index 39d6738..0bed7ae 100644
              console.log('[nexus] owned server missing from backend — re-registering:', sv.id, sv.name);
              dbg('⚠ owned server not in backend, re-registering: "' + sv.name + '"', 'warn');
              const reCreateMsg = {type:'server_create', serverId:sv.id, name:sv.name,
-@@ -149,7 +160,38 @@ function handleIn(msg) {
+@@ -149,7 +163,38 @@ function handleIn(msg) {
      case 'auth_required':
        dbg('✕ auth_required — session expired', 'err');
        toast('⚠️ Session expired — please sign in again');
@@ -1305,7 +1961,7 @@ index 39d6738..0bed7ae 100644
        break;
      case 'server_create_ok':
        _pendingServerCreates.delete(msg.serverId);
-@@ -314,7 +356,8 @@ function handleIn(msg) {
+@@ -314,7 +359,8 @@ function handleIn(msg) {
        const acSv = S.servers.find(sv => sv.id === msg.serverId);
        if (acSv) {
          if (!acSv.channels) acSv.channels = [];
@@ -1315,7 +1971,7 @@ index 39d6738..0bed7ae 100644
          persist();
          if (S.curSv?.id === msg.serverId) { S.curSv.channels = acSv.channels; renderChs(); }
        }
-@@ -342,6 +385,7 @@ function handleIn(msg) {
+@@ -342,6 +388,7 @@ function handleIn(msg) {
        break;
      }
  
@@ -1323,10 +1979,99 @@ index 39d6738..0bed7ae 100644
      case 'server_channel_deleted': {
        const dcSv = S.servers.find(sv => sv.id === msg.serverId);
        if (dcSv && dcSv.channels) {
-@@ -670,6 +714,13 @@ function handleIn(msg) {
+@@ -524,20 +571,24 @@ function handleIn(msg) {
+       }
+       break;
+     case 'friends_data':
+-      if (msg.friends?.length) {
+-        msg.friends.forEach(sf => {
+-          if (!S.friends.find(f => f.name === sf.name)) S.friends.push(sf);
+-        });
+-      }
+-      if (msg.friendRequests?.length) {
+-        msg.friendRequests.forEach(sr => {
+-          if (!S.friendReqs.find(r => r.name === sr.name)) S.friendReqs.push(sr);
+-        });
+-        const inReqs = S.friendReqs.filter(r => r.direction === 'in');
+-        document.getElementById('fr-badge').style.display = inReqs.length ? '' : 'none';
++      // The server's list is the truth (friends come with live presence), so replace instead of merging.
++      if (msg.full) { S.friends = msg.friends || []; S.friendReqs = msg.friendRequests || []; }
++      else {
++        (msg.friends || []).forEach(sf => { if (!S.friends.find(f => _nk(f.name) === _nk(sf.name))) S.friends.push(sf); });
++        (msg.friendRequests || []).forEach(sr => { if (!S.friendReqs.find(r => _nk(r.name) === _nk(sr.name))) S.friendReqs.push(sr); });
+       }
+-      persist();
+-      if (document.getElementById('friends-view').style.display !== 'none') renderFriends();
++      updateFriendBadge(); persist(); renderFriends();
++      break;
++    case 'friend_added': onFriendAdded(msg); break;
++    case 'friend_request_result': onFriendRequestResult(msg); break;
++    case 'friend_request_cancelled':
++      S.friendReqs = S.friendReqs.filter(r => !(r.direction === 'in' && _nk(r.name) === _nk(msg.from)));
++      updateFriendBadge(); persist(); renderFriends();
++      break;
++    case 'presence': applyPresence(msg.user, msg); break;
++    case 'presence_snapshot':
++      Object.values(msg.presence || {}).forEach(p => applyPresence(p.name, p, true));
++      if (S.curSv) renderMbs(); if (friendsOpen()) renderFriends();
+       break;
+     case 'delete_message': delById(msg.messageId,msg.channelId); break;
+     case 'dm_delete': {
+@@ -635,41 +686,34 @@ function handleIn(msg) {
+     case 'dm_decline': recvDMDecline(msg); break;
+     // Real member presence — server sends these
+     case 'member_join': {
+-      if(!S.members[msg.serverId]) S.members[msg.serverId]=[];
+-      const existingMb=S.members[msg.serverId].find(m=>m.name===msg.user);
+-      const wasOffline = existingMb && existingMb.online === false;
+-      if(existingMb) {
+-        // User came back online — update status and profile
+-        existingMb.online = true;
+-        existingMb.color = msg.color || existingMb.color;
+-        existingMb.pfp = msg.pfp !== undefined ? msg.pfp : existingMb.pfp;
+-      } else {
+-        // Truly new member we've never seen — add them
+-        S.members[msg.serverId].push({name:msg.user,color:msg.color||COLORS[hash(msg.user)%COLORS.length],pfp:msg.pfp||null,status:'on',online:true});
+-      }
+-      if(S.curSv?.id===msg.serverId) {
+-        renderMbs();
+-        // Only play sound for genuinely new members, not reconnects
+-        if (!existingMb) playSound('member_join');
+-      }
++      // A new person joined this server (the server sends their profile with it)
++      const mj = msg.member || { name: msg.user, color: msg.color, pfp: msg.pfp, online: true };
++      if (!mj.name) break;
++      const list = S.members[msg.serverId];
++      if (!list) { if (S.curSv?.id === msg.serverId) requestMembers(msg.serverId); break; } // list not loaded yet: ask for the real one
++      const exMb = list.find(m => _nk(m.name) === _nk(mj.name));
++      if (exMb) Object.assign(exMb, mj, { online: mj.online !== false });
++      else list.push({ ...mj, color: mj.color || COLORS[hash(mj.name) % COLORS.length], online: mj.online !== false });
++      if (S.curSv?.id === msg.serverId) { renderMbs(); if (!exMb) playSound('member_join'); }
+       break;
+     }
++    // Older servers announced presence with these; the current one sends 'presence' instead. Kept so a
++    // not-yet-updated server still works.
+     case 'member_leave':
+-      if (msg.serverId === '__all__') {
+-        // Mark offline across all servers instead of removing
+-        Object.keys(S.members).forEach(sid => {
+-          const m = S.members[sid].find(m => m.name === msg.user);
+-          if (m) m.online = false;
+-        });
+-        if (S.curSv) { renderMbs(); }
+-      } else {
+-        const lvMb = S.members[msg.serverId]?.find(m => m.name === msg.user);
+-        if (lvMb) lvMb.online = false;
+-        if(S.curSv?.id===msg.serverId) { renderMbs(); }
+-      }
++      applyPresence(msg.user, { online: false, status: 'offline' });
        break;
      case 'member_list':
-       S.members[msg.serverId]=msg.members||[];
+-      S.members[msg.serverId]=msg.members||[];
++      // replies can arrive out of order: ignore one older than what we already applied
++      if (msg.reqId !== undefined && msg.reqId < (_memApplied[msg.serverId] || 0)) break;
++      if (msg.reqId !== undefined) _memApplied[msg.serverId] = msg.reqId;
++      S.members[msg.serverId]=dedupeMembers(msg.members||[]);
 +      // seed avatars/colors so messages (which no longer carry the sender's avatar) render them
 +      // (merge the whole member record, never a partial one: openProfilePage reads this cache directly)
 +      (msg.members||[]).forEach(m => {
@@ -1337,7 +2082,7 @@ index 39d6738..0bed7ae 100644
        // Always sync memberCount from actual member list — includes offline members
        { const mlSv = S.servers.find(s => s.id === msg.serverId);
          if (mlSv) { mlSv.memberCount = (msg.members||[]).length; persist(); renderDiscover(); } }
-@@ -703,6 +754,7 @@ function handleIn(msg) {
+@@ -703,6 +747,7 @@ function handleIn(msg) {
          S.messages[msg.channelId].sort((a,b) => a.ts - b.ts);
          persist();
          if (S.curCh?.id === msg.channelId) renderMsgs(msg.channelId);
@@ -1345,7 +2090,7 @@ index 39d6738..0bed7ae 100644
        }
        break;
      }
-@@ -739,6 +791,7 @@ function handleIn(msg) {
+@@ -739,6 +784,7 @@ function handleIn(msg) {
        } else if (S.curCh?.id === vsChId) {
          renderMsgs(vsChId);
        }
@@ -1353,7 +2098,7 @@ index 39d6738..0bed7ae 100644
        break;
      }
      case 'server_info': {
-@@ -760,10 +813,15 @@ function handleIn(msg) {
+@@ -760,10 +806,15 @@ function handleIn(msg) {
          if (si.roles !== undefined)        sv.roles       = si.roles;
          if (si.memberRoles !== undefined)  sv.memberRoles = si.memberRoles;
          if (si.banner !== undefined)       sv.banner      = si.banner;
@@ -1369,7 +2114,22 @@ index 39d6738..0bed7ae 100644
          if (S.curSv?.id === sv.id) { renderChs(); document.getElementById('sv-nm').textContent = sv.name; buildSvDropdown(); }
        }
        break;
-@@ -870,17 +928,21 @@ function handleIn(msg) {
+@@ -860,27 +911,31 @@ function handleIn(msg) {
+     case 'friend_request': recvFriendReq(msg); break;
+     case 'friend_accept': recvFriendAccept(msg); break;
+     case 'friend_decline':
+-      S.friendReqs = S.friendReqs.filter(r => r.name !== msg.from);
+-      persist(); renderFriends(); toast(msg.from + ' declined your friend request');
++      S.friendReqs = S.friendReqs.filter(r => _nk(r.name) !== _nk(msg.from));
++      updateFriendBadge(); persist(); renderFriends(); toast(msg.from + ' declined your friend request');
+       break;
+     case 'friend_removed':
+-      S.friends = S.friends.filter(f => f.name !== msg.by);
+-      S.friendReqs = S.friendReqs.filter(r => r.name !== msg.by);
+-      persist(); if (document.getElementById('friends-view').style.display !== 'none') renderFriends();
++      S.friends = S.friends.filter(f => _nk(f.name) !== _nk(msg.by));
++      S.friendReqs = S.friendReqs.filter(r => _nk(r.name) !== _nk(msg.by));
++      updateFriendBadge(); persist(); renderFriends();
        break;
      case 'short_post': {
        const sv = S.servers.find(s => s.id === msg.serverId);
@@ -1394,7 +2154,24 @@ index 39d6738..0bed7ae 100644
        break;
      }
      case 'custom_emoji_add': {
-@@ -929,7 +991,7 @@ function handleIn(msg) {
+@@ -905,14 +960,8 @@ function handleIn(msg) {
+       break;
+     }
+     case 'status_update': {
+-      // Update member status dot in member list
+-      if (S.members) {
+-        Object.values(S.members).forEach(list => {
+-          const m = list.find(x => x.name === msg.user);
+-          if (m) m.status = msg.status;
+-        });
+-      }
+-      if (S.curSv) renderMbs();
++      // (older servers) the current one sends 'presence'
++      applyPresence(msg.user, { online: msg.status !== 'invisible', status: msg.status });
+       break;
+     }
+     case 'profile_update_confirm': {
+@@ -929,7 +978,7 @@ function handleIn(msg) {
      case 'profile_update': {
        const updUser = msg.user;
        // Update profileCache first
@@ -1403,7 +2180,7 @@ index 39d6738..0bed7ae 100644
        if (msg.color) profileCache[updUser].color = msg.color;
        if (msg.pfp !== undefined) profileCache[updUser].pfp = msg.pfp;
        if (msg.bio !== undefined) profileCache[updUser].bio = msg.bio;
-@@ -978,7 +1040,7 @@ function handleIn(msg) {
+@@ -978,7 +1027,7 @@ function handleIn(msg) {
        });
        persist();
        if (S.curSv) renderMbs();
@@ -1412,7 +2189,7 @@ index 39d6738..0bed7ae 100644
        if (curDM && (curDM === updUser || S.dmMessages[curDM]?.some(m => m.author === updUser))) renderDMMessages(curDM);
        break;
      }
-@@ -1091,6 +1153,8 @@ function handleIn(msg) {
+@@ -1091,6 +1140,8 @@ function handleIn(msg) {
      }
      case 'error':
        toast('⚠️ ' + (msg.message || 'Server error'));
@@ -1421,7 +2198,16 @@ index 39d6738..0bed7ae 100644
        // Password change error — show in form
        if (msg.context === 'change_password') {
          const errEl = document.getElementById('chpw-err');
-@@ -1187,3 +1251,16 @@ function handleIn(msg) {
+@@ -1179,7 +1230,7 @@ function handleIn(msg) {
+     case 'admin_calls_list':
+       renderAdminCallsList(msg.calls || []);
+       break;
+-    case 'pong': break; // keepalive response, no action needed
++    case 'pong': _lastPong = Date.now(); break; // keepalive answer: the connection is alive
+     default: console.log('ws:',msg);
+   }
+ }
+@@ -1187,3 +1238,16 @@ function handleIn(msg) {
  function setWS(s){ document.getElementById('ws-dot').className='ws-dot '+s; document.getElementById('ws-txt').textContent=s; }
  function setBanner(t){ const b=document.getElementById('banner'); b.textContent=t; b.classList.add('show'); }
  function hideBanner(){ document.getElementById('banner').classList.remove('show'); }

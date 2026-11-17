@@ -346,7 +346,7 @@ body.in-dm #vcall-bar, body.in-dm #pinned-bar, body.in-dm #voice-bar { max-heigh
 
 /* fixed side panels (shown/hidden through inline display; see motion.css) */
 #notif-panel { position: fixed; top: 0; right: 0; bottom: 0; z-index: 99; width: 320px; flex-direction: column; background: var(--bg-secondary); box-shadow: -8px 0 24px rgba(0,0,0,.3); }
-#friends-view { position: fixed; top: 0; bottom: 0; left: 72px; z-index: 105; width: 300px; flex-direction: column; background: var(--bg-secondary); box-shadow: 8px 0 24px rgba(0,0,0,.3); }
+#friends-view { position: fixed; top: 0; bottom: 0; left: 72px; right: 0; z-index: 105; flex-direction: column; background: var(--bg-primary); }
 #shorts-view { position: fixed; inset: 0; z-index: 150; overflow: hidden; background: rgba(0,0,0,.4); }
 .vcall-bar-row { display: flex; align-items: center; gap: 8px; }
 .vcall-bar-dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: var(--green); animation: blink 1.5s infinite; }
@@ -429,3 +429,58 @@ body.in-dm #vcall-bar, body.in-dm #pinned-bar, body.in-dm #voice-bar { max-heigh
 .inp-row.inp-locked { opacity: .55; transition: opacity var(--fast, .15s) linear; }
 .inp-row.inp-locked .in-l, .inp-row.inp-locked .in-r { pointer-events: none; }
 .inp-row.inp-locked textarea { cursor: not-allowed; }
+
+/* ───────── Friends page ───────── */
+.fv-head { display: flex; align-items: center; gap: 16px; height: 48px; padding: 0 16px; flex-shrink: 0; border-bottom: 1px solid var(--divider); box-shadow: var(--elev-low); }
+.fv-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; color: var(--text-header); }
+.fv-vdiv { width: 1px; height: 24px; background: var(--divider); }
+.fv-tabs { display: flex; gap: 8px; flex: 1; min-width: 0; }
+.fv-tab { display: flex; align-items: center; gap: 6px; height: 28px; padding: 2px 10px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font: 600 14px var(--font); cursor: pointer; transition: background var(--fast) linear, color var(--fast) linear; }
+.fv-tab:hover { background: var(--bg-hover); color: var(--text-normal); }
+.fv-tab.act { background: var(--bg-selected); color: var(--text-header); }
+.fv-addtab { background: var(--green); color: #fff; }
+.fv-addtab:hover { background: #1f8f4e; color: #fff; }
+.fv-addtab.act { background: transparent; color: var(--green); }
+.fv-n { font-size: 12px; font-weight: 700; color: var(--text-muted); }
+.fv-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 5px; border-radius: 8px; background: var(--red); color: #fff; font-size: 11px; font-weight: 700; }
+.fv-body { flex: 1; display: flex; min-height: 0; }
+.fv-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.fv-searchbar { display: flex; align-items: center; gap: 14px; padding: 16px 20px 4px; flex-shrink: 0; }
+.fv-searchbar .m-inp { flex: 1; max-width: 640px; margin: 0; }
+.fv-summary { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+.fv-scroll { flex: 1; overflow-y: auto; padding: 0 20px 28px; }
+.fv-sec { padding: 16px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: var(--text-secondary); }
+.fv-row, .fv-sugg { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md); }
+.fv-row { border-top: 1px solid var(--divider); cursor: pointer; transition: background var(--fast) linear; }
+.fv-row:first-of-type { border-top-color: transparent; }
+.fv-sec + .fv-row { border-top-color: transparent; }
+.fv-row:hover { background: var(--bg-hover); border-top-color: transparent; }
+.fv-row:hover + .fv-row { border-top-color: transparent; }
+.fv-av { position: relative; flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; font-weight: 700; }
+.fv-av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.fv-dot { position: absolute; right: -3px; bottom: -3px; width: 15px; height: 15px; border-radius: 50%; border: 3px solid var(--bg-primary); background: var(--text-faint); box-sizing: border-box; }
+.fv-dot.online { background: var(--green); } .fv-dot.idle { background: var(--yellow); } .fv-dot.dnd { background: var(--red); }
+.fv-info { flex: 1; min-width: 0; }
+.fv-name { font-size: 16px; font-weight: 600; color: var(--text-header); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fv-sub { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fv-sub.on { color: var(--text-secondary); }
+.fv-acts { display: flex; gap: 8px; }
+.fv-act { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; transition: background var(--fast) linear, color var(--fast) linear; }
+.fv-row:hover .fv-act { background: var(--bg-tertiary); }
+.fv-act:hover { color: var(--text-header); }
+.fv-act.ok:hover { color: var(--green); } .fv-act.danger:hover { color: var(--red); }
+.fv-empty { padding: 72px 20px; text-align: center; color: var(--text-muted); font-size: 14px; }
+.fv-empty .em { margin-bottom: 14px; font-size: 52px; line-height: 1; }
+.fv-empty b { display: block; margin-bottom: 6px; font-size: 17px; color: var(--text-header); }
+.fv-cta { margin-top: 18px; padding: 8px 18px; }
+.fv-addcard { max-width: 640px; margin-top: 24px; padding: 20px; border-radius: var(--radius-md); background: var(--bg-secondary); }
+.fv-addcard h3 { margin: 0 0 4px; font-size: 16px; color: var(--text-header); }
+.fv-addcard p { margin: 0; font-size: 14px; color: var(--text-muted); }
+.fv-addrow { display: flex; gap: 10px; margin-top: 14px; }
+.fv-addrow .m-inp { flex: 1; margin: 0; }
+.fv-msg { min-height: 18px; margin-top: 10px; font-size: 13px; }
+.fv-msg.ok { color: var(--green); } .fv-msg.err { color: var(--red); }
+.fv-side { width: 300px; flex-shrink: 0; padding: 16px; overflow-y: auto; border-left: 1px solid var(--divider); }
+.fv-sugg { padding: 8px; }
+.fv-sugg:hover { background: var(--bg-hover); }
+@media (max-width: 1000px) { .fv-side { display: none; } }

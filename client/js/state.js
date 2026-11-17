@@ -4,7 +4,7 @@
 const WS_URL = 'wss://nexus.dot-jms.deno.net';
 // The newest server this client is written for. If the server is older (not redeployed yet), saves for newer
 // features are silently ignored and "disappear" on refresh, so the client warns loudly instead.
-const REQUIRED_SERVER_PROTOCOL = 4;
+const REQUIRED_SERVER_PROTOCOL = 5;
 
 // ── STATE ──
 const S = {

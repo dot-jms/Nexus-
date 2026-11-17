@@ -24,8 +24,8 @@
 #friends-view {
   transition: transform .2s var(--ease), opacity .2s var(--ease), display .2s allow-discrete;
 }
-#friends-view[style*="display: none"] { transform: translateX(-24px); opacity: 0; }
-@starting-style { #friends-view { transform: translateX(-24px); opacity: 0; } }
+#friends-view[style*="display: none"] { transform: translateY(10px); opacity: 0; }
+@starting-style { #friends-view { transform: translateY(10px); opacity: 0; } }
 
 /* ───────── sidebar + member list slide away (and the chat grows smoothly) ───────── */
 #sidebar {

@@ -5,12 +5,17 @@ function toggleStatusMenu(e) {
   e.stopPropagation();
   document.getElementById('status-menu').classList.toggle('open');
 }
-function setStatus(s) {
+// Show a status on my own avatar dot (no message sent). The server remembers it, so it survives a refresh.
+function applyOwnStatus(s) {
+  if (!s) return;
   S.user.status = s;
   const dot = document.getElementById('u-dot');
-  dot.className = 'u-dot' + (s === 'online' ? '' : ' ' + s);
+  if (dot) dot.className = 'u-dot' + (s === 'online' ? '' : ' ' + s);
+}
+function setStatus(s) {
+  applyOwnStatus(s);
   document.getElementById('status-menu').classList.remove('open');
-  wsSend({ type: 'status_update', user: S.user.name, status: s });
+  wsSend({ type: 'status_update', status: s });
   toast('Status set to ' + s);
   // Update status dots in member lists
   if (S.curSv) renderMbs();

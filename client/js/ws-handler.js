@@ -46,6 +46,9 @@ function handleIn(msg) {
       dbg('← identified: backend sent ' + (msg.servers?.length||0) + ' server(s)', (msg.servers?.length ? 'ok' : 'warn'));
       // FIX #9: Flush any messages that were queued while we were offline
       checkServerProtocol(msg.protocol);
+      if (msg.user?.status) applyOwnStatus(msg.user.status);       // my status survives refreshes (server remembers it)
+      _lastPong = Date.now();
+      setTimeout(() => { if (S.curSv) requestMembers(S.curSv.id); }, 300); // events missed while disconnected
       _loadOutbox(); // actions left unsent by a refresh while offline
       flushProfileRequests(); // profiles we wanted before the connection was up
       setTimeout(_flushWsQueue, 100);
@@ -568,20 +571,24 @@ function handleIn(msg) {
       }
       break;
     case 'friends_data':
-      if (msg.friends?.length) {
-        msg.friends.forEach(sf => {
-          if (!S.friends.find(f => f.name === sf.name)) S.friends.push(sf);
-        });
+      // The server's list is the truth (friends come with live presence), so replace instead of merging.
+      if (msg.full) { S.friends = msg.friends || []; S.friendReqs = msg.friendRequests || []; }
+      else {
+        (msg.friends || []).forEach(sf => { if (!S.friends.find(f => _nk(f.name) === _nk(sf.name))) S.friends.push(sf); });
+        (msg.friendRequests || []).forEach(sr => { if (!S.friendReqs.find(r => _nk(r.name) === _nk(sr.name))) S.friendReqs.push(sr); });
       }
-      if (msg.friendRequests?.length) {
-        msg.friendRequests.forEach(sr => {
-          if (!S.friendReqs.find(r => r.name === sr.name)) S.friendReqs.push(sr);
-        });
-        const inReqs = S.friendReqs.filter(r => r.direction === 'in');
-        document.getElementById('fr-badge').style.display = inReqs.length ? '' : 'none';
-      }
-      persist();
-      if (document.getElementById('friends-view').style.display !== 'none') renderFriends();
+      updateFriendBadge(); persist(); renderFriends();
+      break;
+    case 'friend_added': onFriendAdded(msg); break;
+    case 'friend_request_result': onFriendRequestResult(msg); break;
+    case 'friend_request_cancelled':
+      S.friendReqs = S.friendReqs.filter(r => !(r.direction === 'in' && _nk(r.name) === _nk(msg.from)));
+      updateFriendBadge(); persist(); renderFriends();
+      break;
+    case 'presence': applyPresence(msg.user, msg); break;
+    case 'presence_snapshot':
+      Object.values(msg.presence || {}).forEach(p => applyPresence(p.name, p, true));
+      if (S.curSv) renderMbs(); if (friendsOpen()) renderFriends();
       break;
     case 'delete_message': delById(msg.messageId,msg.channelId); break;
     case 'dm_delete': {
@@ -679,41 +686,27 @@ function handleIn(msg) {
     case 'dm_decline': recvDMDecline(msg); break;
     // Real member presence — server sends these
     case 'member_join': {
-      if(!S.members[msg.serverId]) S.members[msg.serverId]=[];
-      const existingMb=S.members[msg.serverId].find(m=>m.name===msg.user);
-      const wasOffline = existingMb && existingMb.online === false;
-      if(existingMb) {
-        // User came back online — update status and profile
-        existingMb.online = true;
-        existingMb.color = msg.color || existingMb.color;
-        existingMb.pfp = msg.pfp !== undefined ? msg.pfp : existingMb.pfp;
-      } else {
-        // Truly new member we've never seen — add them
-        S.members[msg.serverId].push({name:msg.user,color:msg.color||COLORS[hash(msg.user)%COLORS.length],pfp:msg.pfp||null,status:'on',online:true});
-      }
-      if(S.curSv?.id===msg.serverId) {
-        renderMbs();
-        // Only play sound for genuinely new members, not reconnects
-        if (!existingMb) playSound('member_join');
-      }
+      // A new person joined this server (the server sends their profile with it)
+      const mj = msg.member || { name: msg.user, color: msg.color, pfp: msg.pfp, online: true };
+      if (!mj.name) break;
+      const list = S.members[msg.serverId];
+      if (!list) { if (S.curSv?.id === msg.serverId) requestMembers(msg.serverId); break; } // list not loaded yet: ask for the real one
+      const exMb = list.find(m => _nk(m.name) === _nk(mj.name));
+      if (exMb) Object.assign(exMb, mj, { online: mj.online !== false });
+      else list.push({ ...mj, color: mj.color || COLORS[hash(mj.name) % COLORS.length], online: mj.online !== false });
+      if (S.curSv?.id === msg.serverId) { renderMbs(); if (!exMb) playSound('member_join'); }
       break;
     }
+    // Older servers announced presence with these; the current one sends 'presence' instead. Kept so a
+    // not-yet-updated server still works.
     case 'member_leave':
-      if (msg.serverId === '__all__') {
-        // Mark offline across all servers instead of removing
-        Object.keys(S.members).forEach(sid => {
-          const m = S.members[sid].find(m => m.name === msg.user);
-          if (m) m.online = false;
-        });
-        if (S.curSv) { renderMbs(); }
-      } else {
-        const lvMb = S.members[msg.serverId]?.find(m => m.name === msg.user);
-        if (lvMb) lvMb.online = false;
-        if(S.curSv?.id===msg.serverId) { renderMbs(); }
-      }
+      applyPresence(msg.user, { online: false, status: 'offline' });
       break;
     case 'member_list':
-      S.members[msg.serverId]=msg.members||[];
+      // replies can arrive out of order: ignore one older than what we already applied
+      if (msg.reqId !== undefined && msg.reqId < (_memApplied[msg.serverId] || 0)) break;
+      if (msg.reqId !== undefined) _memApplied[msg.serverId] = msg.reqId;
+      S.members[msg.serverId]=dedupeMembers(msg.members||[]);
       // seed avatars/colors so messages (which no longer carry the sender's avatar) render them
       // (merge the whole member record, never a partial one: openProfilePage reads this cache directly)
       (msg.members||[]).forEach(m => {
@@ -918,13 +911,13 @@ function handleIn(msg) {
     case 'friend_request': recvFriendReq(msg); break;
     case 'friend_accept': recvFriendAccept(msg); break;
     case 'friend_decline':
-      S.friendReqs = S.friendReqs.filter(r => r.name !== msg.from);
-      persist(); renderFriends(); toast(msg.from + ' declined your friend request');
+      S.friendReqs = S.friendReqs.filter(r => _nk(r.name) !== _nk(msg.from));
+      updateFriendBadge(); persist(); renderFriends(); toast(msg.from + ' declined your friend request');
       break;
     case 'friend_removed':
-      S.friends = S.friends.filter(f => f.name !== msg.by);
-      S.friendReqs = S.friendReqs.filter(r => r.name !== msg.by);
-      persist(); if (document.getElementById('friends-view').style.display !== 'none') renderFriends();
+      S.friends = S.friends.filter(f => _nk(f.name) !== _nk(msg.by));
+      S.friendReqs = S.friendReqs.filter(r => _nk(r.name) !== _nk(msg.by));
+      updateFriendBadge(); persist(); renderFriends();
       break;
     case 'short_post': {
       const sv = S.servers.find(s => s.id === msg.serverId);
@@ -967,14 +960,8 @@ function handleIn(msg) {
       break;
     }
     case 'status_update': {
-      // Update member status dot in member list
-      if (S.members) {
-        Object.values(S.members).forEach(list => {
-          const m = list.find(x => x.name === msg.user);
-          if (m) m.status = msg.status;
-        });
-      }
-      if (S.curSv) renderMbs();
+      // (older servers) the current one sends 'presence'
+      applyPresence(msg.user, { online: msg.status !== 'invisible', status: msg.status });
       break;
     }
     case 'profile_update_confirm': {
@@ -1243,7 +1230,7 @@ function handleIn(msg) {
     case 'admin_calls_list':
       renderAdminCallsList(msg.calls || []);
       break;
-    case 'pong': break; // keepalive response, no action needed
+    case 'pong': _lastPong = Date.now(); break; // keepalive answer: the connection is alive
     default: console.log('ws:',msg);
   }
 }

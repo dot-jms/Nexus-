@@ -21,7 +21,7 @@ function selectSv(id) {
   document.getElementById('rail-discover').classList.remove('act');
   renderSvs(); renderChs(); renderMbs();
   // Request member list from server
-  wsSend({type:'get_members',serverId:id});
+  requestMembers(id);
   const first=(S.curSv.channels||[]).find(c=>c.type==='text');
   first?selectCh(first.id):showWelcome();
 }
