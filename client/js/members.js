@@ -23,6 +23,7 @@ function applyPresence(name, p, quiet) {
   }));
   const f = (S.friends || []).find(x => _nk(x.name) === k);
   if (f) { f.online = !!p.online; f.status = p.online ? p.status : 'offline'; if (p.lastSeen !== undefined) f.lastSeen = p.lastSeen; touched = true; }
+  if (typeof dmPresence === 'function' && dmPresence(name, p)) touched = true;
   if (touched && !quiet) {
     if (S.curSv) renderMbs();
     if (friendsOpen()) renderFriends();

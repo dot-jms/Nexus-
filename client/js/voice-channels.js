@@ -74,7 +74,7 @@ function ghostReveal() {
   wsSend({ type: 'voice_reveal', channelId: ghostVcChannelId, serverId: S.curSv?.id });
   // Show normal voice bar
   document.getElementById('voice-bar').style.display = '';
-  renderVoiceMembers();
+  renderVoiceMembers(); dockRender();
   // Remove ghost bar
   document.getElementById('ghost-call-bar')?.remove();
   toast('🎙️ You are now visible in the voice channel');
@@ -123,6 +123,7 @@ const RTC_CONFIG = {
 
 async function joinVoice(channelId) {
   if (vcChannelId === channelId) return; // already in
+  if (typeof vcallId !== 'undefined' && vcallId) { toast('Hang up your call first'); return; }
   leaveVoice(); // clean up previous
   try {
     vcLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -132,7 +133,7 @@ async function joinVoice(channelId) {
   }
   vcChannelId = channelId;
   document.getElementById('voice-bar').style.display = '';
-  renderVoiceMembers();
+  renderVoiceMembers(); dockRender();
   // Tell server we joined this voice channel
   wsSend({ type: 'voice_join', channelId, user: S.user.name, serverId: S.curSv?.id });
   toast('🎙️ Joined voice channel');
@@ -149,6 +150,7 @@ function leaveVoice() {
   vcChannelId = null; vcMuted = false;
   document.getElementById('voice-bar').style.display = 'none';
   document.getElementById('voice-members').innerHTML = '';
+  dockRender();
   // Remove any audio elements
   document.querySelectorAll('.vc-audio').forEach(a => a.remove());
   toast('📵 Left voice channel');

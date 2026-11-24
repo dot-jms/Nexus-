@@ -31,16 +31,7 @@ function showHome() {
   document.getElementById('home-friends-count').textContent = S.friends.length + ' friends' + (online ? ` · ${online} online` : '');
   // Recent DMs
   const dmsEl = document.getElementById('home-recent-dms');
-  const recent = [...S.dms].sort((a,b)=>(b.lastTs||0)-(a.lastTs||0)).slice(0,5);
-  dmsEl.innerHTML = recent.length ? recent.map(dm => {
-    const bg = safeUrl(dm.pfp) ? 'transparent' : COLORS[hash(dm.name) % COLORS.length];
-    const av = safeUrl(dm.pfp) ? `<img src="${safeUrl(dm.pfp)}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : dm.name[0].toUpperCase();
-    return `<div class="home-row" onclick="openOrCreateDM('${dm.name}',null)">
-      <div class="home-row-av" style="background:${bg}">${av}</div>
-      <div style="min-width:0;flex:1"><div style="font-size:13px;font-weight:600">${esc(dm.name)}</div><div style="font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(dm.last||'No messages yet')}</div></div>
-      <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--t3);flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
-    </div>`;
-  }).join('') : '<div style="font-size:12px;color:var(--t3);padding:8px 0">No recent conversations.</div>';
+  dmsEl.innerHTML = dmHomeRecent();
   // Servers
   const svsEl = document.getElementById('home-servers');
   svsEl.innerHTML = S.servers.length ? S.servers.slice(0,8).map(sv => {

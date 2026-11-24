@@ -1,12 +1,23 @@
 // ══════════════════════════════════════════════════════════════════
-// VOICE CALLS — persistent bar, P2P WebRTC, max 5 people
+// VOICE CALLS — server-managed calls (protocol 6), full-mesh WebRTC (max 5), global call dock
+// ──────────────────────────────────────────────────────────────────
+// The server owns the call: it rings people (even ones who come online while it's ringing), keeps the roster,
+// starts the clock when somebody answers and writes the "X started a call · lasted Y" line into the chat.
+// This file only (a) asks the server for things, (b) wires WebRTC to everybody in the roster, (c) draws the dock.
+// The dock (#call-dock) lives on <body>, not inside #main, so no screen (friends page, DMs, servers) can hide it.
 // ══════════════════════════════════════════════════════════════════
 let vcallId = null;
-let vcallParticipants = {};  // name → { pc, muted }
+let vcallPeers = {};                  // name → { pc, muted }
+let vcallParticipants = new Set();    // names of the OTHER people in my call (dms.js reads this)
+let vcallRinging = new Map();         // name → { online } — people I've rung who haven't answered yet
+let vcallIncoming = new Map();        // callId → { from, color, pfp, gid, groupName, until } — calls ringing for ME
+let vcallKey = null;                  // conversation the call belongs to (lowercase name or "g:<gid>")
+let vcallState = 'idle';              // idle | calling | connecting | connected
+let vcallAnsweredAt = 0;              // LOCAL clock ms when the call was answered (the timer starts here); 0 = nobody answered yet
+let vcallLocalStream = null, vcallMuted = false, vcallDeafened = false;
 let vcallTimerInterval = null;
-let vcallSeconds = 0;
-let vcallLocalStream = null;
-let vcallMuted = false;
+let _vcBusy = false;
+let vcallPeerState = {};              // lowercase name → { muted, deafened } of the OTHER people (their badge in the dock)
 
 // Ghost DM call state — admin silently listens to someone's voice call
 let ghostVcallId = null;          // callId we're ghosting
@@ -14,113 +25,222 @@ let ghostVcallParticipants = {};  // name → RTCPeerConnection (receive-only)
 let ghostVcallStream = null;      // local mic stream (starts muted)
 let ghostVcallRevealed = false;
 
-function showVcallBar(status) {
-  const bar = document.getElementById('vcall-bar');
-  bar.classList.add('active');
-  document.getElementById('vcall-status').textContent = status || 'In call';
+// ── small helpers ──
+const vcSecs = () => vcallAnsweredAt ? Math.max(0, Math.floor((Date.now() - vcallAnsweredAt) / 1000)) : 0;
+function vcFmt(s) { const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + String(x).padStart(2, '0'); }
+function vcInCall() { return !!vcallId; }
+// the timer starts when somebody ANSWERS, not when I dial. The server's clock may differ from mine, so use the
+// `now` it sends along to translate its timestamp into my clock.
+function vcallMarkAnswered(answeredAt, serverNow) {
+  if (vcallAnsweredAt) return;
+  let origin = Date.now();
+  if (answeredAt) { const skew = serverNow ? serverNow - Date.now() : 0; origin = Math.min(Date.now(), answeredAt - skew); if (!(origin > 0) || Date.now() - origin > 864e5) origin = Date.now(); }
+  vcallAnsweredAt = origin; vcallState = 'connected';
+  startVcallTimer();
 }
-
-function hideVcallBar() {
-  document.getElementById('vcall-bar').classList.remove('active');
-  document.getElementById('vcall-invite-widget').style.display = 'none';
-}
-
-function renderVcallBar() {
-  const members = document.getElementById('vcall-bar-members');
-  const all = [S.user.name, ...Object.keys(vcallParticipants)];
-  members.innerHTML = all.map(name => {
-    const isSelf = name === S.user.name;
-    const color = isSelf ? S.user.color : (profileCache[name]?.color || COLORS[hash(name) % COLORS.length]);
-    const pfp = isSelf ? S.user.pfp : profileCache[name]?.pfp;
-    const muted = isSelf ? vcallMuted : vcallParticipants[name]?.muted;
-    const avContent = pfp ? `<img src="${pfp}">` : esc(name[0]?.toUpperCase() || '?');
-    return `<div class="vcall-member-pip">
-      <div class="vcall-pip-av" style="background:${pfp ? 'transparent' : color}">${avContent}</div>
-      <span class="vcall-pip-nm">${esc(name)}${isSelf ? ' (you)' : ''}</span>
-      ${muted ? '<span class="vcall-pip-muted">🔇</span>' : ''}
-    </div>`;
-  }).join('');
-}
-
 function startVcallTimer() {
   clearInterval(vcallTimerInterval);
-  vcallSeconds = 0;
-  vcallTimerInterval = setInterval(() => {
-    vcallSeconds++;
-    const mm = Math.floor(vcallSeconds / 60).toString().padStart(2, '0');
-    const ss = (vcallSeconds % 60).toString().padStart(2, '0');
-    document.getElementById('vcall-timer').textContent = mm + ':' + ss;
-  }, 1000);
+  vcallTimerInterval = setInterval(vcTick, 1000);
+  vcTick();
+}
+function vcTick() {
+  const t = document.getElementById('dock-timer'); if (t) t.textContent = vcFmt(vcSecs());
+  const now = Date.now(); let expired = false;
+  vcallIncoming.forEach((inc, id) => { const left = Math.max(0, Math.ceil((inc.until - now) / 1000)); const el = document.getElementById('dock-count-' + id); if (el) el.textContent = left + 's'; if (inc.until + 1500 < now) { vcallIncoming.delete(id); expired = true; } });
+  if (expired) { ringMaybeStop(); dockRender(); }
 }
 
-function showVcallInviteWidget() {
-  const w = document.getElementById('vcall-invite-widget');
-  const all = [S.user.name, ...Object.keys(vcallParticipants)];
-  if (all.length >= 5) { toast('Max 5 people in a call'); return; }
-  w.style.display = w.style.display === 'none' ? 'block' : 'none';
+// ── ring loops (WebAudio; silent where unavailable) ──
+// A browser starts an AudioContext "suspended" until the page has had a click or key press, so somebody who just opened
+// Nexus (and is being called) would hear nothing. Resume it on the first gesture and every time a ring starts.
+let _ringCtx = null, _ringTimer = null, _rbTimer = null;
+function ringCtx() {
+  try { _ringCtx = _ringCtx || new (window.AudioContext || window.webkitAudioContext)(); if (_ringCtx.state === 'suspended') _ringCtx.resume().catch(() => {}); } catch (e) { _ringCtx = null; }
+  return _ringCtx;
 }
-
-async function startVoiceCall(targetName) {
+(function () {
+  const evs = ['pointerdown', 'keydown', 'touchstart'];
+  const unlock = () => { const c = ringCtx(); if (c && c.state === 'running') evs.forEach(ev => document.removeEventListener(ev, unlock)); };
+  evs.forEach(ev => document.addEventListener(ev, unlock, { passive: true }));
+})();
+function ringTone(freqs, ms, vol) {
+  const c = ringCtx(); if (!c) return;
   try {
-    vcallLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-  } catch(e) {
-    toast('🎤 Microphone access denied'); return;
+    const t = c.currentTime, d = ms / 1000, g = c.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .02); g.gain.setValueAtTime(vol, t + d - .03); g.gain.linearRampToValueAtTime(0, t + d);
+    g.connect(c.destination);
+    freqs.forEach(f => { const o = c.createOscillator(); o.frequency.value = f; o.connect(g); o.start(t); o.stop(t + d); });
+  } catch (e) {}
+}
+// incoming call: what the person being called hears
+function ringStart() { if (_ringTimer) return; const beep = () => ringTone([480], 350, .05); beep(); _ringTimer = setInterval(beep, 2200); }
+function ringStop() { clearInterval(_ringTimer); _ringTimer = null; }
+function ringMaybeStop() { if (!vcallIncoming.size) ringStop(); }
+// outgoing call: what the CALLER hears while the other phone is ringing (two-tone burst, 2 s on / 4 s off).
+// It only plays once the server says somebody is actually being rung (not while they're offline) and stops on answer / hang-up.
+function ringbackStart() { if (_rbTimer) return; const burst = () => ringTone([440, 480], 2000, .04); burst(); _rbTimer = setInterval(burst, 6000); }
+function ringbackStop() { clearInterval(_rbTimer); _rbTimer = null; }
+function ringbackSync() {
+  const ringing = !!vcallId && !vcallAnsweredAt && [...vcallRinging.values()].some(r => r.online === true);
+  if (ringing) ringbackStart(); else ringbackStop();
+}
+
+// ══════════════════ THE DOCK ══════════════════
+function dockAv(name, color, pfp) {
+  const url = safeUrl(pfp || profileCache[name]?.pfp || '');
+  const bg = url ? 'transparent' : (color || profileCache[name]?.color || COLORS[hash(name || '?') % COLORS.length]);
+  const low = String(name || '').toLowerCase(), mine = !!S.user && low === S.user.name.toLowerCase();
+  const st = vcallId ? (mine ? { muted: vcallMuted, deafened: vcallDeafened } : vcallPeerState[low]) : null;
+  const badge = st && (st.deafened ? '🔕' : st.muted ? '🔇' : '');
+  return `<div class="vcall-pip-av" title="${esc(name)}${badge ? (st.deafened ? ' (deafened)' : ' (muted)') : ''}" style="background:${bg}">${url ? `<img src="${url}" alt="">` : esc((name || '?')[0].toUpperCase())}${badge ? `<span class="vc-badge">${badge}</span>` : ''}</div>`;
+}
+function vcallStatusText() {
+  if (vcallState === 'connecting') return 'Connecting…';
+  if (vcallState === 'calling' || !vcallAnsweredAt) {
+    const r = [...vcallRinging.entries()];
+    if (r.length === 1) return r[0][1].online === false ? `${r[0][0]} is offline — will ring when they come online` : `Calling ${r[0][0]}… ringing`;
+    if (r.length > 1) return `Calling ${r.length} people…`;
+    return 'Calling…';
   }
-  vcallId = uid();
-  vcallParticipants = {};
-  vcallMuted = false;
-  wsSend({ type: 'vcall_invite', callId: vcallId, to: targetName, from: S.user.name, fromColor: S.user.color, fromPfp: S.user.pfp || null });
-  showVcallBar('Calling ' + targetName + '...');
-  renderVcallBar();
-  startVcallTimer();
-  startWsPing();
-  toast('📞 Calling ' + targetName + '...');
+  const names = [...vcallParticipants];
+  return names.length ? 'With ' + names.slice(0, 3).map(n => n + (vcallPeerState[String(n).toLowerCase()]?.muted ? ' 🔇' : '')).join(', ') + (names.length > 3 ? ` +${names.length - 3}` : '') : 'In call';
 }
-
-function vcallInvite() {
-  const name = document.getElementById('vcall-invite-in').value.trim();
-  if (!name) return;
-  const all = [S.user.name, ...Object.keys(vcallParticipants)];
-  if (all.length >= 5) { toast('Max 5 participants'); return; }
-  if (all.includes(name)) { toast(name + ' is already in the call'); return; }
-  wsSend({ type: 'vcall_invite', callId: vcallId, to: name, from: S.user.name, fromColor: S.user.color, fromPfp: S.user.pfp || null });
-  document.getElementById('vcall-invite-in').value = '';
-  document.getElementById('vcall-invite-widget').style.display = 'none';
-  toast('📨 Invited ' + name);
+function vcChannelName() {
+  for (const sv of S.servers || []) { const c = (sv.channels || []).find(x => x.id === vcChannelId); if (c) return `${c.name} · ${sv.name}`; }
+  return 'Voice channel';
 }
-
-function endVoiceCall() {
-  if (vcallId) {
-    const participants = Object.keys(vcallParticipants);
-    wsSend({ type: 'vcall_end', callId: vcallId, from: S.user.name, to: participants });
-  }
-  cleanupVcall();
-}
-
-function cleanupVcall() {
-  clearInterval(vcallTimerInterval); vcallTimerInterval = null; vcallSeconds = 0;
-  Object.entries(vcallParticipants).forEach(([id, p]) => {
-    clearTimeout(p.pc?._disconnectTimer);
-    try { p.pc?.close(); } catch(e){}
-    delete _vcallIceBuffer[id];
+function dockRender() {
+  const dock = document.getElementById('call-dock'); if (!dock) return;
+  let html = '';
+  vcallIncoming.forEach((inc, id) => {
+    const left = Math.max(0, Math.ceil((inc.until - Date.now()) / 1000));
+    const url = safeUrl(inc.pfp || '');
+    html += `<div class="dock-in" data-call="${esc(id)}"><div class="dock-av" style="background:${url ? 'transparent' : esc(inc.color || 'var(--accent)')}">${url ? `<img src="${url}" alt="">` : esc((inc.from || '?')[0].toUpperCase())}</div>
+      <div class="dock-info"><div class="dock-t">📞 ${esc(inc.groupName ? inc.groupName : inc.from)}</div><div class="dock-s">${inc.groupName ? esc(inc.from) + ' is calling · ' : 'Incoming voice call · '}<span id="dock-count-${esc(id)}">${left}s</span></div></div>
+      <button class="btn-p" data-act="accept" onclick="acceptVcall('${esc(id)}')">Accept</button><button class="btn-g" data-act="decline" onclick="declineVcall('${esc(id)}')">Decline</button></div>`;
   });
-  vcallParticipants = {};
-  if (vcallLocalStream) { vcallLocalStream.getTracks().forEach(t => t.stop()); vcallLocalStream = null; }
-  document.querySelectorAll('.vcall-audio-el').forEach(a => a.remove());
-  vcallId = null; vcallMuted = false;
-  document.getElementById('vcall-timer').textContent = '';
-  hideVcallBar();
-  stopWsPing();
+  if (vcallId) {
+    const ent = typeof dmEntry === 'function' && vcallKey ? dmEntry(vcallKey) : null;
+    const title = ent?.kind === 'group' ? ent.name : (vcallState === 'connected' ? 'Voice call' : 'Voice call');
+    const others = [...vcallParticipants, ...[...vcallRinging.keys()].filter(n => !vcallParticipants.has(n))];
+    const full = 1 + others.length >= 5;
+    const sub = vcallState === 'connected' && vcallAnsweredAt ? `<span class="tm" id="dock-timer">${vcFmt(vcSecs())}</span> · ${esc(vcallStatusText())}` : esc(vcallStatusText());
+    html += `<div class="dock-pill call${vcallAnsweredAt ? '' : ' ringing'}" id="dock-call">
+      <div class="dock-avs">${dockAv(S.user.name, S.user.color, S.user.pfp)}${others.slice(0, 3).map(n => dockAv(n)).join('')}</div>
+      <div class="dock-info" onclick="vcallOpenChat()" title="Open the conversation"><div class="dock-t">${esc(title)}</div><div class="dock-s">${sub}</div></div>
+      <div class="dock-btns">
+        <button class="dock-btn${vcallMuted ? ' off' : ''}" id="dock-mute" onclick="toggleVoiceCallMute()" title="${vcallMuted ? 'Unmute' : 'Mute'}">${vcallMuted ? '🔇' : '🎙️'}</button>
+        <button class="dock-btn${vcallDeafened ? ' off' : ''}" id="dock-deafen" onclick="toggleVcallDeafen()" title="${vcallDeafened ? 'Undeafen' : 'Deafen'}">${vcallDeafened ? '🔕' : '🎧'}</button>
+        ${full ? '' : `<button class="dock-btn" id="dock-invite" onclick="openNewGroup('call')" title="Invite people">➕</button>`}
+        <button class="dock-btn hang" id="dock-hangup" onclick="endVoiceCall()" title="${vcallAnsweredAt ? 'Hang up' : 'Cancel call'}">📵</button>
+      </div></div>`;
+  } else if (typeof vcChannelId !== 'undefined' && vcChannelId) {
+    html += `<div class="dock-pill vc" id="dock-vc"><div class="dock-avs">${dockAv(S.user.name, S.user.color, S.user.pfp)}</div>
+      <div class="dock-info"><div class="dock-t">🔊 Voice connected</div><div class="dock-s">${esc(vcChannelName())}</div></div>
+      <div class="dock-btns"><button class="dock-btn${vcMuted ? ' off' : ''}" id="dock-vc-mute" onclick="toggleVoiceMute()" title="Mute / unmute">${vcMuted ? '🔇' : '🎙️'}</button>
+      <button class="dock-btn hang" id="dock-vc-leave" onclick="leaveVoice()" title="Leave voice">📵</button></div></div>`;
+  }
+  dock.innerHTML = html;
+  dock.style.display = html ? '' : 'none';
+  try { ringbackSync(); } catch (e) {}
+}
+function vcallOpenChat() { if (vcallKey && typeof openDMChat === 'function') openDMChat(vcallKey); }
+
+// ══════════════════ STARTING / ANSWERING ══════════════════
+async function vcallGetMic() {
+  if (typeof vcChannelId !== 'undefined' && vcChannelId) leaveVoice();     // one microphone: leave the voice channel first
+  try { vcallLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false }); return true; }
+  catch (e) { toast('🎤 Microphone access denied', 'err'); return false; }
+}
+function vcallStopMic() { if (vcallLocalStream) { vcallLocalStream.getTracks().forEach(t => t.stop()); vcallLocalStream = null; } }
+function vcallReset() {
+  vcallParticipants = new Set(); vcallPeers = {}; vcallRinging = new Map(); vcallPeerState = {};
+  vcallMuted = false; vcallDeafened = false; vcallAnsweredAt = 0;
+}
+async function vcallBegin(wire, key, ringing) {
+  if (vcallId || _vcBusy) { toast('You are already in a call'); return; }
+  _vcBusy = true;
+  try {
+    if (!(await vcallGetMic())) return;
+    const callId = uid();
+    // server first: if the socket is down nothing was sent, so don't pretend we're calling
+    if (!wsSend({ type: 'vcall_invite', callId, ...wire })) { vcallStopMic(); toast("You're offline — can't start a call right now", 'warn'); return; }
+    try {
+      vcallReset(); vcallId = callId; vcallKey = key; vcallState = 'calling';
+      (ringing || []).forEach(n => vcallRinging.set(n, { online: null }));
+      startWsPing(); dockRender(); if (typeof renderDMCallBanner === 'function') renderDMCallBanner();
+    } catch (e) { console.error('[calls] UI update failed', e); }
+  } finally { _vcBusy = false; }
+}
+function startVoiceCall(name) { return vcallBegin({ to: name }, String(name).toLowerCase(), [name]); }
+function startGroupCall(gid) { return vcallBegin({ gid }, 'g:' + gid, []); }
+
+// join a call that's already going (the "Join call" banner in the chat)
+async function joinVoiceCall(callId, key) {
+  if (vcallId || _vcBusy) { toast('You are already in a call'); return; }
+  _vcBusy = true;
+  try {
+    if (!(await vcallGetMic())) return;
+    if (!wsSend({ type: 'vcall_join', callId })) { vcallStopMic(); toast("You're offline", 'warn'); return; }
+    try { vcallReset(); vcallId = callId; vcallKey = key || null; vcallState = 'connecting'; startWsPing(); dockRender(); if (typeof renderDMCallBanner === 'function') renderDMCallBanner(); } catch (e) { console.error(e); }
+  } finally { _vcBusy = false; }
+}
+async function acceptVcall(callId) {
+  const inc = vcallIncoming.get(callId); if (!inc) return;
+  if (vcallId || _vcBusy) { toast('Hang up your current call first'); return; }
+  _vcBusy = true;
+  try {
+    if (!(await vcallGetMic())) return;
+    if (!wsSend({ type: 'vcall_accept', callId })) { vcallStopMic(); toast("You're offline", 'warn'); return; }
+    try {
+      vcallIncoming.delete(callId); ringMaybeStop();
+      vcallReset(); vcallId = callId; vcallKey = inc.gid ? 'g:' + inc.gid : String(inc.from).toLowerCase(); vcallState = 'connecting';
+      startWsPing(); dockRender(); if (typeof renderDMCallBanner === 'function') renderDMCallBanner();
+    } catch (e) { console.error(e); }
+  } finally { _vcBusy = false; }
+}
+function declineVcall(callId) {
+  wsSend({ type: 'vcall_decline', callId });
+  try { vcallIncoming.delete(callId); ringMaybeStop(); dockRender(); } catch (e) { console.error(e); }
+}
+// the "Invite" dialog (openNewGroup('call')) ends up here
+function vcallInvitePeople(names) {
+  if (!vcallId) return;
+  (names || []).forEach(n => {
+    if (1 + vcallParticipants.size + vcallRinging.size >= 5) { toast('Max 5 people in a call'); return; }
+    wsSend({ type: 'vcall_invite', callId: vcallId, to: n });
+    vcallRinging.set(n, { online: null });
+  });
+  try { dockRender(); } catch (e) { console.error(e); }
 }
 
+// ══════════════════ HANGING UP / CLEANUP ══════════════════
+function endVoiceCall() {
+  const id = vcallId; if (!id) return;
+  wsSend({ type: 'vcall_leave', callId: id });      // leaves for ME; the server ends it when nobody is left
+  try { cleanupVcall(); } catch (e) { console.error(e); }
+}
+function cleanupVcall() {
+  clearInterval(vcallTimerInterval); vcallTimerInterval = null;
+  Object.entries(vcallPeers).forEach(([id, p]) => { clearTimeout(p.pc?._disconnectTimer); try { p.pc?.close(); } catch (e) {} delete _vcallIceBuffer[id]; });
+  vcallStopMic();
+  document.querySelectorAll('.vcall-audio-el, [id^="ghost-vcall-audio-"]').forEach(a => a.remove());
+  vcallReset(); vcallId = null; vcallKey = null; vcallState = 'idle';
+  stopWsPing();
+  dockRender(); if (typeof renderDMCallBanner === 'function') renderDMCallBanner();
+}
 function toggleVoiceCallMute() {
   vcallMuted = !vcallMuted;
   if (vcallLocalStream) vcallLocalStream.getAudioTracks().forEach(t => t.enabled = !vcallMuted);
-  const btn = document.getElementById('vcall-mute-btn');
-  if (btn) { btn.textContent = vcallMuted ? '🔇' : '🎙️'; btn.style.color = vcallMuted ? 'var(--red)' : 'var(--accent)'; }
-  renderVcallBar();
+  vcallSendState(); dockRender();
 }
-
+function toggleVcallDeafen() {
+  vcallDeafened = !vcallDeafened;
+  document.querySelectorAll('.vcall-audio-el').forEach(a => { a.muted = vcallDeafened; });
+  vcallSendState(); dockRender();
+}
+// tell the others (through the server) whether my mic is muted / my headphones are off, for the badge on my avatar
+function vcallSendState() { if (vcallId) wsSend({ type: 'vcall_state', callId: vcallId, muted: vcallMuted, deafened: vcallDeafened }); }
 // Override toggleVoiceMute to handle both voice channels and calls
 function toggleVoiceMute() {
   if (vcallId) { toggleVoiceCallMute(); return; }
@@ -129,114 +249,91 @@ function toggleVoiceMute() {
   vcLocalStream.getAudioTracks().forEach(t => t.enabled = !vcMuted);
   const btn = document.getElementById('voice-mute-btn');
   if (btn) { btn.style.color = vcMuted ? 'var(--red)' : 'var(--green)'; }
+  dockRender();
   toast(vcMuted ? '🔇 Muted' : '🎙️ Unmuted');
 }
 
+// ══════════════════ SERVER EVENTS ══════════════════
+// somebody is calling ME (also re-sent when I come online while it's still ringing)
 function recvVcallInvite(msg) {
-  const from = msg.from;
-  document.getElementById('vcall-incoming')?.remove();
-  const div = document.createElement('div');
-  div.id = 'vcall-incoming';
-  div.style.cssText = 'position:fixed;bottom:80px;right:20px;background:var(--s2);border:1px solid var(--border2);border-radius:14px;padding:16px 18px;z-index:999;box-shadow:0 8px 40px rgba(0,0,0,.7);min-width:230px;animation:slideUp .2s ease';
-  div.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-      <div style="width:36px;height:36px;border-radius:50%;background:${msg.fromColor||'var(--accent)'};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0">
-        ${msg.fromPfp ? `<img src="${msg.fromPfp}" style="width:100%;height:100%;object-fit:cover">` : esc(from[0]?.toUpperCase()||'?')}
-      </div>
-      <div>
-        <div style="font-size:13px;font-weight:700">📞 ${esc(from)}</div>
-        <div style="font-size:11px;color:var(--t3)">Incoming voice call</div>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="btn-p" style="flex:1;font-size:12px;background:#22c55e;border:none" onclick="acceptVcall('${esc(msg.callId)}','${esc(from)}')">Accept</button>
-      <button class="btn-g" style="flex:1;font-size:12px;color:var(--red)" onclick="declineVcall('${esc(msg.callId)}','${esc(from)}')">Decline</button>
-    </div>`;
-  document.body.appendChild(div);
-  // Auto-dismiss after 30s and show missed call notification
-  const missedTimer = setTimeout(() => {
-    if (div.parentNode) {
-      div.remove();
-      showMissedCall(from, msg.fromColor, msg.fromPfp);
-    }
-  }, 30000);
-  div._missedTimer = missedTimer;
-  addNotif('📞', from + ' is calling you!', () => acceptVcall(msg.callId, from));
-  toast('📞 ' + from + ' is calling you!');
+  if (!msg.callId || vcallId === msg.callId) return;
+  vcallIncoming.set(msg.callId, { from: msg.from, color: msg.fromColor, pfp: msg.fromPfp, gid: msg.gid, groupName: msg.groupName, until: Date.now() + (typeof msg.ringLeftMs === 'number' ? msg.ringLeftMs : 45000) });
+  try { dockRender(); ringStart(); } catch (e) { console.error(e); }
+  addNotif('📞', (msg.groupName ? `${msg.from} is calling ${msg.groupName}` : msg.from + ' is calling you!'), () => { /* the dock has the Accept button */ });
 }
+function vcallDismissIncoming(callId) { if (vcallIncoming.delete(callId)) { ringMaybeStop(); dockRender(); } }
+function recvVcallMissed(msg) { vcallDismissIncoming(msg.callId); }     // it rang out (or the caller hung up)
+function recvVcallHandled(msg) { vcallDismissIncoming(msg.callId); }    // answered/declined on another tab of mine
 
-function showMissedCall(from, color, pfp) {
-  addNotif('📵', 'Missed call from ' + from, () => openDMChat(from));
-  // Persistent missed call banner
-  document.getElementById('missed-call-banner')?.remove();
-  const banner = document.createElement('div');
-  banner.id = 'missed-call-banner';
-  banner.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:rgba(240,107,107,.12);border:1px solid rgba(240,107,107,.3);border-radius:10px;padding:8px 18px;z-index:998;display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;color:#f06b6b;cursor:pointer;animation:slideDown .2s ease';
-  banner.innerHTML = `📵 Missed call from ${esc(from)} <span style="font-size:10px;font-weight:400;color:rgba(240,107,107,.7)">— click to reply</span> <span style="margin-left:8px;cursor:pointer;color:var(--t3)" onclick="event.stopPropagation();document.getElementById('missed-call-banner').remove()">✕</span>`;
-  banner.onclick = () => { openDMChat(from); banner.remove(); };
-  document.body.appendChild(banner);
-  setTimeout(() => { if (banner.parentNode) banner.remove(); }, 20000);
+function recvVcallRinging(msg) {
+  if (msg.callId !== vcallId || !msg.to) return;
+  vcallRinging.set(msg.to, { online: msg.online !== false });
+  dockRender();
 }
-
-async function acceptVcall(callId, from) {
-  const incoming = document.getElementById('vcall-incoming');
-  if (incoming?._missedTimer) clearTimeout(incoming._missedTimer);
-  incoming?.remove();
-  try {
-    vcallLocalStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-  } catch(e) { toast('🎤 Mic denied'); return; }
-  vcallId = callId;
-  vcallMuted = false;
-  vcallSeconds = 0;
-  // Send accept first so caller knows we're joining
-  wsSend({ type: 'vcall_accept', callId, to: from, from: S.user.name });
-  // Callee is the one who initiates the WebRTC offer
-  const pc = vcallCreatePeer(from);
-  vcallParticipants[from] = { pc, muted: false };
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-  wsSend({ type: 'vcall_signal', callId, from: S.user.name, to: from, signal: { sdp: offer } });
-  showVcallBar('In call with ' + from);
-  renderVcallBar();
-  startVcallTimer();
-  startWsPing(); // keep WS alive during call
+function recvVcallPeerState(msg) {
+  if (msg.callId !== vcallId || !msg.user) return;
+  vcallPeerState[String(msg.user).toLowerCase()] = { muted: !!msg.muted, deafened: !!msg.deafened };
+  dockRender();
 }
-
-function declineVcall(callId, from) {
-  const incoming = document.getElementById('vcall-incoming');
-  if (incoming?._missedTimer) clearTimeout(incoming._missedTimer);
-  incoming?.remove();
-  wsSend({ type: 'vcall_decline', callId, to: from, from: S.user.name });
-}
-
-function recvVcallAccept(msg) {
-  const from = msg.from;
-  if (!vcallId || vcallId !== msg.callId) return;
-  // Caller side: peer will be created when we receive the offer signal from callee.
-  // Just update the UI to show the call is connecting.
-  document.getElementById('vcall-status').textContent = 'Connecting…';
-  renderVcallBar();
-  toast('✅ ' + from + ' accepted — connecting…');
-}
-
-function recvVcallDecline(msg) {
-  toast('❌ ' + msg.from + ' declined the call');
-  // If nobody else in call, clean up
-  if (Object.keys(vcallParticipants).length === 0) cleanupVcall();
-  else renderVcallBar();
-}
-
-function recvVcallEnd(msg) {
+function recvVcallNoAnswer(msg) {
   if (msg.callId !== vcallId) return;
-  toast('📵 ' + (msg.from || 'Other person') + ' ended the call');
+  vcallRinging.delete(msg.user); toast(`📵 ${msg.user} didn't answer`); dockRender();
+}
+function recvVcallDecline(msg) {
+  if (msg.callId && msg.callId !== vcallId) return;
+  vcallRinging.delete(msg.from); toast('❌ ' + msg.from + ' declined the call'); dockRender();
+}
+// somebody (also the ghost-reveal path) joined: the newcomer offers to me, I just show them
+function recvVcallJoined(msg) {
+  if (msg.callId !== vcallId || !msg.user) return;
+  vcallRinging.delete(msg.user); vcallParticipants.add(msg.user);
+  if (!vcallPeers[msg.user]) vcallPeers[msg.user] = { pc: null, muted: false };
+  vcallMarkAnswered(msg.answeredAt, msg.now);
+  toast('✅ ' + msg.user + ' joined'); dockRender();
+}
+function recvVcallAccept(msg) { if (msg.callId === vcallId && msg.from) recvVcallJoined({ callId: msg.callId, user: msg.from, answeredAt: null }); }   // admin ghost reveal
+function recvVcallLeft(msg) {
+  if (msg.callId !== vcallId) return;
+  vcallDropPeer(msg.user); toast('👋 ' + msg.user + ' left the call'); dockRender();
+}
+function vcallDropPeer(name) {
+  const p = vcallPeers[name]; if (p) { clearTimeout(p.pc?._disconnectTimer); try { p.pc?.close(); } catch (e) {} }
+  delete vcallPeers[name]; vcallParticipants.delete(name); delete _vcallIceBuffer[name]; delete vcallPeerState[String(name).toLowerCase()];
+  document.getElementById('vcall-audio-' + name)?.remove();
+}
+// I answered / joined: the roster is everybody already in the call. The newcomer offers to ALL of them (full mesh).
+async function recvVcallRoster(msg) {
+  if (msg.callId !== vcallId) { wsSend({ type: 'vcall_leave', callId: msg.callId }); return; }
+  vcallMarkAnswered(msg.answeredAt, msg.now); vcallState = 'connected';
+  if (msg.gid && !vcallKey) vcallKey = 'g:' + msg.gid;
+  const names = msg.participants || [];
+  Object.entries(msg.states || {}).forEach(([k, st]) => { vcallPeerState[String(k).toLowerCase()] = { muted: !!st.muted, deafened: !!st.deafened }; });
+  names.forEach(n => vcallParticipants.add(n));
+  try { dockRender(); if (typeof renderDMCallBanner === 'function') renderDMCallBanner(); } catch (e) { console.error(e); }
+  for (const name of names) {
+    if (vcallPeers[name]?.pc) continue;
+    try {
+      const pc = vcallCreatePeer(name); vcallPeers[name] = { pc, muted: false };
+      const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
+      wsSend({ type: 'vcall_signal', callId: vcallId, to: name, signal: { sdp: offer } });
+    } catch (e) { dbg('vcall offer to ' + name + ' failed: ' + e, 'err'); }
+  }
+}
+function recvVcallEnd(msg) {
+  vcallDismissIncoming(msg.callId);
+  if (msg.callId !== vcallId) return;
+  const why = { ended: '📵 Call ended' + (msg.duration ? ' · ' + vcFmt(Math.round(msg.duration / 1000)) : ''), missed: '📵 No answer', declined: '📵 Call declined', cancelled: '📵 Call cancelled', gone: '📵 That call has already ended' }[msg.reason] || '📵 Call ended';
+  toast(why);
   cleanupVcall();
 }
 
+// ══════════════════ WebRTC ══════════════════
 function vcallCreatePeer(peerId) {
+  const cid = vcallId;
   const pc = new RTCPeerConnection(RTC_CONFIG);
   if (vcallLocalStream) vcallLocalStream.getTracks().forEach(t => pc.addTrack(t, vcallLocalStream));
   pc.onicecandidate = e => {
-    if (e.candidate) wsSend({ type: 'vcall_signal', callId: vcallId, from: S.user.name, to: peerId, signal: { ice: e.candidate } });
+    if (e.candidate) wsSend({ type: 'vcall_signal', callId: cid, to: peerId, signal: { ice: e.candidate } });
   };
   pc.ontrack = e => {
     let audio = document.getElementById('vcall-audio-' + peerId);
@@ -247,103 +344,74 @@ function vcallCreatePeer(peerId) {
       audio.autoplay = true;
       document.body.appendChild(audio);
     }
+    audio.muted = vcallDeafened;
     audio.srcObject = e.streams[0];
-    renderVcallBar();
   };
-  // 'disconnected' is transient — network blip, switching WiFi. Don't tear down.
-  // 'failed' is terminal — ICE gave up. Attempt a restart once before giving up.
-  // 'closed' means the PC was explicitly closed.
+  // 'disconnected' is transient (network blip, switching WiFi): give it 8s, then try one ICE restart.
+  // 'failed' is terminal: drop that peer; if nobody is left, hang up.
   let _iceRestartAttempted = false;
   pc.onconnectionstatechange = () => {
     dbg(`vcall peer ${peerId}: ${pc.connectionState}`, pc.connectionState === 'connected' ? 'ok' : pc.connectionState === 'disconnected' ? 'warn' : 'info');
     if (pc.connectionState === 'disconnected') {
-      // Give it 8 seconds to self-recover before we attempt a restart
       pc._disconnectTimer = setTimeout(async () => {
         if (pc.connectionState !== 'connected' && !_iceRestartAttempted) {
           _iceRestartAttempted = true;
           try {
             const offer = await pc.createOffer({ iceRestart: true });
             await pc.setLocalDescription(offer);
-            wsSend({ type: 'vcall_signal', callId: vcallId, from: S.user.name, to: peerId, signal: { sdp: offer } });
+            wsSend({ type: 'vcall_signal', callId: cid, to: peerId, signal: { sdp: offer } });
             dbg(`vcall ICE restart sent to ${peerId}`, 'warn');
-          } catch(e) { dbg('ICE restart failed: ' + e, 'err'); }
+          } catch (e) { dbg('ICE restart failed: ' + e, 'err'); }
         }
       }, 8000);
-    } else {
-      clearTimeout(pc._disconnectTimer);
-    }
-    if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-      clearTimeout(pc._disconnectTimer);
-      delete vcallParticipants[peerId];
-      document.getElementById('vcall-audio-' + peerId)?.remove();
-      if (Object.keys(vcallParticipants).length === 0) cleanupVcall();
-      else renderVcallBar();
+    } else clearTimeout(pc._disconnectTimer);
+    if ((pc.connectionState === 'failed' || pc.connectionState === 'closed') && vcallPeers[peerId]?.pc === pc && vcallId === cid) {
+      vcallDropPeer(peerId);
+      if (!vcallParticipants.size && !vcallRinging.size && vcallAnsweredAt) endVoiceCall(); else dockRender();
     }
   };
-  pc.oniceconnectionstatechange = () => {
-    dbg(`vcall ICE ${peerId}: ${pc.iceConnectionState}`, 'info');
-  };
+  pc.oniceconnectionstatechange = () => { dbg(`vcall ICE ${peerId}: ${pc.iceConnectionState}`, 'info'); };
   return pc;
 }
 
 let _wsPingInterval = null;
 function startWsPing() {
   clearInterval(_wsPingInterval);
-  _wsPingInterval = setInterval(() => {
-    if (S.wsOk) wsSend({ type: 'ping', ts: Date.now() });
-  }, 20000);
+  _wsPingInterval = setInterval(() => { if (S.wsOk) wsSend({ type: 'ping', ts: Date.now() }); }, 20000);
 }
-function stopWsPing() {
-  clearInterval(_wsPingInterval);
-  _wsPingInterval = null;
-}
-// Buffering them prevents the silent "no audio" failure caused by the race.
+function stopWsPing() { clearInterval(_wsPingInterval); _wsPingInterval = null; }
+// ICE candidates can arrive before the remote description is set; buffering them prevents the silent "no audio" race.
 const _vcallIceBuffer = {}; // peerId → RTCIceCandidate[]
 
 async function handleVcallSignal(msg) {
-  const peerId = msg.from;
-  if (msg.callId !== vcallId) return; // stale signal from old call
+  const peerId = msg.from;                     // the server forces `from` to the real sender
+  if (!vcallId || msg.callId !== vcallId || !msg.signal) return; // stale signal from an old call
 
-  if (!vcallParticipants[peerId]) {
+  if (!vcallPeers[peerId]?.pc) {
     const pc = vcallCreatePeer(peerId);
-    vcallParticipants[peerId] = { pc, muted: false };
-    _vcallIceBuffer[peerId] = [];
+    vcallPeers[peerId] = { pc, muted: false };
+    _vcallIceBuffer[peerId] = _vcallIceBuffer[peerId] || [];
   }
-  const pc = vcallParticipants[peerId].pc;
+  if (!vcallParticipants.has(peerId)) { vcallParticipants.add(peerId); vcallRinging.delete(peerId); dockRender(); }
+  const pc = vcallPeers[peerId].pc;
+  const drain = async () => { for (const c of (_vcallIceBuffer[peerId] || [])) { try { await pc.addIceCandidate(c); } catch (e) {} } _vcallIceBuffer[peerId] = []; };
 
   if (msg.signal.sdp) {
     const sdp = msg.signal.sdp;
     if (sdp.type === 'offer') {
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      // Drain any buffered ICE candidates now that we have remote desc
-      for (const c of (_vcallIceBuffer[peerId] || [])) {
-        try { await pc.addIceCandidate(c); } catch(e) {}
-      }
-      _vcallIceBuffer[peerId] = [];
+      await drain();
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      wsSend({ type: 'vcall_signal', callId: vcallId, from: S.user.name, to: peerId, signal: { sdp: answer } });
-      document.getElementById('vcall-status').textContent = 'In call';
-      renderVcallBar();
+      wsSend({ type: 'vcall_signal', callId: vcallId, to: peerId, signal: { sdp: answer } });
     } else if (sdp.type === 'answer') {
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      // Drain buffered ICE candidates
-      for (const c of (_vcallIceBuffer[peerId] || [])) {
-        try { await pc.addIceCandidate(c); } catch(e) {}
-      }
-      _vcallIceBuffer[peerId] = [];
-      document.getElementById('vcall-status').textContent = 'In call';
-      renderVcallBar();
+      await drain();
     }
   } else if (msg.signal.ice) {
     const candidate = new RTCIceCandidate(msg.signal.ice);
-    if (pc.remoteDescription) {
-      try { await pc.addIceCandidate(candidate); } catch(e) {}
-    } else {
-      // Buffer it — remote description not set yet
-      if (!_vcallIceBuffer[peerId]) _vcallIceBuffer[peerId] = [];
-      _vcallIceBuffer[peerId].push(candidate);
-    }
+    if (pc.remoteDescription) { try { await pc.addIceCandidate(candidate); } catch (e) {} }
+    else (_vcallIceBuffer[peerId] = _vcallIceBuffer[peerId] || []).push(candidate);
   }
 }
 
@@ -376,18 +444,19 @@ function handleGhostVcallAck(msg) {
     // Create offer to establish the connection
     const offer = await pc.createOffer({ offerToReceiveAudio: true });
     await pc.setLocalDescription(offer);
-    wsSend({ type: 'vcall_signal', callId: ghostVcallId, from: S.user.name, to: peerId, signal: { sdp: offer } });
+    wsSend({ type: 'vcall_signal', callId: ghostVcallId, to: peerId, signal: { sdp: offer } });
   });
   renderGhostVcallBar(participants);
   toast(`👻 Ghost listening to call (${participants.length} participant${participants.length !== 1 ? 's' : ''})`);
 }
 
 function ghostVcallCreatePeer(peerId) {
+  const gcid = ghostVcallId;
   const pc = new RTCPeerConnection(RTC_CONFIG);
   // Add mic tracks (muted by default) so we can later unmute on reveal
   if (ghostVcallStream) ghostVcallStream.getTracks().forEach(t => pc.addTrack(t, ghostVcallStream));
   pc.onicecandidate = e => {
-    if (e.candidate) wsSend({ type: 'vcall_signal', callId: ghostVcallId, from: S.user.name, to: peerId, signal: { ice: e.candidate } });
+    if (e.candidate) wsSend({ type: 'vcall_signal', callId: gcid, to: peerId, signal: { ice: e.candidate } });
   };
   pc.ontrack = e => {
     let audio = document.getElementById('ghost-vcall-audio-' + peerId);
@@ -426,7 +495,7 @@ async function handleGhostVcallSignal(msg) {
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      wsSend({ type: 'vcall_signal', callId: ghostVcallId, from: S.user.name, to: peerId, signal: { sdp: answer } });
+      wsSend({ type: 'vcall_signal', callId: ghostVcallId, to: peerId, signal: { sdp: answer } });
     } else if (sdp.type === 'answer') {
       await pc.setRemoteDescription(new RTCSessionDescription(sdp));
     }
@@ -442,22 +511,17 @@ function ghostRevealVcall() {
   if (ghostVcallStream) ghostVcallStream.getAudioTracks().forEach(t => t.enabled = true);
   // Tell server to broadcast vcall_accept to all participants so they see us
   wsSend({ type: 'admin_vcall_ghost_reveal', callId: ghostVcallId });
-  // Migrate ghost state into normal vcall state so the regular call bar appears
-  vcallId = ghostVcallId;
-  vcallLocalStream = ghostVcallStream;
-  vcallMuted = false;
-  vcallParticipants = {};
-  Object.entries(ghostVcallParticipants).forEach(([name, pc]) => {
-    vcallParticipants[name] = { pc, muted: false };
-  });
+  // Migrate ghost state into normal vcall state so the dock appears
+  vcallReset();
+  vcallId = ghostVcallId; vcallLocalStream = ghostVcallStream; vcallKey = null; vcallState = 'connected';
+  Object.entries(ghostVcallParticipants).forEach(([name, pc]) => { vcallPeers[name] = { pc, muted: false }; vcallParticipants.add(name); });
   // Clear ghost state (don't clean up the connections — they're now owned by vcall)
   ghostVcallId = null;
   ghostVcallParticipants = {};
   ghostVcallStream = null;
   document.getElementById('ghost-vcall-bar')?.remove();
-  showVcallBar('In call');
-  renderVcallBar();
-  startVcallTimer();
+  vcallMarkAnswered(null, null); startWsPing();
+  dockRender();
   toast('🎙️ You are now visible in the call');
 }
 

@@ -1,0 +1,31 @@
+/* ═══════════════════════════════════════════════════════════════
+   calls.css — the global call dock
+   Fixed top-centre, above every view (friends page 105, modals 100),
+   below toasts (999). Never lives inside #main, so no screen can cover it.
+   ═══════════════════════════════════════════════════════════════ */
+#call-dock {
+  position: fixed; top: calc(8px + env(safe-area-inset-top, 0px)); left: 50%; z-index: 500;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  transform: translateX(-50%); max-width: calc(100vw - 16px); pointer-events: none;
+  transition: transform .2s var(--ease), opacity .2s var(--ease), display .2s allow-discrete;
+}
+#call-dock[style*="display: none"] { opacity: 0; transform: translate(-50%, -14px); }
+@starting-style { #call-dock { opacity: 0; transform: translate(-50%, -14px); } }
+#call-dock > * { pointer-events: auto; animation: pop var(--base) var(--ease) both; }
+.dock-pill { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 8px 6px 10px; border-radius: 22px; background: var(--bg-floating); border: 1px solid rgba(35,165,90,.45); box-shadow: var(--elev-high), 0 0 0 1px rgba(0,0,0,.4); color: var(--text-normal); }
+.dock-pill.ringing { border-color: rgba(240,178,50,.55); } .dock-pill.vc { border-color: rgba(88,101,242,.5); }
+.dock-avs { display: flex; } .dock-avs .vcall-pip-av { width: 28px; height: 28px; margin-left: -8px; border: 2px solid var(--bg-floating); font-size: 12px; } .dock-avs .vcall-pip-av:first-child { margin-left: 0; }
+.dock-info { min-width: 0; max-width: 260px; cursor: pointer; } .dock-t { font-size: 13px; font-weight: 700; color: var(--text-header); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dock-s { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .dock-s .tm { font: 12px var(--mono); color: var(--green); }
+.dock-btns { display: flex; gap: 4px; }
+.dock-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 50%; background: var(--bg-selected); color: var(--text-normal); font-size: 15px; transition: background-color var(--fast) linear; }
+.dock-btn:hover { background: #5c5f68; } .dock-btn.off { background: var(--red); color: #fff; } .dock-btn.hang { background: var(--red); color: #fff; } .dock-btn.hang:hover { background: var(--red-hover); }
+.dock-in { display: flex; align-items: center; gap: 12px; min-width: 300px; padding: 10px 12px; border-radius: 14px; background: var(--bg-floating); border: 1px solid rgba(240,178,50,.55); box-shadow: var(--elev-high); }
+.dock-in .dock-av { width: 40px; height: 40px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; overflow: hidden; font-weight: 700; color: #fff; animation: blink 1.2s infinite; } .dock-in .dock-av img { width: 100%; height: 100%; object-fit: cover; }
+.dock-in .dock-info { flex: 1; cursor: default; }
+.dock-in .btn-p, .dock-in .btn-g { padding: 6px 12px; font-size: 13px; } .dock-in .btn-p { background: var(--green); } .dock-in .btn-g { color: var(--red); }
+
+/* mute / deafen badge on a participant's avatar in the call dock */
+.dock-avs .vcall-pip-av { position: relative; overflow: visible; }
+.dock-avs .vcall-pip-av img { border-radius: 50%; }
+.vc-badge { position: absolute; right: -6px; bottom: -6px; font-size: 11px; line-height: 1; padding: 1px 2px; border-radius: 50%; background: var(--bg-floating, #1e1f22); }

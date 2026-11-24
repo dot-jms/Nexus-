@@ -330,16 +330,13 @@
 .dm-pending-title { font-size: 18px; font-weight: 600; color: var(--text-header); }
 .dm-pending-sub { max-width: 280px; font-size: 14px; }
 
-body.in-dm #vcall-bar, body.in-dm #pinned-bar, body.in-dm #voice-bar { max-height: 0; padding-block: 0; opacity: 0; }
+body.in-dm #pinned-bar { max-height: 0; padding-block: 0; opacity: 0; }
 
 /* ═════════ BARS ═════════ */
 .pinned-bar { display: flex; align-items: center; gap: 8px; max-height: 0; padding: 0 16px; overflow: hidden; opacity: 0; background: var(--bg-secondary); color: var(--text-secondary); font-size: 14px; cursor: pointer; transition: max-height var(--base) var(--ease), padding var(--base) var(--ease), opacity var(--base) linear; }
 .pinned-bar.show { max-height: 40px; padding: 6px 16px; opacity: 1; }
 .pinned-bar:hover { color: var(--text-header); }
 .pinned-bar svg { color: var(--yellow); flex-shrink: 0; }
-
-#vcall-bar { width: 100%; flex-shrink: 0; max-height: 0; padding: 0 16px; overflow: hidden; opacity: 0; background: rgba(35,165,90,.12); transition: max-height .2s var(--ease), padding .2s var(--ease), opacity .2s linear; }
-#vcall-bar.active { max-height: 240px; padding: 8px 16px; opacity: 1; }
 
 /* voice bar inside a text channel (shown/hidden through inline display; see motion.css) */
 .voice-bar { max-height: 240px; padding: 10px 16px; overflow: hidden; flex-shrink: 0; background: rgba(35,165,90,.10); border-bottom: 1px solid rgba(35,165,90,.2); }
@@ -348,10 +345,6 @@ body.in-dm #vcall-bar, body.in-dm #pinned-bar, body.in-dm #voice-bar { max-heigh
 #notif-panel { position: fixed; top: 0; right: 0; bottom: 0; z-index: 99; width: 320px; flex-direction: column; background: var(--bg-secondary); box-shadow: -8px 0 24px rgba(0,0,0,.3); }
 #friends-view { position: fixed; top: 0; bottom: 0; left: 72px; right: 0; z-index: 105; flex-direction: column; background: var(--bg-primary); }
 #shorts-view { position: fixed; inset: 0; z-index: 150; overflow: hidden; background: rgba(0,0,0,.4); }
-.vcall-bar-row { display: flex; align-items: center; gap: 8px; }
-.vcall-bar-dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: var(--green); animation: blink 1.5s infinite; }
-.vcall-bar-label { font-size: 14px; font-weight: 600; color: var(--green); }
-.vcall-bar-timer { margin-left: 4px; font: 12px var(--mono); color: var(--text-muted); }
 .vcall-bar-members { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .vcall-member-pip { display: flex; align-items: center; gap: 6px; padding: 2px 10px 2px 3px; border-radius: 99px; background: var(--bg-secondary); }
 .vcall-pip-av { width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; overflow: hidden; font-size: 10px; font-weight: 700; color: #fff; }

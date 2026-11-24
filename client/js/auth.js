@@ -117,7 +117,8 @@ function signOut(force) {
   S.user = null; S.token = null;
   S.servers = []; S.messages = {}; S.dms = []; S.dmMessages = {};
   S.friends = []; S.friendReqs = []; S.members = {};
-  S.curSv = null; S.curCh = null; S.wsConnecting = false; S.wsOk = false; curDM = null;
+  S.curSv = null; S.curCh = null; S.wsConnecting = false; S.wsOk = false; if (typeof dmReset === 'function') dmReset(); else curDM = null;
+  if (typeof cleanupVcall === 'function' && vcallId) cleanupVcall();
   _wsQueue.length = 0; // FIX #9: also clear any unsent queued messages
   if (S.ws) { try { S.ws.onclose = null; S.ws.close(); } catch(e) {} S.ws = null; }
   document.getElementById('app').classList.remove('vis');
@@ -199,4 +200,5 @@ function loadUserData(){
   S.servers=d.servers||[]; // fallback until relay confirms
   S.messages=d.messages||{}; S.dms=d.dms||[]; S.dmMessages=d.dmMessages||{};
   S.friends=(d.friends||[]).map(f=>({...f,online:false,status:'offline'})); S.friendReqs=d.friendReqs||[];
+  dmNormalizeState();
 }

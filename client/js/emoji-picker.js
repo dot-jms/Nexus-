@@ -113,22 +113,13 @@ function openFullEmojiForReaction() {
 
 function toggleReact(id, emoji) {
   if (curDM) {
-    // DM reaction path
-    const msgs = S.dmMessages[curDM]; if (!msgs) return;
+    // DM / group reaction path: server first, then the screen
+    const key = curDM, msgs = S.dmMessages[key]; if (!msgs) return;
     const m = msgs.find(x => x.id === id); if (!m) return;
-    if (!m.reactions) m.reactions = [];
-    let r = m.reactions.find(x => x.emoji === emoji);
-    if (r) {
-      if (r.users?.includes(S.user.name)) {
-        r.count = Math.max(0, r.count - 1);
-        r.users = r.users.filter(u => u !== S.user.name);
-        if (r.count <= 0) m.reactions = m.reactions.filter(x => x.emoji !== emoji);
-      } else { r.count++; r.users = [...(r.users || []), S.user.name]; }
-    } else {
-      m.reactions.push({ emoji, count: 1, users: [S.user.name] });
-    }
-    persist(); renderDMMessages(curDM);
-    wsSend({ type: 'dm_reaction', to: curDM, messageId: id, emoji, user: S.user.name });
+    // explicit on/off (not "toggle"): safe to replay from the offline outbox
+    const on = !((m.reactions || []).find(x => x.emoji === emoji)?.users || []).includes(S.user.name);
+    wsSend(dmActionMsg('dm_reaction', { messageId: id, emoji, user: S.user.name, on }));
+    try { dmApplyReaction(m, emoji, S.user.name, on); persist(); renderDMMessages(key); } catch (err) { console.error('[nexus] reaction UI failed', err); }
     return;
   }
   if (!S.curCh) return;

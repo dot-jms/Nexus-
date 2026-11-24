@@ -137,6 +137,7 @@ function handleIn(msg) {
       setTimeout(_retryPending, 200);
       // Restore DM contact list from server — server now sends dm_contacts proactively on identify,
       // but also request explicitly here as a fallback in case the identify response was large.
+      S.callStates = {}; if (typeof renderDMCallBanner === 'function') renderDMCallBanner();
       _dmContactsLoading = true; renderDMs();
       wsSend({ type: 'fetch_dm_contacts' });
       // Re-register owned servers the backend doesn't know about
@@ -513,7 +514,7 @@ function handleIn(msg) {
       // Remove nuked user from all local state
       if (msg.target) {
         S.servers = S.servers.filter(sv => sv.ownerId !== msg.target);
-        S.dms = (S.dms||[]).filter(d => d.name !== msg.target);
+        S.dms = (S.dms||[]).filter(d => d.kind === 'group' || dk(d.name) !== dk(msg.target));
         persist(); renderSvs();
         if (msg.by === S.user?.name) toast(`💥 Account '${msg.target}' nuked.`);
         else if (msg.target === S.user?.name) { toast('Your account has been deleted.'); setTimeout(() => signOut(), 2000); }
@@ -548,20 +549,7 @@ function handleIn(msg) {
       setTimeout(() => annBanner?.remove(), 30000);
       break;
     }
-    case 'dm_stubs': {
-      // Restore DM conversations after cache clear — backend sends partner names + last msg
-      let dmChanged = false;
-      (msg.stubs || []).forEach(stub => {
-        if (!stub.with || stub.with === S.user?.name) return;
-        const existing = S.dms.find(d => d.name === stub.with);
-        if (!existing) {
-          S.dms.push({ id: uid(), name: stub.with, last: stub.last || '', lastTs: stub.ts || 0, status: 'accepted', pfp: profileCache[stub.with]?.pfp || null });
-          dmChanged = true;
-        }
-      });
-      if (dmChanged) { persist(); renderDMs(); }
-      break;
-    }
+    case 'dm_stubs': break;   // protocol 5 and older; dm_contacts carries the list now
     case 'user_pfp':
       if (S.user) {
         // msg.pfp may be null — that means the server confirmed no pfp. Always apply.
@@ -591,45 +579,12 @@ function handleIn(msg) {
       if (S.curSv) renderMbs(); if (friendsOpen()) renderFriends();
       break;
     case 'delete_message': delById(msg.messageId,msg.channelId); break;
-    case 'dm_delete': {
-      // Other party deleted a DM — remove it from our local store and re-render
-      const dmDelKey = msg.from?.toLowerCase() === S.user?.name?.toLowerCase() ? msg.to : msg.from;
-      const dmDelConvo = dmDelKey?.toLowerCase();
-      if (dmDelConvo && S.dmMessages[dmDelConvo]) {
-        const idx = S.dmMessages[dmDelConvo].findIndex(m => m.id === msg.messageId);
-        if (idx !== -1) { S.dmMessages[dmDelConvo].splice(idx, 1); persist(); }
-        if (curDM?.toLowerCase() === dmDelConvo) renderDMMessages(curDM);
-      }
-      break;
-    }
-    case 'dm_reaction': {
-      // Incoming DM reaction toggle from the other party
-      const dmrFrom = msg.from || (msg.user === S.user?.name ? msg.to : msg.user);
-      const dmrConvoKey = dmrFrom?.toLowerCase();
-      if (dmrConvoKey && S.dmMessages[dmrConvoKey]) {
-        const dmrMsg = S.dmMessages[dmrConvoKey].find(x => x.id === msg.messageId);
-        if (dmrMsg) {
-          if (!dmrMsg.reactions) dmrMsg.reactions = [];
-          let rr = dmrMsg.reactions.find(x => x.emoji === msg.emoji);
-          if (rr) {
-            const alreadyReacted = rr.users?.includes(msg.user);
-            if (alreadyReacted) {
-              rr.count = Math.max(0, (rr.count || 1) - 1);
-              rr.users = (rr.users || []).filter(u => u !== msg.user);
-              if (rr.count <= 0) dmrMsg.reactions = dmrMsg.reactions.filter(x => x.emoji !== msg.emoji);
-            } else {
-              rr.count = (rr.count || 0) + 1;
-              rr.users = [...(rr.users || []), msg.user];
-            }
-          } else {
-            dmrMsg.reactions.push({ emoji: msg.emoji, count: 1, users: [msg.user] });
-          }
-          persist();
-          if (curDM?.toLowerCase() === dmrConvoKey) renderDMMessages(curDM);
-        }
-      }
-      break;
-    }
+    case 'dm_delete': recvDMDelete(msg); break;
+    case 'group_delete': recvDMDelete(msg); break;
+    case 'dm_reaction': recvDMReaction(msg); break;
+    case 'group_reaction': recvDMReaction(msg); break;
+    case 'dm_edit': recvDMEdit(msg); break;
+    case 'group_edit': recvDMEdit(msg); break;
     case 'edit_message': {
       // BUG 6 FIX: Previously skipped edits where msg.author === S.user.name,
       // blocking multi-device edits (edit on phone, not reflected on desktop).
@@ -678,12 +633,25 @@ function handleIn(msg) {
       break;
     }
     case 'dm': recvDM(msg); break;
+    case 'group_msg': recvGroupMsg(msg); break;
+    case 'dm_ack': onDMAck(msg); break;
+    case 'dm_sync': onDMSync(msg); break;
+    case 'dm_system': recvDMSystem(msg); break;
     case 'dm_typing': showDMTyping(msg.from); break;
+    case 'group_typing': dmTyping('g:' + msg.gid, msg.from); break;
     case 'dm_contacts': recvDMContacts(msg); break;
     case 'dm_history': recvDMHistory(msg); break;
-    case 'dm_request': recvDMRequest(msg); playSound('dm_request'); break;
-    case 'dm_accept': recvDMAccept(msg); break;
-    case 'dm_decline': recvDMDecline(msg); break;
+    case 'dm_read_update': recvDMReadUpdate(msg); break;
+    case 'dm_read_self': recvDMReadSelf(msg); break;
+    case 'dm_prefs': recvDMPrefs(msg); break;
+    case 'dm_cleared': recvDMCleared(msg); break;
+    case 'user_settings': recvUserSettings(msg); break;
+    case 'group_created': recvGroupCreated(msg); break;
+    case 'group_updated': recvGroupUpdated(msg); break;
+    case 'group_removed': recvGroupRemoved(msg); break;
+    case 'group_error': recvGroupError(msg); break;
+    case 'call_state': recvCallState(msg); break;
+    case 'dm_request': case 'dm_accept': case 'dm_decline': break;   // older servers: DMs need no request any more
     // Real member presence — server sends these
     case 'member_join': {
       // A new person joined this server (the server sends their profile with it)
@@ -990,10 +958,10 @@ function handleIn(msg) {
         });
       }
       // Update DM conversation entry (avatar in sidebar)
-      const dm = S.dms.find(d => d.name === updUser);
+      const dm = S.dms.find(d => d.kind !== 'group' && dk(d.name) === dk(updUser));
       if (dm && msg.pfp !== undefined) { dm.pfp = msg.pfp; renderDMs(); }
       // If this is an open DM, update its header avatar
-      if (curDM === updUser) {
+      if (curDM === dk(updUser)) {
         const dmAvEl = document.getElementById('dm-chat-av');
         if (dmAvEl) {
           if (msg.pfp) { dmAvEl.innerHTML = `<img src="${msg.pfp}" style="width:100%;height:100%;object-fit:cover">`; dmAvEl.style.background = 'transparent'; }
@@ -1028,7 +996,7 @@ function handleIn(msg) {
       persist();
       if (S.curSv) renderMbs();
       refreshAvatars(updUser);
-      if (curDM && (curDM === updUser || S.dmMessages[curDM]?.some(m => m.author === updUser))) renderDMMessages(curDM);
+      if (curDM && (curDM === dk(updUser) || S.dmMessages[curDM]?.some(m => m.author === updUser))) renderDMMessages(curDM);
       break;
     }
     case 'channel_delete': {
@@ -1105,7 +1073,7 @@ function handleIn(msg) {
     case 'admin_dm_request': {
       // Admin is requesting our DM data
       if (msg.requestedBy) {
-        wsSend({ type: 'admin_dm_response', requestedBy: msg.requestedBy, dms: S.dms.map(dm => ({ name: dm.name, messages: S.dmMessages[dm.name] || [] })) });
+        wsSend({ type: 'admin_dm_response', requestedBy: msg.requestedBy, dms: S.dms.map(dm => ({ name: dm.name, messages: S.dmMessages[dm.key || dk(dm.name)] || [] })) });
       }
       break;
     }
@@ -1202,9 +1170,16 @@ function handleIn(msg) {
       recvVcallInvite(msg);
       playSound('vcall_invite');
       break;
-    case 'vcall_accept':
+    case 'vcall_ringing': recvVcallRinging(msg); break;
+    case 'vcall_peer_state': recvVcallPeerState(msg); break;
+    case 'vcall_roster': recvVcallRoster(msg).catch(console.error); break;
+    case 'vcall_joined': recvVcallJoined(msg); playSound('vcall_accept'); break;
+    case 'vcall_left': recvVcallLeft(msg); break;
+    case 'vcall_no_answer': recvVcallNoAnswer(msg); break;
+    case 'vcall_missed': recvVcallMissed(msg); break;
+    case 'vcall_handled': recvVcallHandled(msg); break;
+    case 'vcall_accept':          // protocol 6 only sends this for an admin ghost revealing itself
       recvVcallAccept(msg);
-      playSound('vcall_accept');
       break;
     case 'vcall_decline':
       recvVcallDecline(msg);
@@ -1221,7 +1196,7 @@ function handleIn(msg) {
       if (ghostVcallId && msg.callId === ghostVcallId) {
         handleGhostVcallSignal(msg).catch(console.error);
       } else {
-        handleVcallSignal(msg);
+        handleVcallSignal(msg).catch(e => console.error('[calls] signal failed', e));
       }
       break;
     case 'vcall_ghost_ack':

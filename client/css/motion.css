@@ -55,12 +55,6 @@
 #member-ctx[style*="display: none"] { opacity: 0; transform: scale(.96); }
 @starting-style { #member-ctx { opacity: 0; transform: scale(.96); } }
 
-#vcall-invite-widget {
-  transition: opacity .2s var(--ease), transform .2s var(--ease), display .2s allow-discrete;
-}
-#vcall-invite-widget[style*="display: none"] { opacity: 0; transform: translateY(12px); }
-@starting-style { #vcall-invite-widget { opacity: 0; transform: translateY(12px); } }
-
 /* its inline transform centres it, so this one only fades */
 #vm-recording { transition: opacity .15s linear, display .15s allow-discrete; }
 #vm-recording[style*="display: none"] { opacity: 0; }
@@ -83,3 +77,9 @@
     so views get a clean fade-in; everything else above also fades out) */
 #welcome, #home-screen, #discover.show, #chat-wrap.show, #dm-chat.show,
 .ch-hd, .dm-chat-hd, #role-editor, .auth-form.show { animation: viewIn var(--base) ease both; }
+
+/* ───────── DMs: bars slide, the info panel slides (dms.css), call dock fades (calls.css) ───────── */
+#dm-call-banner, #dm-search-bar { transition: max-height .2s var(--ease), padding .2s var(--ease), opacity .2s linear, display .2s allow-discrete; }
+#dm-call-banner[style*="display: none"], #dm-search-bar[style*="display: none"] { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; }
+@starting-style { #dm-call-banner, #dm-search-bar { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; } }
+.dm-it, .dm-sys, .dm-seen { animation: viewIn var(--base) ease both; }

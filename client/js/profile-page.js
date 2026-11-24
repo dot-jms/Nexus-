@@ -42,13 +42,13 @@ function applyProfiles(list) {
       const m = arr.find(x => x.name === p.name);
       if (m) Object.assign(m, { pfp: p.pfp, color: p.color, bio: p.bio, socials: p.socials, createdAt: p.createdAt });
     });
-    const dm = S.dms.find(d => d.name === p.name); if (dm) dm.pfp = p.pfp;
+    const dm = S.dms.find(d => d.kind !== 'group' && dk(d.name) === dk(p.name)); if (dm) dm.pfp = p.pfp;
     changed = true;
   });
   if (!changed) return;
   refreshAvatars();
   if (S.curSv) renderMbs();
-  renderDMs();
+  dmProfilesUpdated();
   // an open profile page for one of them now gets the fresh data
   if (document.getElementById('profile-page')?.classList.contains('open') && _openProfileName) {
     const d = profileCache[_openProfileName]; if (d?.name) renderProfilePage(d);
@@ -75,7 +75,7 @@ function buildLocalProfile(username) {
     if (m) return m;
   }
   // Check DM contacts
-  const dm = S.dms.find(d=>d.name===username);
+  const dm = S.dms.find(d=>d.kind!=='group' && dk(d.name)===dk(username));
   if (dm) return { name: dm.name, color: COLORS[hash(dm.name)%COLORS.length], pfp: dm.pfp, bio:'', socials:{} };
   return { name: username, color: COLORS[hash(username)%COLORS.length], pfp: null, bio:'', socials:{} };
 }

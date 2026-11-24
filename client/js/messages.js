@@ -117,7 +117,14 @@ function appendMsgDOM(m) {
   }
 }
 function addMsg(m){ if(!S.messages[m.channelId]) S.messages[m.channelId]=[]; S.messages[m.channelId].push(m); persist(); }
-function delMsg(id){ if(curDM){const arr=S.dmMessages[curDM];if(!arr)return;const i=arr.findIndex(m=>m.id===id);if(i!==-1){arr.splice(i,1);persist();fadeOutMsg(id,()=>renderDMMessages(curDM));}wsSend({type:'dm_delete',messageId:id,to:curDM,from:S.user.name});return;} const arr=S.messages[S.curCh?.id]; if(!arr) return; const i=arr.findIndex(m=>m.id===id); if(i!==-1){arr.splice(i,1);persist();const _ch=S.curCh.id;fadeOutMsg(id,()=>renderMsgs(_ch));} wsSend({type:'delete_message',messageId:id,channelId:S.curCh.id}); }
+function delMsg(id){
+  if(curDM){
+    const key=curDM, arr=S.dmMessages[key]; if(!arr)return;
+    wsSend(dmActionMsg('dm_delete',{messageId:id}));                 // server first…
+    try{ const i=arr.findIndex(m=>m.id===id); if(i!==-1){arr.splice(i,1);persist();fadeOutMsg(id,()=>renderDMMessages(key));renderDMs();} }catch(e){console.error('[nexus] delete UI failed',e);}   // …then the screen
+    return;
+  }
+  const arr=S.messages[S.curCh?.id]; if(!arr) return; const i=arr.findIndex(m=>m.id===id); if(i!==-1){arr.splice(i,1);persist();const _ch=S.curCh.id;fadeOutMsg(id,()=>renderMsgs(_ch));} wsSend({type:'delete_message',messageId:id,channelId:S.curCh.id}); }
 function delById(id,chId){ if(!S.messages[chId]) return; S.messages[chId]=S.messages[chId].filter(m=>m.id!==id); persist(); if(S.curCh?.id===chId) fadeOutMsg(id,()=>renderMsgs(chId)); }
 function replyTo(name){ if(editingMsgId) cancelEdit(); const inpId=curDM?'dm-msg-in':'msg-in'; const el=document.getElementById(inpId); if(!el)return; el.value=`@${name} `+el.value; el.focus(); if(curDM){const btn=document.getElementById('dm-snd-btn');if(btn)btn.classList.toggle('on',el.value.trim().length>0);}else updSnd(); }
 
@@ -163,12 +170,15 @@ function cancelEdit() {
 
 function commitEdit(text) {
   if (curDM) {
-    // DM edit path
-    const msgs = S.dmMessages[curDM]; if (!msgs) return;
+    // DM / group edit path: tell the server first, then update the screen
+    const key = curDM, msgs = S.dmMessages[key]; if (!msgs) return;
     const m = msgs.find(x => x.id === editingMsgId); if (!m) return;
-    m.text = text; m.edited = true;
-    persist(); renderDMMessages(curDM);
-    wsSend({ type: 'dm_edit', messageId: editingMsgId, to: curDM, text, from: S.user.name });
+    const eid = editingMsgId;
+    wsSend(dmActionMsg('dm_edit', { messageId: eid, text }));
+    try {
+      m.text = text; m.edited = true;
+      persist(); renderDMMessages(key);
+    } catch (e) { console.error('[nexus] edit UI failed', e); }
     editingMsgId = null;
     const ind = document.getElementById('edit-indicator'); if (ind) ind.remove();
     return;

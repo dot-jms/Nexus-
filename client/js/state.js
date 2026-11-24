@@ -1,10 +1,19 @@
 // ╔══════════════════════════════════════════════╗
 // ║  paste your Railway WS URL here              ║
 // ╚══════════════════════════════════════════════╝
-const WS_URL = 'wss://nexus.dot-jms.deno.net';
+// Testing against your own server: open the client from localhost (or a file) with ?server=ws://localhost:8000.
+// Ignored on any other host, so a crafted link to the live site can never point logins at somebody else's server.
+const WS_URL = (() => {
+  try {
+    const q = new URLSearchParams(location.search).get('server');
+    const local = location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    if (q && local && /^wss?:\/\/[\w.\-:\[\]]+(\/[\w.\-\/]*)?$/.test(q)) { console.info('[nexus] using test server', q); return q; }
+  } catch (e) {}
+  return 'wss://nexus.dot-jms.deno.net';
+})();
 // The newest server this client is written for. If the server is older (not redeployed yet), saves for newer
 // features are silently ignored and "disappear" on refresh, so the client warns loudly instead.
-const REQUIRED_SERVER_PROTOCOL = 5;
+const REQUIRED_SERVER_PROTOCOL = 6;
 
 // ── STATE ──
 const S = {

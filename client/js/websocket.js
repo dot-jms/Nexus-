@@ -166,7 +166,7 @@ setInterval(_retryPending, 4000);
 const _EPHEMERAL_TYPES = new Set([
   'typing','get_history','get_members','get_server_list','get_server_info',
   'identify','join_channel','voice_join','voice_leave','voice_signal',
-  'vcall_signal','status_update','history_request','history_serve','get_profiles','ping','get_presence',
+  'vcall_signal','vcall_state','vcall_invite','vcall_accept','vcall_join','vcall_decline','vcall_leave','vcall_end','dm_typing','group_typing','dm_read','group_read','status_update','history_request','history_serve','get_profiles','ping','get_presence',
 ]);
 const _wsQueue = [];
 // Actions that change saved data. If the socket is down when one happens, the UI has already updated
@@ -174,7 +174,12 @@ const _wsQueue = [];
 // wins on the next load ("I deleted it / made it, refreshed, and it was undone"). Those are kept in
 // localStorage (per account) until they've actually been sent.
 const _DURABLE_TYPES = new Set(['server_delete','channel_add','channel_update','channel_remove','server_update',
-  'leave_server','join_server','kick_member','roles_update','role_assign','short_post','short_like','short_comment','profile_update']);
+  'leave_server','join_server','kick_member','roles_update','role_assign','short_post','short_like','short_comment','profile_update',
+  // direct messages + group chats (the server dedupes sends by message id, so a replay can never double-post)
+  'dm','group_msg','dm_edit','group_edit','dm_delete','group_delete','dm_prefs_set','dm_clear','user_settings_set',
+  'group_create','group_add','group_remove','group_leave','group_rename','group_set_pfp',
+  // reactions carry an explicit on/off, so a replayed one can never flip the reaction back
+  'dm_reaction','group_reaction']);
 const _outboxKey = () => 'nx-outbox-' + (S.user?.name || '').toLowerCase();
 function _saveOutbox() {
   if (!S.user) return;
