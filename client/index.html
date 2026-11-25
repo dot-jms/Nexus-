@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="css/dms.css">
 <link rel="stylesheet" href="css/calls.css">
 <link rel="stylesheet" href="css/motion.css">
+<link rel="stylesheet" href="css/profile.css">
 </head>
 <body>
 
@@ -322,18 +323,25 @@
 <div id="lightbox" onclick="document.getElementById('lightbox').classList.remove('open')"><img id="lb-img" src="" alt=""></div>
 
 
-<!-- PFP CROP MODAL -->
+<!-- PICTURE CROPPER (profile picture, banner, group picture) -->
 <div class="overlay" id="pfp-crop-modal" style="z-index:201">
-  <div class="modal" style="text-align:center;max-width:420px">
-    <div class="modal-t">Crop Profile Picture</div>
-    <div class="modal-s">Drag to reposition · Scroll to zoom</div>
-    <div id="pfp-crop-wrap" style="width:300px;height:300px;border-radius:50%;overflow:hidden;margin:0 auto 16px;position:relative;border:3px solid var(--accent);cursor:move;background:#000;touch-action:none">
-      <img id="pfp-crop-img" style="position:absolute;transform-origin:0 0" draggable="false">
+  <div class="modal cr-modal">
+    <div class="modal-t" id="cr-title">Edit picture</div>
+    <div class="modal-s" id="cr-sub">Drag to move · scroll or pinch to zoom · zoom out as far as you like</div>
+    <div class="cr-stage" id="cr-stage" tabindex="0" aria-label="Picture editor. Arrow keys move, plus and minus zoom."><canvas id="cr-canvas"></canvas><div class="cr-mask circle" id="cr-mask"></div></div>
+    <div class="cr-zoom"><button class="cr-ic" onclick="crNudgeZoom(-1)" aria-label="Zoom out">−</button><input type="range" id="cr-zoom" min="0" max="1000" step="1" value="500" oninput="crSliderIn(this.value)"><button class="cr-ic" onclick="crNudgeZoom(1)" aria-label="Zoom in">+</button><span id="cr-zoom-lbl">100%</span></div>
+    <div class="cr-tools">
+      <button onclick="crRotate(-90)" title="Rotate left">⟲ Rotate</button><button onclick="crRotate(90)" title="Rotate right">⟳ Rotate</button><button onclick="crFlip()">⇋ Flip</button>
+      <button onclick="crFit()" title="Show the whole picture">Fit</button><button onclick="crFill()" title="Fill the frame">Fill</button><button onclick="crReset()">Reset</button>
     </div>
-    <input type="range" id="pfp-crop-zoom" min="1" max="4" step="0.01" value="1" style="width:200px;margin-bottom:16px" oninput="pfpCropZoom(this.value)">
+    <div class="cr-bg" id="cr-bg">Empty space:
+      <button data-bg="blur" onclick="crSetBg('blur')">Blur</button><button data-bg="color" onclick="crSetBg('color')">Colour</button><button data-bg="clear" onclick="crSetBg('clear')">Transparent</button>
+      <input type="color" class="pe-color" id="cr-bg-color" value="#1e1f22" oninput="crSetBgColor(this.value)">
+    </div>
+    <div class="cr-pv circle" id="cr-pv"></div>
     <div class="m-row" style="justify-content:center">
       <button class="btn-g" onclick="closeM('pfp-crop-modal')">Cancel</button>
-      <button class="btn-p" onclick="commitPfpCrop()">Apply →</button>
+      <button class="btn-p" id="cr-apply" onclick="commitPfpCrop()">Apply →</button>
     </div>
   </div>
 </div>
@@ -351,11 +359,16 @@
     <div class="pp-body">
       <div class="pp-name" id="pp-name"></div>
       <div class="pp-tag" id="pp-tag"></div>
+      <div class="pp-meta" id="pp-meta"></div>
       <div class="pp-badges" id="pp-badges"></div>
       <div class="pp-sep"></div>
       <div id="pp-bio-section" class="pp-section" style="display:none">
         <div class="pp-section-title">About Me</div>
         <div class="pp-bio" id="pp-bio"></div>
+      </div>
+      <div id="pp-interests-section" class="pp-section" style="display:none">
+        <div class="pp-section-title">Interests</div>
+        <div class="pp-chips" id="pp-interests"></div>
       </div>
       <div id="pp-socials-section" class="pp-section" style="display:none">
         <div class="pp-section-title">Links</div>
@@ -370,38 +383,91 @@
   </div>
 </div>
 
-<!-- PROFILE EDIT MODAL -->
+<!-- PROFILE EDITOR -->
 <div class="overlay" id="profile-edit-modal" style="z-index:161">
-  <div class="modal" style="text-align:center;max-height:88vh;overflow-y:auto">
-    <div class="profile-modal-av" id="profile-modal-av" id="profile-modal-av-wrap">
-      <div class="av-overlay" id="pfp-edit-overlay">Change</div>
-    </div>
+  <div class="modal pe-modal">
+    <div class="pe-head"><div class="modal-t">Edit Profile <span id="profile-modal-name" style="font-weight:400;font-size:14px;color:var(--text-muted)"></span><span id="profile-modal-tag" style="font-weight:400;font-size:13px;color:var(--text-muted);font-family:'DM Mono',monospace"></span></div></div>
     <input type="file" id="pfp-file-in" accept="image/*" style="display:none" onchange="onPfpChange(event)">
-    <div id="pfp-lock-notice" style="display:none;font-size:11px;color:var(--t3);margin-bottom:8px;background:var(--s3);border-radius:6px;padding:6px 10px">🔒 Only Puck can change profile pictures</div>
-    <div class="modal-t" id="profile-modal-name" style="margin-bottom:4px"></div>
-    <div style="font-size:12px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:16px" id="profile-modal-tag"></div>
-    <div style="text-align:left">
-      <div class="m-lbl">Avatar Color</div>
-      <div class="av-grid" id="profile-av-grid" style="margin-bottom:14px"></div>
-      <div class="m-lbl">About Me <span style="color:var(--t3);font-size:9px;font-weight:400;text-transform:none">max 160 chars</span></div>
-      <textarea class="m-inp" id="profile-bio-in" placeholder="Tell people about yourself..." maxlength="160" rows="3" style="resize:vertical"></textarea>
-      <div class="m-lbl">Website</div>
-      <input class="m-inp" id="profile-website-in" placeholder="https://yoursite.com" maxlength="80">
-      <div class="m-lbl">Twitter / X</div>
-      <input class="m-inp" id="profile-twitter-in" placeholder="@username" maxlength="40">
-      <div style="border-top:1px solid var(--border);margin:14px 0 14px;padding-top:14px">
-        <div class="m-lbl">Change Password</div>
-        <div class="pw-wrap" style="margin-bottom:8px"><input class="m-inp" id="chpw-old" type="password" placeholder="Current password" style="margin-bottom:0"><span class="pw-tog" onclick="togglePw('chpw-old',this)">Show</span></div>
-        <div class="pw-wrap" style="margin-bottom:8px"><input class="m-inp" id="chpw-new" type="password" placeholder="New password" style="margin-bottom:0"><span class="pw-tog" onclick="togglePw('chpw-new',this)">Show</span></div>
-        <div class="pw-wrap" style="margin-bottom:8px"><input class="m-inp" id="chpw-new2" type="password" placeholder="Confirm new password" style="margin-bottom:0"><span class="pw-tog" onclick="togglePw('chpw-new2',this)">Show</span></div>
-        <div id="chpw-err" style="font-size:12px;color:var(--red);display:none;margin-bottom:6px"></div>
-        <button class="btn-g" style="width:100%;font-size:12px" onclick="changePassword()">Update Password</button>
+    <input type="file" id="pe-banner-file" accept="image/*" style="display:none" onchange="onBannerChange(event)">
+    <div class="pe-body">
+      <div class="pe-left">
+        <div class="pe-tabs" id="pe-tabs">
+          <button class="pe-tab on" data-tab="look" onclick="peTab('look')">🖼 Avatar &amp; Banner</button>
+          <button class="pe-tab" data-tab="style" onclick="peTab('style')">✨ Style</button>
+          <button class="pe-tab" data-tab="about" onclick="peTab('about')">📝 About</button>
+          <button class="pe-tab" data-tab="links" onclick="peTab('links')">🔗 Links &amp; Account</button>
+        </div>
+
+        <div class="pe-panel" id="pe-p-look">
+          <div class="pe-sec">
+            <div class="pe-lbl">Profile picture <small>drag a picture here, or paste one</small></div>
+            <div class="pe-row">
+              <div class="pe-av" id="profile-modal-av" data-drop="avatar"><div class="av-overlay">Change</div></div>
+              <div>
+                <div class="pe-btns"><button onclick="peAvatarUpload()">Upload photo</button><button onclick="peAvatarEdit()" id="pe-av-edit">Reposition</button><button onclick="peAvatarRemove()" id="pe-av-rm">Remove</button></div>
+                <div class="pe-hint">Zoom out, rotate, flip and pick a background in the editor. Animated GIFs become still.</div>
+              </div>
+            </div>
+          </div>
+          <div class="pe-sec">
+            <div class="pe-lbl">Avatar colour <small>used without a photo, and for the default banner</small></div>
+            <div class="pe-swatches"><div class="av-grid" id="profile-av-grid"></div><input type="color" class="pe-color" id="pe-color-custom" oninput="peColorCustom(this.value)" title="Any colour you like"></div>
+          </div>
+          <div class="pe-sec pe-banner-drop" data-drop="banner">
+            <div class="pe-lbl">Banner</div>
+            <div class="pe-chips" id="pe-banner-kinds"></div>
+            <div class="pe-sub" id="pe-b-color" style="display:none;margin-top:12px"><div class="pe-row"><input type="color" class="pe-color" id="pe-b-c1" oninput="peIn()"><span class="pe-hint" style="margin:0">Banner colour</span></div></div>
+            <div class="pe-sub" id="pe-b-grad" style="display:none;margin-top:12px">
+              <div class="pe-presets" id="pe-banner-presets"></div>
+              <div class="pe-row" style="margin-top:10px"><input type="color" class="pe-color" id="pe-b-g1" oninput="peIn()"><input type="color" class="pe-color" id="pe-b-g2" oninput="peIn()"><input type="range" class="pe-range" id="pe-b-ang" min="0" max="360" value="135" oninput="peIn()" style="flex:1;min-width:120px" title="Angle"></div>
+            </div>
+            <div class="pe-sub" id="pe-b-img" style="display:none;margin-top:12px"><div class="pe-btns"><button onclick="peBannerUpload()">Upload banner image</button><button onclick="peBannerEdit()" id="pe-b-edit">Reposition</button><button onclick="peBannerRemove()" id="pe-b-rm">Remove image</button></div><div class="pe-hint">Wide pictures work best (3:1). You can zoom out and fill the sides.</div></div>
+          </div>
+        </div>
+
+        <div class="pe-panel" id="pe-p-style" style="display:none">
+          <div class="pe-sec"><div class="pe-btns"><button onclick="peRandom()">🎲 Surprise me</button><button onclick="peResetStyle()">Reset style</button></div></div>
+          <div class="pe-sec">
+            <div class="pe-lbl">Avatar frame</div>
+            <div class="pe-chips" id="pe-frames"></div>
+            <div class="pe-sub pe-row" id="pe-frame-cols" style="display:none;margin-top:10px"><input type="color" class="pe-color" id="pe-fr-c1" oninput="peIn()"><input type="color" class="pe-color" id="pe-fr-c2" oninput="peIn()"></div>
+          </div>
+          <div class="pe-sec">
+            <div class="pe-lbl">Name effect <small>shown on your profile and hover card</small></div>
+            <div class="pe-chips" id="pe-names"></div>
+            <div class="pe-sub pe-row" id="pe-name-cols" style="display:none;margin-top:10px"><input type="color" class="pe-color" id="pe-nf-c1" oninput="peIn()"><input type="color" class="pe-color" id="pe-nf-c2" oninput="peIn()"></div>
+          </div>
+          <div class="pe-sec">
+            <div class="pe-lbl">Card tint</div>
+            <div class="pe-swatches" id="pe-tints"></div>
+          </div>
+        </div>
+
+        <div class="pe-panel" id="pe-p-about" style="display:none">
+          <div class="pe-sec"><div class="pe-lbl">About me <small id="pe-bio-count" class="pe-count">0 / 160</small></div>
+            <textarea class="m-inp" id="profile-bio-in" placeholder="Tell people about yourself..." maxlength="160" rows="3" style="resize:vertical;margin-bottom:0" oninput="peIn()"></textarea></div>
+          <div class="pe-sec"><div class="pe-lbl">Pronouns</div><input class="m-inp" id="pe-pron-in" placeholder="e.g. she/her, he/him, they/them" maxlength="24" style="margin-bottom:0" oninput="peIn()"></div>
+          <div class="pe-sec"><div class="pe-lbl">Location</div><input class="m-inp" id="pe-loc-in" placeholder="Where in the world?" maxlength="30" style="margin-bottom:0" oninput="peIn()"></div>
+          <div class="pe-sec"><div class="pe-lbl">Interests <small id="pe-int-count" class="pe-count">0 / 8</small></div>
+            <div class="pe-int-wrap" id="pe-int-wrap"><span id="pe-int-tags" style="display:contents"></span><input id="pe-int-in" placeholder="Type one and press Enter" maxlength="20" onkeydown="peIntKey(event)" onblur="peIntCommit()"></div>
+            <div class="pe-chips" id="pe-int-sugg" style="margin-top:8px"></div></div>
+        </div>
+
+        <div class="pe-panel" id="pe-p-links" style="display:none">
+          <div class="pe-sec"><div class="pe-lbl">Links</div><div id="pe-links"></div></div>
+          <div class="pe-sec" style="border-top:1px solid var(--divider);padding-top:14px">
+            <div class="pe-lbl">Change password</div>
+            <div class="pw-wrap" style="margin-bottom:8px"><input class="m-inp" id="chpw-old" type="password" placeholder="Current password" style="margin-bottom:0"><span class="pw-tog" onclick="togglePw('chpw-old',this)">Show</span></div>
+            <div class="pw-wrap" style="margin-bottom:8px"><input class="m-inp" id="chpw-new" type="password" placeholder="New password" style="margin-bottom:0"><span class="pw-tog" onclick="togglePw('chpw-new',this)">Show</span></div>
+            <div class="pw-wrap" style="margin-bottom:8px"><input class="m-inp" id="chpw-new2" type="password" placeholder="Confirm new password" style="margin-bottom:0"><span class="pw-tog" onclick="togglePw('chpw-new2',this)">Show</span></div>
+            <div id="chpw-err" style="font-size:12px;color:var(--red);display:none;margin-bottom:6px"></div>
+            <button class="btn-g" style="width:100%;font-size:12px" onclick="changePassword()">Update Password</button>
+          </div>
+        </div>
       </div>
+      <div class="pe-right"><div class="pe-pv-lbl">Live preview</div><div id="pe-preview"></div></div>
     </div>
-    <div class="m-row">
-      <button class="btn-g" onclick="closeM('profile-edit-modal')">Cancel</button>
-      <button class="btn-p" onclick="saveProfile()">Save Profile</button>
-    </div>
+    <div class="pe-foot"><span class="pe-dirty" id="pe-dirty">Unsaved changes</span><div class="m-row" style="margin:0"><button class="btn-g" onclick="peClose()">Cancel</button><button class="btn-p" onclick="saveProfile()">Save Profile</button></div></div>
   </div>
 </div>
 
@@ -1102,6 +1168,7 @@
 <script src="js/state.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/app.js"></script>
+<script src="js/profile-style.js"></script>
 <script src="js/profile-edit.js"></script>
 <script src="js/websocket.js"></script>
 <script src="js/ws-handler.js"></script>

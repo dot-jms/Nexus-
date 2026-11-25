@@ -614,17 +614,8 @@ function dmPickGroupPfp() {
 async function dmGroupPfpChosen(e) {
   const f = e.target.files && e.target.files[0], d = dmEntry(curDM); if (!f || !d || d.kind !== 'group') return;
   if (!/^image\//.test(f.type)) { toast('That is not an image', 'err'); return; }
-  try {
-    const url = URL.createObjectURL(f);
-    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-    URL.revokeObjectURL(url);
-    const size = 96, c = document.createElement('canvas'); c.width = c.height = size;
-    const s = Math.min(img.width, img.height); c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
-    let q = 0.82, data = c.toDataURL('image/jpeg', q);
-    while (data.length > 22000 && q > 0.3) { q -= 0.1; data = c.toDataURL('image/jpeg', q); }
-    if (data.length > 22000) { toast('That picture is too detailed — try another one', 'err'); return; }
-    wsSend({ type: 'group_set_pfp', gid: d.key.slice(2), pfp: data });
-  } catch (err) { toast('Could not read that image', 'err'); }
+  const gid = d.key.slice(2);
+  openCropper(f, { target: 'group', kind: 'pfp', title: 'Group picture', outW: 128, outH: 128, maxChars: 22000, stageW: 260, alpha: false, onApply: data => wsSend({ type: 'group_set_pfp', gid, pfp: data }) });
 }
 function dmClearGroupPfp() { const d = dmEntry(curDM); if (d && d.kind === 'group') wsSend({ type: 'group_set_pfp', gid: d.key.slice(2), pfp: null }); }
 function dmRenameGroup() {

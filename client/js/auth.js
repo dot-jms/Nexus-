@@ -150,20 +150,7 @@ let _pfpCropTarget = 'profile'; // 'profile' | 'signup' | 'admin_target'
 let _adminPfpTarget = null; // username when admin is setting someone else's pfp
 
 function onSuPfp(e) {
-  const f = e.target.files[0]; if (!f) return;
-  e.target.value = '';
-  const reader = new FileReader();
-  reader.onload = ev => {
-    _pfpCropTarget = 'signup';
-    pfpCropState = { x:0, y:0, zoom:1, src:ev.target.result, dragging:false };
-    const img = document.getElementById('pfp-crop-img');
-    img.src = ev.target.result;
-    document.getElementById('pfp-crop-zoom').value = 1;
-    img.onload = () => { pfpCropApply(); };
-    openM('pfp-crop-modal');
-    setTimeout(initCropEvents, 50);
-  };
-  reader.readAsDataURL(f);
+  const f = e.target.files[0]; e.target.value = ''; if (f) pfpOpenFile(f, 'signup');
 }
 
 async function onSvIcon(e) {

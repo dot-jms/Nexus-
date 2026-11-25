@@ -13,7 +13,7 @@ const WS_URL = (() => {
 })();
 // The newest server this client is written for. If the server is older (not redeployed yet), saves for newer
 // features are silently ignored and "disappear" on refresh, so the client warns loudly instead.
-const REQUIRED_SERVER_PROTOCOL = 6;
+const REQUIRED_SERVER_PROTOCOL = 7; // 7: profile personalisation (banner, frame, name effect, pronouns, interests, more links)
 
 // ── STATE ──
 const S = {

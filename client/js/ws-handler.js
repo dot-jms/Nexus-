@@ -2,7 +2,7 @@ function handleIn(msg) {
   // BUG 2 FIX: Guard entire handler against unidentified state.
   // WS messages can arrive before identify completes (e.g. server broadcasts during auth).
   // Whitelisted types that are safe before S.user is populated:
-  const PRE_AUTH_SAFE = new Set(['auth_ok','auth_error','auth_required','maintenance','identified','user_pfp','pong','motd_update']);
+  const PRE_AUTH_SAFE = new Set(['auth_ok','auth_error','auth_required','maintenance','identified','user_pfp','user_ext','pong','motd_update']);
   if (!S.user && !PRE_AUTH_SAFE.has(msg.type)) return;
   switch(msg.type) {
     case 'message':
@@ -550,6 +550,7 @@ function handleIn(msg) {
       break;
     }
     case 'dm_stubs': break;   // protocol 5 and older; dm_contacts carries the list now
+    case 'user_ext': peApplyOwnExt(msg); break;
     case 'user_pfp':
       if (S.user) {
         // msg.pfp may be null — that means the server confirmed no pfp. Always apply.
@@ -938,6 +939,7 @@ function handleIn(msg) {
       if (msg.pfp !== undefined) S.user.pfp = msg.pfp || null;
       if (msg.bio !== undefined) S.user.bio = msg.bio;
       if (msg.socials) S.user.socials = msg.socials;
+      if (msg.ext) S.user.ext = msg.ext;
       lsSet('nx-session', { token: S.token, user: S.user });
       persist();
       updateUser();
@@ -950,6 +952,12 @@ function handleIn(msg) {
       if (msg.color) profileCache[updUser].color = msg.color;
       if (msg.pfp !== undefined) profileCache[updUser].pfp = msg.pfp;
       if (msg.bio !== undefined) profileCache[updUser].bio = msg.bio;
+      if (msg.socials) profileCache[updUser].socials = msg.socials;
+      if (msg.ext) {
+        profileCache[updUser].ext = msg.ext; delete profileCache[updUser].bannerImg; // a changed banner image is fetched again when the page opens
+        if (updUser === S.user?.name) { S.user.ext = msg.ext; if (msg.ext.banner?.kind === 'image') requestProfileNow(updUser); else peMyBanner = null; }
+        else if (document.getElementById('profile-page')?.classList.contains('open') && _openProfileName === updUser && msg.ext.banner?.kind === 'image') requestProfileNow(updUser);
+      }
       // Update member lists in all servers
       if (S.members) {
         Object.values(S.members).forEach(list => {
