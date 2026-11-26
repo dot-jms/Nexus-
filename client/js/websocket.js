@@ -41,7 +41,8 @@ function connectWS() {
     dbg('✓ WS connected', 'ok');
     wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null,token:S.token,
       // lets the server tell us which cached servers were deleted / we're no longer in
-      knownServerIds:(S.servers||[]).map(s=>s.id)});
+      knownServerIds:(S.servers||[]).map(s=>s.id),
+      dev:(typeof NXDEV!=='undefined'&&NXDEV.ready?NXDEV.get():null)});
     dbg('→ identify sent', 'info');
     // Identify timeout: if server doesn't send 'identified' within 10s, the
     // connection is silently stuck (e.g. Deno cold-start not finishing). Force reconnect.

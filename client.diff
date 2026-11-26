@@ -1,805 +1,248 @@
 diff --git a/a/client/index.html b/b/client/index.html
-index a52bad8..0516efa 100644
+index 0516efa..6c9a188 100644
 --- a/a/client/index.html
 +++ b/b/client/index.html
-@@ -780,371 +780,9 @@
-   <div id="dbg-lines"></div>
- </div>
- 
--<!-- ADMIN PANEL MODAL -->
--<div class="overlay" id="admin-panel-modal" style="z-index:210">
--  <div class="modal" style="width:700px;max-height:93vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
--    <!-- Sticky header -->
--    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0">
--      <div style="display:flex;align-items:center;gap:10px">
--        <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#5865f2,#c084fc);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">⚡</div>
--        <div>
--          <div style="font-size:15px;font-weight:800;color:var(--t1)">Admin Panel</div>
--          <div id="admin-maint-badge" style="display:none;font-size:10px;background:rgba(248,113,113,.2);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:99px;padding:1px 8px">🔧 MAINTENANCE MODE</div>
--        </div>
--      </div>
--      <button class="btn-g" style="padding:5px 11px;font-size:12px" onclick="closeM('admin-panel-modal')">✕</button>
--    </div>
--    <!-- Tabs -->
--    <div class="sv-stg-tabs" style="padding:8px 18px;flex-shrink:0;flex-wrap:wrap;gap:3px;border-bottom:1px solid var(--border)">
--      <div class="sv-stg-tab active" onclick="adminTab('users')">👤 Users</div>
--      <div class="sv-stg-tab" onclick="adminTab('accounts')">👥 Accounts</div>
--      <div class="sv-stg-tab" onclick="adminTab('servers')">🌐 Servers</div>
--      <div class="sv-stg-tab" onclick="adminTab('bans')">🔨 Bans</div>
--      <div class="sv-stg-tab" onclick="adminTab('messages')">💬 Messages</div>
--      <div class="sv-stg-tab" onclick="adminTab('dms')">🔍 DMs</div>
--      <div class="sv-stg-tab" onclick="adminTab('online')">🟢 Online</div>
--      <div class="sv-stg-tab" onclick="adminTab('audit')">📋 Audit</div>
--      <div class="sv-stg-tab" onclick="adminTab('stats')">📊 Stats</div>
--      <div class="sv-stg-tab" onclick="adminTab('alert')" style="color:#c084fc">📢 Alert</div>
--      <div class="sv-stg-tab" onclick="adminTab('danger')" style="color:#f87171">☢️ Danger</div>
--    </div>
--    <!-- Scrollable pane area -->
--    <div style="overflow-y:auto;padding:16px 18px;flex:1">
--
--    <!-- ══ USERS ═══════════════════════════════════════════════════════════ -->
--    <div id="admin-pane-users" class="sv-stg-pane active">
--      <!-- Target user box — always at top, always visible -->
--      <div style="background:rgba(88,101,242,.08);border:1px solid rgba(88,101,242,.25);border-radius:9px;padding:10px 12px;margin-bottom:12px">
--        <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:.1em;margin-bottom:5px">TARGET USER (username, e.g. "Alice" — not an ID)</div>
--        <div style="display:flex;gap:6px">
--          <input class="m-inp" id="admin-user-in" placeholder="Type any username…" maxlength="24" style="flex:1">
--          <button class="btn-g" style="font-size:11px;flex-shrink:0" onclick="adminGetNotes()">📝 Notes</button>
--          <button class="btn-g" style="font-size:11px;flex-shrink:0" onclick="adminViewUserServers()">🌐 Servers</button>
--        </div>
--      </div>
--
--      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
--        <!-- Role -->
--        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
--          <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">ROLE</div>
--          <button class="btn-p" style="font-size:11px;width:100%;margin-bottom:3px" onclick="adminAppointCoadmin(true)">⭐ Make Co-Admin</button>
--          <button class="btn-g" style="font-size:11px;width:100%" onclick="adminAppointCoadmin(false)">✕ Remove Co-Admin</button>
--        </div>
--        <!-- Profile -->
--        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
--          <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">PROFILE</div>
--          <div style="display:flex;flex-direction:column;gap:3px">
--            <button class="btn-g" style="font-size:11px" onclick="adminRenameUser()">✏️ Rename</button>
--            <button class="btn-g" style="font-size:11px" onclick="adminSetUserTag()">🏷 Set Tag</button>
--            <button class="btn-g" style="font-size:11px" onclick="adminSetPfp()">🖼 Change PFP</button>
--            <button class="btn-g" style="font-size:11px" onclick="adminWipeUserPfp()">🚫 Wipe PFP</button>
--            <button class="btn-g" style="font-size:11px" onclick="adminPickColor()">🎨 Set Color</button>
--            <button class="btn-g" style="font-size:11px" onclick="adminSetBio()">📝 Set Bio</button>
--          </div>
--        </div>
--        <!-- Access -->
--        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
--          <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">ACCESS</div>
--          <div style="display:flex;flex-direction:column;gap:3px">
--            <button class="btn-g" style="font-size:11px;color:#f87171" onclick="adminResetPassword()">🔑 Reset Password</button>
--            <button class="btn-g" style="font-size:11px;color:#f87171" onclick="adminForceLogout()">🚪 Force Logout</button>
--            <button class="btn-g" style="font-size:11px;color:#fb923c" onclick="adminFreezeUser()">🧊 Freeze (can't post)</button>
--            <button class="btn-g" style="font-size:11px" onclick="adminUnfreezeUser()">🔥 Unfreeze</button>
--          </div>
--        </div>
--      </div>
--
--      <!-- Server membership -->
--      <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px;margin-bottom:10px">
--        <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">SERVER MEMBERSHIP <span style="font-weight:400;color:var(--t3);font-size:10px">— paste a Server ID from the 🌐 Servers tab</span></div>
--        <input class="m-inp" id="admin-server-id-in" placeholder="Server ID…" maxlength="32" style="margin-bottom:5px;font-size:11px;font-family:'DM Mono',monospace">
--        <div style="display:flex;gap:5px;flex-wrap:wrap">
--          <button class="btn-g" style="font-size:11px" onclick="adminAddMember()">➕ Add to Server</button>
--          <button class="btn-g" style="font-size:11px;color:#f87171" onclick="adminKickFromServer()">👢 Kick from Server</button>
--          <button class="btn-g" style="font-size:11px;color:#f87171" onclick="adminDeleteServerByInput()">🗑 Delete This Server</button>
--        </div>
--      </div>
--
--      <!-- Messaging -->
--      <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px;margin-bottom:10px">
--        <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">MESSAGE / IMPERSONATE</div>
--        <textarea class="m-inp" id="admin-sysdm-text" placeholder="Message text (for System DM or impersonation below)…" maxlength="2000" rows="2" style="resize:vertical;margin-bottom:5px"></textarea>
--        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:5px">
--          <button class="btn-p" style="font-size:11px" onclick="adminSendSystemDM()">📨 Send as System DM to user</button>
--          <button class="btn-g" style="font-size:11px;color:#c084fc" onclick="adminImpersonateSend()">🎭 Post as this user in channel →</button>
--        </div>
--        <input class="m-inp" id="admin-imp-ch" placeholder="Channel ID for 🎭 impersonate (get from 💬 Messages tab → View → click an ID)" style="font-size:10px;font-family:'DM Mono',monospace">
--      </div>
--
--      <!-- Notes -->
--      <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
--        <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">ADMIN NOTES <span style="font-weight:400">— internal only, never shown to user</span></div>
--        <textarea class="m-inp" id="admin-note-text" placeholder="Note about this user…" maxlength="1000" rows="2" style="resize:vertical;margin-bottom:5px"></textarea>
--        <button class="btn-g" style="font-size:11px" onclick="adminAddNote()">📌 Save Note</button>
--        <div id="admin-notes-display" style="margin-top:7px;display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto"></div>
--      </div>
--
--      <div id="admin-users-result" style="margin-top:9px;font-size:12px;color:var(--t3);background:var(--s3);border-radius:6px;padding:7px 10px;min-height:24px;border:1px solid var(--border)"></div>
--      <input type="file" id="admin-pfp-file" accept="image/*" style="display:none" onchange="onAdminPfpChange(event)">
--      <input type="color" id="admin-color-pick" style="display:none" onchange="adminApplyColor(this.value)">
--    </div>
-+<!-- ADMIN PANEL MODAL (built by js/admin-ui.js) -->
-+<div class="overlay" id="admin-panel-modal" style="z-index:210"></div>
- 
--    <!-- ══ ACCOUNTS ════════════════════════════════════════════════════════ -->
--    <div id="admin-pane-accounts" class="sv-stg-pane">
--      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
--        <div style="font-size:12px;color:var(--t3)">All accounts. <strong style="color:var(--t2)">💬 DMs</strong> opens their DM history. <strong style="color:var(--t2)">Target →</strong> fills the Users tab.</div>
--        <button class="btn-g" style="font-size:11px;padding:5px 10px;flex-shrink:0" onclick="adminLoadAccounts()">↻ Refresh</button>
--      </div>
--      <input class="m-inp" id="admin-acct-search" placeholder="Search by username…" oninput="adminFilterAccounts()" style="margin-bottom:8px">
--      <div id="admin-acct-list" style="display:flex;flex-direction:column;gap:5px;max-height:500px;overflow-y:auto"></div>
--    </div>
--
--    <!-- ══ SERVERS ═════════════════════════════════════════════════════════ -->
--    <div id="admin-pane-servers" class="sv-stg-pane">
--      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
--        <div style="font-size:12px;color:var(--t3)">Click a Server ID to copy it, then paste it anywhere an ID is needed.</div>
--        <div style="display:flex;gap:5px">
--          <button class="btn-g" style="font-size:11px;padding:5px 10px" onclick="adminCloneServer()">🧬 Clone…</button>
--          <button class="btn-g" style="font-size:11px;padding:5px 10px" onclick="adminLoadServers()">↻ Refresh</button>
--        </div>
--      </div>
--      <input class="m-inp" id="admin-sv-search" placeholder="Search by name or owner…" oninput="adminFilterServers()" style="margin-bottom:8px">
--      <div id="admin-sv-list" style="display:flex;flex-direction:column;gap:5px;max-height:240px;overflow-y:auto;margin-bottom:10px">
--        <div style="font-size:12px;color:var(--t3)">Click Refresh to load.</div>
--      </div>
--      <!-- Edit panel — keyed off single Server ID field -->
--      <div style="background:var(--s3);border:1px solid var(--border);border-radius:9px;padding:11px">
--        <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px">Edit a Server <span style="font-weight:400;color:var(--t3);font-size:10px">— paste Server ID from list above</span></div>
--        <input class="m-inp" id="admin-edit-sv-id" placeholder="Server ID…" style="margin-bottom:8px;font-family:'DM Mono',monospace;font-size:11px">
--        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
--          <div>
--            <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Rename</div>
--            <div style="display:flex;gap:3px"><input class="m-inp" id="admin-rn-name" placeholder="New name…" style="flex:1"><button class="btn-g" style="font-size:11px" onclick="adminRenameServer()">✏️</button></div>
--          </div>
--          <div>
--            <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Description</div>
--            <div style="display:flex;gap:3px"><input class="m-inp" id="admin-sv-desc-text" placeholder="Description…" style="flex:1"><button class="btn-g" style="font-size:11px" onclick="adminSetServerDesc()">💾</button></div>
--          </div>
--          <div>
--            <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Add Channel</div>
--            <div style="display:flex;gap:3px">
--              <input class="m-inp" id="admin-ac-name" placeholder="channel-name…" style="flex:1">
--              <select class="m-inp" id="admin-ac-type" style="padding:5px 6px;width:60px;flex-shrink:0"><option value="text">text</option><option value="voice">voice</option></select>
--              <button class="btn-p" style="font-size:11px;flex-shrink:0" onclick="adminAddChannelFromEdit()">➕</button>
--            </div>
--          </div>
--          <div>
--            <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Delete Channel (Channel ID)</div>
--            <div style="display:flex;gap:3px"><input class="m-inp" id="admin-dc-chid" placeholder="Channel ID…" style="flex:1;font-family:'DM Mono',monospace;font-size:11px"><button class="btn-g" style="font-size:11px;color:var(--red)" onclick="adminDeleteChannelFromEdit()">🗑</button></div>
--          </div>
--        </div>
--        <div style="display:flex;gap:5px;margin-top:7px">
--          <button class="btn-g" style="font-size:11px" onclick="adminSetServerPublic(true)">🌐 Make Public</button>
--          <button class="btn-g" style="font-size:11px" onclick="adminSetServerPublic(false)">🔒 Make Private</button>
--        </div>
--      </div>
--      <div id="admin-sv-result" style="margin-top:8px;font-size:12px;color:var(--t3)"></div>
--    </div>
--
--    <!-- ══ BANS ════════════════════════════════════════════════════════════ -->
--    <div id="admin-pane-bans" class="sv-stg-pane">
--      <div style="font-size:11px;color:var(--t3);margin-bottom:7px">Duration: <code>30m</code> · <code>2h</code> · <code>7d</code> · <code>permanent</code></div>
--      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:5px">
--        <input class="m-inp" id="admin-ban-user" placeholder="Username to ban…" maxlength="24">
--        <input class="m-inp" id="admin-ban-dur" placeholder="Duration e.g. 7d, permanent" maxlength="20">
--      </div>
--      <input class="m-inp" id="admin-ban-reason" placeholder="Reason (shown to user)…" maxlength="120" style="margin-bottom:6px">
--      <div style="display:flex;gap:6px;margin-bottom:12px">
--        <button class="btn-g" style="font-size:12px;color:var(--red);flex:1" onclick="adminBanUser()">🔨 Ban</button>
--        <button class="btn-g" style="font-size:12px;flex:1" onclick="adminUnbanUser()">✅ Unban</button>
--      </div>
--      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
--        <div>
--          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
--            <div style="font-size:11px;font-weight:700;color:var(--t2)">Active Bans</div>
--            <button class="btn-g" style="font-size:10px;padding:2px 7px" onclick="adminLoadBans()">↻</button>
--          </div>
--          <div id="admin-bans-list" style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto"><div style="font-size:12px;color:var(--t3)">Click ↻</div></div>
--        </div>
--        <div>
--          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
--            <div style="font-size:11px;font-weight:700;color:var(--t2)">Frozen Accounts</div>
--            <button class="btn-g" style="font-size:10px;padding:2px 7px" onclick="adminLoadFrozen()">↻</button>
--          </div>
--          <div id="admin-frozen-list" style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto"><div style="font-size:12px;color:var(--t3)">Click ↻</div></div>
--        </div>
--      </div>
--      <div id="admin-ban-result" style="margin-top:8px;font-size:12px;color:var(--t3)"></div>
--    </div>
--
--    <!-- ══ MESSAGES ═══════════════════════════════════════════════════════ -->
--    <div id="admin-pane-messages" class="sv-stg-pane">
--      <div style="background:rgba(88,101,242,.07);border:1px solid rgba(88,101,242,.2);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:var(--t2)">
--        💡 <strong>How to get IDs:</strong> Type a Channel ID below and click 👁 View. Each message shows its ID — click to copy. Channel IDs also appear in the 🌐 Servers list.
--      </div>
--      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
--        <div style="display:flex;flex-direction:column;gap:8px">
--          <!-- View / export -->
--          <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
--            <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">VIEW CHANNEL</div>
--            <input class="m-inp" id="admin-view-ch-id" placeholder="Channel ID…" style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
--            <div style="display:flex;gap:4px">
--              <button class="btn-p" style="font-size:11px;flex:1" onclick="adminViewChannel()">👁 View</button>
--              <button class="btn-g" style="font-size:11px;flex:1" onclick="adminExportChannel()">⬇️ Export JSON</button>
--            </div>
--          </div>
--          <!-- Channel controls -->
--          <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
--            <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">CHANNEL CONTROLS <span style="font-weight:400">(all use Channel ID)</span></div>
--            <input class="m-inp" id="admin-wipe-ch-id" placeholder="Channel ID…" style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
--            <button class="btn-g" style="font-size:11px;color:var(--red);width:100%;margin-bottom:6px" onclick="adminWipeChannel()">🗑 Wipe All History</button>
--            <input class="m-inp" id="admin-lock-ch-id" placeholder="Channel ID…" style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
--            <div style="display:flex;gap:4px;margin-bottom:6px">
--              <button class="btn-g" style="font-size:11px;color:#f87171;flex:1" onclick="adminLockChannel(true)">🔒 Lock</button>
--              <button class="btn-g" style="font-size:11px;flex:1" onclick="adminLockChannel(false)">🔓 Unlock</button>
--            </div>
--            <div style="display:flex;gap:4px">
--              <input class="m-inp" id="admin-slow-ch-id" placeholder="Channel ID…" style="flex:1;font-family:'DM Mono',monospace;font-size:11px">
--              <input class="m-inp" id="admin-slow-secs" placeholder="Secs (0=off)" type="number" min="0" max="3600" style="width:80px;flex-shrink:0">
--              <button class="btn-g" style="font-size:11px;flex-shrink:0" onclick="adminSetSlowmode()">🐌</button>
--            </div>
--          </div>
--        </div>
--        <div style="display:flex;flex-direction:column;gap:8px">
--          <!-- Delete/edit message — shared fields -->
--          <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
--            <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">DELETE / EDIT MESSAGE</div>
--            <input class="m-inp" id="admin-del-msg-ch" placeholder="Channel ID…" style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
--            <input class="m-inp" id="admin-del-msg-id" placeholder="Message ID (from 👁 View above)…" style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
--            <button class="btn-g" style="font-size:11px;color:var(--red);width:100%;margin-bottom:5px" onclick="adminDeleteMessage()">🗑 Delete This Message</button>
--            <textarea class="m-inp" id="admin-edit-msg-text" placeholder="Or replace its text with this… (uses same IDs above)" rows="2" style="resize:vertical;margin-bottom:4px"></textarea>
--            <button class="btn-g" style="font-size:11px;width:100%" onclick="adminEditMsgFromFields()">✏️ Edit This Message</button>
--          </div>
--          <!-- Purge / DM wipe -->
--          <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
--            <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">PURGE / WIPE</div>
--            <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Delete all messages by one user in a server:</div>
--            <input class="m-inp" id="admin-purge-user" placeholder="Username…" maxlength="24" style="margin-bottom:3px">
--            <input class="m-inp" id="admin-purge-sv" placeholder="Server ID…" style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
--            <button class="btn-g" style="font-size:11px;color:var(--red);width:100%;margin-bottom:7px" onclick="adminPurgeUserMessages()">🧹 Purge All Their Messages</button>
--            <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Delete DM thread between two users:</div>
--            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px">
--              <input class="m-inp" id="admin-dmdel-a" placeholder="User A…" maxlength="24">
--              <input class="m-inp" id="admin-dmdel-b" placeholder="User B…" maxlength="24">
--            </div>
--            <button class="btn-g" style="font-size:11px;color:var(--red);width:100%" onclick="adminDeleteDmHistory()">🗑 Delete DM Thread</button>
--          </div>
--        </div>
--      </div>
--      <div id="admin-ch-view-result" style="max-height:240px;overflow-y:auto;margin-top:10px;display:none;background:var(--s3);border-radius:8px;padding:8px;border:1px solid var(--border)"></div>
--      <div id="admin-msgs-result" style="margin-top:7px;font-size:12px;color:var(--t3)"></div>
--    </div>
--
--    <!-- ══ DMs ═════════════════════════════════════════════════════════════ -->
--    <div id="admin-pane-dms" class="sv-stg-pane">
--      <div style="font-size:12px;color:var(--t3);margin-bottom:10px">View any user's DM history for moderation. Also reachable from 👥 Accounts → 💬 DMs button.</div>
--      <div style="display:flex;gap:6px;margin-bottom:10px">
--        <input class="m-inp" id="admin-dm-user" placeholder="Username to inspect…" maxlength="24" style="flex:1">
--        <button class="btn-p" style="flex-shrink:0" onclick="adminViewDMs()">🔍 View DMs</button>
--      </div>
--      <div id="admin-dm-result" style="font-size:12px;color:var(--t3);max-height:460px;overflow-y:auto"></div>
--    </div>
--
--    <!-- ══ ONLINE ══════════════════════════════════════════════════════════ -->
--    <div id="admin-pane-online" class="sv-stg-pane">
--      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
--        <div style="font-size:12px;color:var(--t3)">All connected users right now.</div>
--        <button class="btn-g" style="font-size:11px;padding:5px 10px" onclick="adminLoadOnline()">↻ Refresh</button>
--      </div>
--      <!-- Active voice calls -->
--      <div style="margin-bottom:12px">
--        <div style="font-size:11px;font-weight:700;color:#c084fc;margin-bottom:6px">👻 Active Voice Calls</div>
--        <div id="admin-calls-list" style="display:flex;flex-direction:column;gap:6px"><div style="font-size:12px;color:var(--t3)">Click Refresh.</div></div>
--      </div>
--      <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">🟢 Connected Users</div>
--      <div id="admin-online-list" style="display:flex;flex-direction:column;gap:5px;max-height:400px;overflow-y:auto"><div style="font-size:12px;color:var(--t3)">Click Refresh.</div></div>
--    </div>
--
--    <!-- ══ AUDIT ═══════════════════════════════════════════════════════════ -->
--    <div id="admin-pane-audit" class="sv-stg-pane">
--      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
--        <div style="font-size:12px;color:var(--t3)">All admin actions, newest first.</div>
--        <div style="display:flex;gap:5px">
--          <button class="btn-g" style="font-size:11px;padding:5px 10px" onclick="adminLoadAuditLog()">↻ Refresh</button>
--          <button class="btn-g" style="font-size:11px;padding:5px 10px;color:var(--red)" onclick="adminClearAuditLog()">🗑 Clear Log</button>
--        </div>
--      </div>
--      <div id="admin-audit-list" style="display:flex;flex-direction:column;gap:4px;max-height:500px;overflow-y:auto"><div style="font-size:12px;color:var(--t3)">Click Refresh.</div></div>
--    </div>
--
--    <!-- ══ STATS ═══════════════════════════════════════════════════════════ -->
--    <div id="admin-pane-stats" class="sv-stg-pane">
--      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
--        <div style="font-size:12px;color:var(--t3)">Live platform stats.</div>
--        <button class="btn-g" style="font-size:11px;padding:5px 10px" onclick="adminLoadStats()">↻ Refresh</button>
--      </div>
--      <div id="admin-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"><div style="font-size:12px;color:var(--t3)">Click Refresh.</div></div>
--      <div style="margin-top:10px;font-size:10px;color:var(--t3);font-family:'DM Mono',monospace" id="admin-stats-meta"></div>
--    </div>
--
--    <!-- ══ ALERT ═══════════════════════════════════════════════════════════ -->
--    <div id="admin-pane-alert" class="sv-stg-pane">
--      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
--        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px">
--          <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:3px">📢 Platform Alert <span style="font-weight:400;font-size:10px;color:var(--t3)">banner to everyone online</span></div>
--          <input class="m-inp" id="admin-alert-title" placeholder="Title…" maxlength="80" style="margin-bottom:4px">
--          <textarea class="m-inp" id="admin-alert-body" placeholder="Body…" maxlength="500" rows="3" style="resize:vertical;margin-bottom:5px"></textarea>
--          <button class="btn-p" style="width:100%;background:rgba(168,85,247,.8);border-color:rgba(168,85,247,.4)" onclick="adminSendAlert()">Send Alert</button>
--          <div id="admin-alert-result" style="margin-top:4px;font-size:11px;color:var(--t3)"></div>
--        </div>
--        <div style="display:flex;flex-direction:column;gap:8px">
--          <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px">
--            <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:3px">📣 Announcement <span style="font-weight:400;font-size:10px;color:var(--t3)">centered popup</span></div>
--            <textarea class="m-inp" id="admin-announce-text" placeholder="Text…" maxlength="500" rows="2" style="resize:vertical;margin-bottom:5px"></textarea>
--            <button class="btn-p" style="width:100%" onclick="adminSendAnnouncement()">Send to All</button>
--          </div>
--          <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px">
--            <div style="font-size:11px;font-weight:700;color:#f87171;margin-bottom:3px">📨 Mass DM <span style="font-weight:400;font-size:10px;color:var(--t3)">DMs every registered user</span></div>
--            <textarea class="m-inp" id="admin-massdm-text" placeholder="Message…" maxlength="2000" rows="2" style="resize:vertical;margin-bottom:5px"></textarea>
--            <button class="btn-g" style="width:100%;color:#f87171" onclick="adminMassDm()">Send Mass DM</button>
--          </div>
--        </div>
--      </div>
--      <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px">
--        <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:3px">📌 MOTD <span style="font-weight:400;font-size:10px;color:var(--t3)">— shown as popup to every user on login. Clear to remove.</span></div>
--        <textarea class="m-inp" id="admin-motd-text" placeholder="Message of the day…" maxlength="500" rows="2" style="resize:vertical;margin-bottom:5px"></textarea>
--        <div style="display:flex;gap:6px">
--          <button class="btn-p" style="flex:1" onclick="adminSetMotd()">💾 Save MOTD</button>
--          <button class="btn-g" onclick="adminClearMotd()">✕ Clear</button>
--        </div>
--        <div id="admin-motd-result" style="margin-top:4px;font-size:11px;color:var(--t3)"></div>
--      </div>
--    </div>
--
--    <!-- ══ DANGER ══════════════════════════════════════════════════════════ -->
--    <div id="admin-pane-danger" class="sv-stg-pane">
--      <div style="background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.22);border-radius:9px;padding:9px 12px;margin-bottom:12px;font-size:12px;color:#f87171">⚠️ <strong>Danger Zone.</strong> These actions are permanent or affect all users.</div>
--      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
--        <div style="background:var(--s3);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:11px">
--          <div style="font-size:12px;font-weight:700;color:#f87171;margin-bottom:6px">💥 Nuke Account</div>
--          <div style="font-size:11px;color:var(--t3);margin-bottom:8px">Permanently deletes an account + all their messages, DMs, sessions, memberships. Type DELETE to confirm.</div>
--          <input class="m-inp" id="admin-nuke-user" placeholder="Username to nuke…" maxlength="24" style="margin-bottom:6px">
--          <button class="btn-g" style="font-size:12px;color:#f87171;width:100%" onclick="adminNukeAccount()">💥 Nuke Account</button>
--        </div>
--        <div style="background:var(--s3);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:11px">
--          <div style="font-size:12px;font-weight:700;color:#f87171;margin-bottom:6px">🔧 Maintenance Mode</div>
--          <div style="font-size:11px;color:var(--t3);margin-bottom:8px">Kicks all non-admin users and blocks reconnection. Only you can use Nexus during maintenance.</div>
--          <div style="display:flex;gap:6px">
--            <button class="btn-g" style="font-size:12px;flex:1;color:#f87171" onclick="adminSetMaintenance(true)">🔧 Enable</button>
--            <button class="btn-g" style="font-size:12px;flex:1" onclick="adminSetMaintenance(false)">✅ Disable</button>
--          </div>
--        </div>
--      </div>
--    </div>
--
--    </div><!-- /scrollable pane area -->
--  </div>
--</div>
- <!-- ── AUTO-UPDATE SERVICE WORKER ── -->
- <!-- scripts run last, so every element they touch at boot already exists -->
- <!-- GROUP CHAT / INVITE-TO-CALL PICKER -->
-@@ -1174,6 +812,7 @@
- <!-- CALL DOCK: lives on <body> so no view can cover it -->
- <div id="call-dock" style="display:none"></div>
- <div id="toasts"></div>
-+<script src="js/assume.js"></script>
- <script src="js/state.js"></script>
- <script src="js/auth.js"></script>
+@@ -818,6 +818,7 @@
  <script src="js/app.js"></script>
-@@ -1203,6 +842,7 @@
- <script src="js/voice-channels.js"></script>
- <script src="js/profile-page.js"></script>
- <script src="js/admin-tabs.js"></script>
-+<script src="js/admin-ui.js"></script>
- <script src="js/voice-calls.js"></script>
- <script src="js/sounds.js"></script>
- <script src="js/tooltips.js"></script>
-diff --git a/b/client/js/admin-ui.js b/b/client/js/admin-ui.js
-new file mode 100644
-index 0000000..a3c5a27
---- /dev/null
+ <script src="js/profile-style.js"></script>
+ <script src="js/profile-edit.js"></script>
++<script src="js/device.js"></script>
+ <script src="js/websocket.js"></script>
+ <script src="js/ws-handler.js"></script>
+ <script src="js/servers.js"></script>
+diff --git a/a/client/js/admin-ui.js b/b/client/js/admin-ui.js
+index a3c5a27..e2527a6 100644
+--- a/a/client/js/admin-ui.js
 +++ b/b/client/js/admin-ui.js
-@@ -0,0 +1,345 @@
-+// ══════════════════════════════════════════════
-+// ADMIN PANEL v2 — click-driven (no IDs to paste, no typing usernames)
-+// Loaded AFTER admin.js / admin-tabs.js: it replaces their panel + renderers, the server messages are unchanged.
-+// ══════════════════════════════════════════════
-+const AD = { sec: 'people', user: null, svId: null, chId: null, chName: '', pendingRename: null };
-+const $a = id => document.getElementById(id);
-+const admAcct = n => (typeof _adminAccounts !== 'undefined' ? _adminAccounts : []).find(a => a.name.toLowerCase() === String(n).toLowerCase());
-+const admSv = id => (typeof _adminServers !== 'undefined' ? _adminServers : []).find(s => s.id === id);
-+const admDate = t => t ? new Date(t).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' }) : '?';
-+function admCanAssume(a) {
-+  if (!a || a.name.toLowerCase() === (S.user?.name || '').toLowerCase()) return false;
-+  if (isSystemAdmin()) return true;
-+  return isCoAdmin() && a.systemRole !== 'admin' && !a.coAdmin;
-+}
-+function admStatus(t, bad) { const el = $a('adm-status'); if (el) { el.textContent = t || ''; el.style.color = bad ? 'var(--red)' : 'var(--t2)'; } }
-+function _adminResult(t, c) { admStatus(t, c && /red/.test(c)); }
-+function _adminMsgResult(t, c) { admStatus(t, c && /red/.test(c)); }
-+function _adminSvResult(t, c) { admStatus(t, c && /red/.test(c)); }
-+const admAv = a => a.pfp ? `<img src="${a.pfp}">` : `<span>${esc((a.name[0] || '?').toUpperCase())}</span>`;
-+const admBadges = a => (a.systemRole === 'admin' ? '<i class="adm-b adm-b1">⚡ Admin</i>' : a.coAdmin ? '<i class="adm-b adm-b2">★ Co-Admin</i>' : '') + (a.frozen ? '<i class="adm-b adm-b3">🧊 Frozen</i>' : '');
+@@ -68,7 +68,7 @@ const admBadges = a => (a.systemRole === 'admin' ? '<i class="adm-b adm-b1">⚡
+ })();
+ 
+ // ── shell ────────────────────────────────────
+-const ADM_NAV = [['people', '👥 People'], ['servers', '🌐 Servers'], ['live', '📡 Live'], ['log', '🔨 Bans & Log'], ['send', '📢 Broadcast']];
++const ADM_NAV = [['people', '👥 People'], ['servers', '🌐 Servers'], ['alts', '🕵️ Alts'], ['live', '📡 Live'], ['log', '🔨 Bans & Log'], ['send', '📢 Broadcast']];
+ function admBuild() {
+   const ov = $a('admin-panel-modal');
+   if (!ov || ov.dataset.v2) return;
+@@ -95,6 +95,7 @@ function admGo(sec) {
+   document.querySelectorAll('.adm-nav div').forEach(d => d.classList.toggle('on', d.dataset.k === sec));
+   const m = $a('adm-main'); if (!m) return;
+   if (sec === 'people') { admPeopleShell(); adminLoadAccounts(); }
++  else if (sec === 'alts') { admAltsShell(); admAltAsk(); }
+   else if (sec === 'servers') { admServersShell(); wsSend({ type: 'admin_list_servers' }); }
+   else if (sec === 'live') { admLiveShell(); admLiveLoad(); }
+   else if (sec === 'log') { admLogShell(); adminLoadBans(); adminLoadFrozen(); adminLoadAuditLog(); }
+@@ -128,7 +129,7 @@ function renderAdminAccounts(accounts) {
+ function admOpenUser(name) {
+   AD.user = name; AD.sec = 'people';
+   wsSend({ type: 'admin_list_servers' });
+-  admUserView();
++  admUserView(); admAltAsk();
+   wsSend({ type: 'admin_get_notes', target: name });
+   wsSend({ type: 'admin_list_user_servers', target: name });
+ }
+@@ -149,6 +150,7 @@ function admUserView() {
+   <details class="adm-sec" open><summary>🔨 Moderation</summary><div>
+     <div class="adm-line"><select id="adm-ban-dur" class="m-inp" style="max-width:120px"><option>30m</option><option>2h</option><option selected>1d</option><option>7d</option><option>30d</option><option>permanent</option></select><input id="adm-ban-reason" class="m-inp" placeholder="Reason (shown to them)" maxlength="120"><button class="btn-g adm-red" onclick="admBan()">🔨 Ban</button><button class="btn-g" onclick="wsSend({type:'admin_unban',target:AD.user})">✅ Unban</button></div>
+     <div class="adm-btns"><button class="btn-g" onclick="admFreeze()">🧊 Freeze (can't post)</button><button class="btn-g" onclick="wsSend({type:'admin_unfreeze_user',target:AD.user})">🔥 Unfreeze</button><button class="btn-g adm-red" onclick="admLogout()">🚪 Force logout</button></div></div></details>
++  <details class="adm-sec" open><summary>🕵️ Alt check</summary><div id="adm-alt">${admLoading}</div></details>
+   <details class="adm-sec"><summary>🖼 Profile</summary><div class="adm-btns">
+     <button class="btn-g" onclick="admRename()">✏️ Rename</button><button class="btn-g" onclick="admTag()">🏷 Tag</button><button class="btn-g" onclick="$a('adm-color').click()">🎨 Colour</button><button class="btn-g" onclick="admBio()">📝 Bio</button><button class="btn-g" onclick="admPfp()">🖼 Change picture</button><button class="btn-g" onclick="wsSend({type:'admin_wipe_user_pfp',target:AD.user})">🚫 Remove picture</button>
+     <button class="btn-g" onclick="openProfilePage(AD.user)">👤 Open profile</button></div></details>
+@@ -343,3 +345,43 @@ function admSendShell() {
+   <details class="adm-sec"><summary>🗒 Message of the day</summary><div><textarea id="admin-motd-text" class="m-inp" rows="2" maxlength="500" placeholder="Message of the day" style="resize:vertical"></textarea><div class="adm-btns"><button class="btn-p" onclick="adminSetMotd()">💾 Save</button><button class="btn-g" onclick="adminClearMotd()">✕ Clear</button></div><div id="admin-motd-result" class="adm-sub"></div></div></details>
+   <details class="adm-sec danger"><summary>🔧 Maintenance mode</summary><div><div class="adm-sub">Blocks everyone except admins.</div><div class="adm-btns"><button class="btn-g adm-red" onclick="adminSetMaintenance(true)">Enable</button><button class="btn-g" onclick="adminSetMaintenance(false)">Disable</button></div></div></details>`;
+ }
 +
-+// ── styles ───────────────────────────────────
-+(function () {
-+  const st = document.createElement('style');
-+  st.textContent = `
-+.adm-box{width:min(940px,96vw)!important;height:min(86vh,740px);max-height:none!important;display:flex;flex-direction:column;padding:0!important;overflow:hidden}
-+.adm-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
-+.adm-logo{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#5865f2,#c084fc);display:flex;align-items:center;justify-content:center;font-size:16px}
-+.adm-body{display:flex;flex:1;min-height:0}
-+.adm-nav{width:150px;flex-shrink:0;border-right:1px solid var(--border);padding:10px 8px;display:flex;flex-direction:column;gap:3px}
-+.adm-nav div{padding:8px 10px;border-radius:8px;font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;transition:background .15s,color .15s}
-+.adm-nav div:hover{background:var(--s3);color:var(--t1)}.adm-nav div.on{background:rgba(88,101,242,.18);color:var(--accent)}
-+.adm-main{flex:1;min-width:0;overflow-y:auto;padding:14px 16px}
-+.adm-foot{padding:7px 16px;border-top:1px solid var(--border);font-size:12px;min-height:30px;flex-shrink:0;color:var(--t3)}
-+.adm-bar{display:flex;gap:6px;margin-bottom:10px}.adm-bar .m-inp{flex:1}
-+.adm-list{display:flex;flex-direction:column;gap:5px}
-+.adm-row{display:flex;align-items:center;gap:10px;background:var(--s3);border:1px solid var(--border);border-radius:9px;padding:8px 10px;cursor:pointer;transition:border-color .15s,transform .15s}
-+.adm-row:hover{border-color:var(--accent)}
-+.adm-av{width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
-+.adm-av img{width:100%;height:100%;object-fit:cover}
-+.adm-nm{font-size:13px;font-weight:700;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-+.adm-sub{font-size:11px;color:var(--t3);margin-top:1px}
-+.adm-dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
-+.adm-b{font-style:normal;font-size:9px;font-weight:700;border-radius:99px;padding:1px 6px;border:1px solid}
-+.adm-b1{background:rgba(88,101,242,.2);color:var(--accent);border-color:rgba(88,101,242,.3)}
-+.adm-b2{background:rgba(52,211,153,.15);color:var(--green);border-color:rgba(52,211,153,.3)}
-+.adm-b3{background:rgba(96,165,250,.12);color:#60a5fa;border-color:rgba(96,165,250,.3)}
-+.adm-sec{background:var(--s3);border:1px solid var(--border);border-radius:10px;margin-bottom:8px}
-+.adm-sec>summary{padding:10px 12px;font-size:13px;font-weight:700;cursor:pointer;list-style:none;display:flex;justify-content:space-between}
-+.adm-sec>summary::after{content:'▾';color:var(--t3);transition:transform .2s}.adm-sec[open]>summary::after{transform:rotate(180deg)}
-+.adm-sec>div{padding:0 12px 12px;display:flex;flex-direction:column;gap:7px}
-+.adm-sec.danger{border-color:rgba(248,113,113,.35)}.adm-sec.danger>summary{color:#f87171}
-+.adm-btns{display:flex;gap:5px;flex-wrap:wrap}.adm-btns .btn-g,.adm-btns .btn-p{font-size:12px}
-+.adm-line{display:flex;gap:5px;flex-wrap:wrap}.adm-line .m-inp{flex:1;min-width:110px}
-+.adm-red{color:#f87171!important}
-+.adm-hero{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
-+.adm-hero .adm-av{width:54px;height:54px;font-size:22px}
-+.adm-be{background:linear-gradient(135deg,#5865f2,#c084fc)!important;border:none!important;color:#fff!important;font-weight:700}
-+.adm-back{margin-bottom:10px}
-+.adm-h{font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin:12px 0 6px}
-+.adm-card{background:var(--s3);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:12px}
-+.adm-msg{display:flex;gap:6px;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px}
-+.adm-msg .t{flex:1;min-width:0;word-break:break-word}
-+.adm-note{background:rgba(251,146,60,.07);border:1px solid rgba(251,146,60,.2);border-radius:7px;padding:6px 9px;font-size:11px}
-+@media(max-width:640px){.adm-body{flex-direction:column}.adm-nav{width:auto;flex-direction:row;border-right:0;border-bottom:1px solid var(--border);overflow-x:auto}.adm-nav div{white-space:nowrap}}
-+`;
-+  document.head.appendChild(st);
-+})();
-+
-+// ── shell ────────────────────────────────────
-+const ADM_NAV = [['people', '👥 People'], ['servers', '🌐 Servers'], ['live', '📡 Live'], ['log', '🔨 Bans & Log'], ['send', '📢 Broadcast']];
-+function admBuild() {
-+  const ov = $a('admin-panel-modal');
-+  if (!ov || ov.dataset.v2) return;
-+  ov.dataset.v2 = '1';
-+  ov.innerHTML = `<div class="modal adm-box">
-+    <div class="adm-head"><div class="adm-logo">⚡</div>
-+      <div style="flex:1"><div style="font-size:15px;font-weight:800">Admin Panel</div>
-+      <div id="admin-maint-badge" style="display:none;font-size:10px;background:rgba(248,113,113,.2);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:99px;padding:1px 8px;width:max-content">🔧 MAINTENANCE MODE</div></div>
-+      <button class="btn-g" style="padding:5px 11px" onclick="closeM('admin-panel-modal')">✕</button></div>
-+    <div class="adm-body"><div class="adm-nav">${ADM_NAV.map(([k, l]) => `<div data-k="${k}" onclick="admGo('${k}')">${l}</div>`).join('')}</div>
-+      <div class="adm-main" id="adm-main"></div></div>
-+    <div class="adm-foot" id="adm-status">Tip: click a person or a server to manage it.</div>
-+    <input type="file" id="admin-pfp-file" accept="image/*" style="display:none" onchange="onAdminPfpChange(event)">
-+    <input type="color" id="adm-color" style="display:none" onchange="admColorPicked(this.value)"></div>`;
++// ══ ALT / SAME-DEVICE DETECTION (VPN-proof: device id + hardware fingerprint, never the IP) ═══════════
++// Server keeps re-scanning on every login, and this panel re-asks every 20 s while it is open, so accounts that were made
++// before the feature existed show up as soon as they next connect.
++AD.alt = null;
++const ALT_LV = { certain: ['🔴 Same device', 'adm-b3'], likely: ['🟠 Very likely same device', 'adm-b2'], possible: ['🟡 Possible', 'adm-b1'] };
++function admAltAsk() { wsSend({ type: 'admin_alt_report' }); }
++function admAltData(msg) { AD.alt = msg; admAltRender(); }
++function admAltAlert(m) { try { toast(`🕵️ ${m.name} looks like an alt of ${m.other}`); } catch (_) {} admAltAsk(); }
++function admAltRender() {
++  if (!$a('adm-main')) return;
++  if (AD.sec === 'alts' && !AD.user) admAltsList();
++  if (AD.user && $a('adm-alt')) admAltUser();
 +}
-+function openAdminPanel() {
-+  if (!isPlatformPower()) { toast('No access'); return; }
-+  admBuild(); admGo(AD.sec || 'people'); openM('admin-panel-modal');
++function admAltBadge(l) { const [t, c] = ALT_LV[l] || ALT_LV.possible; return `<i class="adm-b ${c}" style="font-size:10px">${t}</i>`; }
++function admAltCover(r) {
++  const n = (r.unscanned || []).length;
++  return `<div class="adm-sub">Scanned ${r.scanned}/${r.total} accounts${n ? ` · ${n} not scanned yet (they get scanned the next time they log in)` : ' · everyone is scanned'}. Auto-refreshes every 20 s.</div>`;
 +}
-+function adminTab(t) { admGo({ servers: 'servers', online: 'live', stats: 'live', bans: 'log', audit: 'log', alert: 'send', danger: 'send' }[t] || 'people'); }
-+function admGo(sec) {
-+  AD.user = null; AD.svId = null;
-+  AD.sec = sec;
-+  document.querySelectorAll('.adm-nav div').forEach(d => d.classList.toggle('on', d.dataset.k === sec));
-+  const m = $a('adm-main'); if (!m) return;
-+  if (sec === 'people') { admPeopleShell(); adminLoadAccounts(); }
-+  else if (sec === 'servers') { admServersShell(); wsSend({ type: 'admin_list_servers' }); }
-+  else if (sec === 'live') { admLiveShell(); admLiveLoad(); }
-+  else if (sec === 'log') { admLogShell(); adminLoadBans(); adminLoadFrozen(); adminLoadAuditLog(); }
-+  else if (sec === 'send') admSendShell();
++function admAltUser() {
++  const box = $a('adm-alt'), r = AD.alt; if (!box || !r) return;
++  const me = String(AD.user).toLowerCase();
++  const mine = (r.links || []).filter(l => l.a.toLowerCase() === me || l.b.toLowerCase() === me).sort((x, y) => (ALT_LV[x.level] ? 0 : 1) - (ALT_LV[y.level] ? 0 : 1) || (['certain', 'likely', 'possible'].indexOf(x.level) - ['certain', 'likely', 'possible'].indexOf(y.level)));
++  const unscanned = (r.unscanned || []).some(n => n.toLowerCase() === me);
++  let h = '';
++  if (unscanned) h += `<div class="adm-sub" style="color:#fbbf24">⏳ Not scanned yet: this account hasn't logged in since the alt check shipped. It fills in automatically the next time they connect.</div>`;
++  else if (!mine.length) h += `<div class="adm-sub">✅ No other account shares a device or fingerprint with them (as far as we can tell).</div>`;
++  h += mine.map(l => { const o = l.a.toLowerCase() === me ? l.b : l.a;
++    return `<div class="adm-row" data-n="${esc(o)}" onclick="admOpenUser(this.dataset.n)"><div style="flex:1;min-width:0"><div class="adm-nm">${esc(o)} ${admAltBadge(l.level)}</div><div class="adm-sub">${l.why.map(esc).join(' · ')}</div></div></div>`; }).join('');
++  h += admAltCover(r) + `<div class="adm-sub">Can't be fooled by VPNs or proxies. It can be fooled by a different physical device; shared school computers can cause "possible" matches.</div>`;
++  box.innerHTML = h;
 +}
-+const admLoading = '<div class="adm-sub" style="padding:8px 0">Loading…</div>';
-+
-+function adminLoadAccounts() { const b = $a('admin-acct-list'); if (b) b.innerHTML = admLoading; wsSend({ type: 'admin_list_accounts' }); }
-+// ══ PEOPLE ═══════════════════════════════════
-+function admPeopleShell() {
-+  if (AD.user) { admUserView(); return; }
-+  $a('adm-main').innerHTML = `<div class="adm-bar"><input id="admin-acct-search" class="m-inp" placeholder="🔍 Search people…" oninput="adminFilterAccounts()"><button class="btn-g" onclick="adminLoadAccounts()">↻</button></div><div id="admin-acct-list" class="adm-list">${admLoading}</div>`;
-+  if (typeof _adminAccounts !== 'undefined' && _adminAccounts.length) renderAdminAccounts(_adminAccounts);
++function admAltsShell() { $a('adm-main').innerHTML = `<div class="adm-bar"><div style="flex:1;font-size:13px;font-weight:700">🕵️ Alt & same-device finder</div><button class="btn-g" onclick="admAltAsk()">↻ Re-scan</button></div><div id="adm-alts" class="adm-list">${admLoading}</div>`; if (AD.alt) admAltsList(); }
++function admAltsList() {
++  const box = $a('adm-alts'), r = AD.alt; if (!box || !r) return;
++  const cl = r.clusters || [];
++  box.innerHTML = (cl.length ? cl.map(c => `<div class="adm-sec" style="padding:10px 12px"><div class="adm-nm" style="margin-bottom:6px">${admAltBadge(c.level)} <span class="adm-sub">${c.members.length} accounts</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">${c.members.map(m => `<button class="btn-g" style="font-size:12px" data-n="${esc(m.name)}" onclick="admOpenUserFrom(this.dataset.n)">${esc(m.name)}</button>`).join('')}</div></div>`).join('') : '<div class="adm-sub">No linked accounts found right now.</div>') + admAltCover(r);
 +}
-+function adminFilterAccounts() {
-+  const q = ($a('admin-acct-search')?.value || '').toLowerCase();
-+  renderAdminAccounts(q ? _adminAccounts.filter(a => a.name.toLowerCase().includes(q)) : _adminAccounts);
-+}
-+function renderAdminAccounts(accounts) {
-+  if (AD.pendingRename && !admAcct(AD.user) && admAcct(AD.pendingRename)) AD.user = AD.pendingRename;
-+  if (AD.user) { if ($a('adm-main') && AD.sec === 'people') admUserHead(); return; }
-+  const box = $a('admin-acct-list'); if (!box) return;
-+  if (!accounts.length) { box.innerHTML = '<div class="adm-sub">No one found.</div>'; return; }
-+  const sorted = [...accounts].sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name));
-+  box.innerHTML = sorted.map(a => `<div class="adm-row" data-n="${esc(a.name)}" onclick="admOpenUser(this.dataset.n)">
-+    <div class="adm-av" style="background:${esc(a.color || '#5865f2')}">${admAv(a)}</div>
-+    <div style="flex:1;min-width:0"><div class="adm-nm">${a.online ? '<span class="adm-dot"></span>' : ''}${esc(a.name)}<span class="adm-sub" style="font-family:'DM Mono',monospace">#${a.tag || '0000'}</span>${admBadges(a)}</div>
-+    <div class="adm-sub">Joined ${admDate(a.createdAt)}</div></div>
-+    ${admCanAssume(a) ? `<button class="btn-g adm-be" data-n="${esc(a.name)}" onclick="event.stopPropagation();admBe(this.dataset.n)">🎭 Be</button>` : ''}</div>`).join('');
-+}
-+function admOpenUser(name) {
-+  AD.user = name; AD.sec = 'people';
-+  wsSend({ type: 'admin_list_servers' });
-+  admUserView();
-+  wsSend({ type: 'admin_get_notes', target: name });
-+  wsSend({ type: 'admin_list_user_servers', target: name });
-+}
-+function adminViewDMsFor(name) { admBuild(); openM('admin-panel-modal'); AD.sec = 'people'; document.querySelectorAll('.adm-nav div').forEach(d => d.classList.toggle('on', d.dataset.k === 'people')); admOpenUser(name); setTimeout(admDMs, 150); }
-+function admUserHead() {
-+  const a = admAcct(AD.user), h = $a('adm-uhead'); if (!h) return;
-+  if (!a) { h.innerHTML = `<div class="adm-nm" style="font-size:18px">${esc(AD.user)}</div>`; return; }
-+  h.innerHTML = `<div class="adm-av" style="background:${esc(a.color || '#5865f2')}">${admAv(a)}</div>
-+    <div style="flex:1;min-width:0"><div class="adm-nm" style="font-size:17px">${a.online ? '<span class="adm-dot"></span>' : ''}${esc(a.name)}<span class="adm-sub">#${a.tag || '0000'}</span>${admBadges(a)}</div>
-+    <div class="adm-sub">Joined ${admDate(a.createdAt)} · ${a.online ? 'online now' : 'offline'}${a.bio ? ' · “' + esc(a.bio.slice(0, 60)) + '”' : ''}</div></div>
-+    ${admCanAssume(a) ? `<button class="btn-p adm-be" onclick="admBe(AD.user)">🎭 Be ${esc(a.name)}</button>` : ''}`;
-+}
-+function admUserView() {
-+  const a = admAcct(AD.user) || {};
-+  const isTop = isSystemAdmin();
-+  $a('adm-main').innerHTML = `<button class="btn-g adm-back" onclick="AD.user=null;admPeopleShell();adminLoadAccounts()">← All people</button>
-+  <div class="adm-hero" id="adm-uhead"></div>
-+  <details class="adm-sec" open><summary>🔨 Moderation</summary><div>
-+    <div class="adm-line"><select id="adm-ban-dur" class="m-inp" style="max-width:120px"><option>30m</option><option>2h</option><option selected>1d</option><option>7d</option><option>30d</option><option>permanent</option></select><input id="adm-ban-reason" class="m-inp" placeholder="Reason (shown to them)" maxlength="120"><button class="btn-g adm-red" onclick="admBan()">🔨 Ban</button><button class="btn-g" onclick="wsSend({type:'admin_unban',target:AD.user})">✅ Unban</button></div>
-+    <div class="adm-btns"><button class="btn-g" onclick="admFreeze()">🧊 Freeze (can't post)</button><button class="btn-g" onclick="wsSend({type:'admin_unfreeze_user',target:AD.user})">🔥 Unfreeze</button><button class="btn-g adm-red" onclick="admLogout()">🚪 Force logout</button></div></div></details>
-+  <details class="adm-sec"><summary>🖼 Profile</summary><div class="adm-btns">
-+    <button class="btn-g" onclick="admRename()">✏️ Rename</button><button class="btn-g" onclick="admTag()">🏷 Tag</button><button class="btn-g" onclick="$a('adm-color').click()">🎨 Colour</button><button class="btn-g" onclick="admBio()">📝 Bio</button><button class="btn-g" onclick="admPfp()">🖼 Change picture</button><button class="btn-g" onclick="wsSend({type:'admin_wipe_user_pfp',target:AD.user})">🚫 Remove picture</button>
-+    <button class="btn-g" onclick="openProfilePage(AD.user)">👤 Open profile</button></div></details>
-+  <details class="adm-sec"><summary>🌐 Servers</summary><div>
-+    <div id="adm-usv">${admLoading}</div>
-+    <div class="adm-line"><select id="adm-addsv" class="m-inp"><option value="">Add to server…</option></select><button class="btn-g" onclick="admAddTo()">➕ Add</button></div></div></details>
-+  <details class="adm-sec"><summary>💬 Messages</summary><div>
-+    <textarea id="adm-sysdm" class="m-inp" rows="2" maxlength="2000" placeholder="Write a message…" style="resize:vertical"></textarea>
-+    <div class="adm-btns"><button class="btn-p" onclick="admSysDm()">📨 Send as System DM</button></div>
-+    <div class="adm-line"><select id="adm-pa-sv" class="m-inp" onchange="admFillCh('adm-pa-sv','adm-pa-ch')"><option value="">Server…</option></select><select id="adm-pa-ch" class="m-inp"><option value="">Channel…</option></select><button class="btn-g" style="color:#c084fc" onclick="admPostAs()">🎭 Post as them</button></div>
-+    <div class="adm-line"><select id="adm-purge-sv" class="m-inp"><option value="">Server…</option></select><button class="btn-g adm-red" onclick="admPurge()">🧹 Delete all their messages there</button></div></div></details>
-+  <details class="adm-sec"><summary>🔍 Their DMs</summary><div><div class="adm-btns"><button class="btn-g" onclick="admDMs()">Load DM history</button></div><div id="admin-dm-result" style="max-height:340px;overflow-y:auto"></div></div></details>
-+  <details class="adm-sec"><summary>📌 Private notes</summary><div><textarea id="adm-note" class="m-inp" rows="2" maxlength="1000" placeholder="Only admins see this…" style="resize:vertical"></textarea><div class="adm-btns"><button class="btn-g" onclick="admNote()">Save note</button></div><div id="adm-notes" style="display:flex;flex-direction:column;gap:4px"></div></div></details>
-+  <details class="adm-sec danger"><summary>☢️ Account</summary><div class="adm-btns">
-+    <button class="btn-g" onclick="admPw()">🔑 Reset password</button>
-+    ${isTop ? `<button class="btn-g" onclick="wsSend({type:'appoint_coadmin',target:AD.user,appoint:true})">⭐ Make Co-Admin</button><button class="btn-g" onclick="wsSend({type:'appoint_coadmin',target:AD.user,appoint:false})">✕ Remove Co-Admin</button>` : ''}
-+    <button class="btn-g adm-red" onclick="admNuke()">💥 Delete account forever</button></div></details>`;
-+  admUserHead(); admFillSvSelects();
-+}
-+function admFillSvSelects() {
-+  const svs = typeof _adminServers !== 'undefined' ? _adminServers : [];
-+  const opts = '<option value="">Server…</option>' + svs.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
-+  ['adm-pa-sv', 'adm-purge-sv'].forEach(id => { const e = $a(id); if (e) { const v = e.value; e.innerHTML = opts; e.value = v; } });
-+  const e = $a('adm-addsv'); if (e) e.innerHTML = '<option value="">Add to server…</option>' + svs.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
-+}
-+function admFillCh(svSel, chSel) {
-+  const s = admSv($a(svSel).value), c = $a(chSel);
-+  c.innerHTML = '<option value="">Channel…</option>' + (s?.channels || []).filter(x => x.type !== 'voice').map(x => `<option value="${esc(x.id)}"># ${esc(x.name)}</option>`).join('');
-+}
-+function admBe(name) {
-+  const a = admAcct(name);
-+  if (!a || !admCanAssume(a)) { toast('You can’t be that user'); return; }
-+  if (!confirm(`Become ${name}? You'll see exactly what they see and everything you do happens as them. Use “Exit” at the top to come back.`)) return;
-+  admStatus('Switching to ' + name + '…');
-+  wsSend({ type: 'admin_assume', target: name });
-+}
-+function admAssumeStart(msg) {
-+  try {
-+    const real = JSON.stringify({ token: S.token, user: S.user });
-+    sessionStorage.setItem('nx-assume', JSON.stringify({ name: msg.user.name, real }));
-+    sessionStorage.setItem('nx-session', JSON.stringify({ token: msg.token, user: msg.user }));
-+  } catch (e) { toast('Could not switch: ' + e.message); return; }
-+  location.reload();
-+}
-+function admBan() {
-+  const dur = $a('adm-ban-dur').value, reason = $a('adm-ban-reason').value.trim();
-+  if (!confirm(`Ban ${AD.user} for ${dur}?`)) return;
-+  wsSend({ type: 'admin_ban', target: AD.user, duration: dur, reason });
-+}
-+function admFreeze() { const r = prompt('Reason (shown to them)?', ''); if (r === null) return; wsSend({ type: 'admin_freeze_user', target: AD.user, reason: r.trim() || 'No reason given' }); }
-+function admLogout() { if (confirm(`Log ${AD.user} out everywhere?`)) wsSend({ type: 'admin_force_logout', target: AD.user }); }
-+function admRename() {
-+  const n = prompt(`New username for ${AD.user}:`); if (!n || n === AD.user) return;
-+  if (!/^[a-zA-Z0-9_.\-]{2,24}$/.test(n)) { admStatus('Invalid username (2–24 letters, numbers, _ . -)', true); return; }
-+  AD.pendingRename = n; wsSend({ type: 'admin_rename_user', target: AD.user, newName: n }); setTimeout(adminLoadAccounts, 700);
-+}
-+function adminRenameUser() { admRename(); }
-+function admTag() { const t = prompt('New tag for ' + AD.user + ' (e.g. 0042):'); if (t) wsSend({ type: 'admin_set_tag', target: AD.user, tag: t.trim() }); }
-+function admColorPicked(hex) { wsSend({ type: 'admin_set_color', target: AD.user, color: hex }); setTimeout(adminLoadAccounts, 500); }
-+function admBio() { const b = prompt('New bio for ' + AD.user + ':', admAcct(AD.user)?.bio || ''); if (b !== null) wsSend({ type: 'admin_set_bio', target: AD.user, bio: b.trim() }); }
-+function admPfp() { _pfpCropTarget = 'admin_target'; _adminPfpTarget = AD.user; $a('admin-pfp-file').click(); }
-+function adminSetPfp() { admPfp(); }
-+function admPw() { const p = prompt('New password for ' + AD.user + ' (min 4 characters):'); if (p && p.length >= 4) wsSend({ type: 'admin_reset_password', target: AD.user, newPassword: p }); else if (p) admStatus('Password too short', true); }
-+function admNuke() {
-+  if (prompt(`This permanently deletes ${AD.user} and their data.\nType their name to confirm:`) !== AD.user) { admStatus('Cancelled — name did not match.'); return; }
-+  wsSend({ type: 'admin_nuke_account', target: AD.user });
-+  setTimeout(() => { AD.user = null; admPeopleShell(); adminLoadAccounts(); }, 900);
-+}
-+function admAddTo() { const id = $a('adm-addsv').value; if (!id) { admStatus('Pick a server first', true); return; } wsSend({ type: 'admin_add_member', target: AD.user, serverId: id }); setTimeout(() => wsSend({ type: 'admin_list_user_servers', target: AD.user }), 500); }
-+function admKickFrom(id) { if (!confirm(`Remove ${AD.user} from that server?`)) return; wsSend({ type: 'admin_kick_from_server', target: AD.user, serverId: id }); setTimeout(() => wsSend({ type: 'admin_list_user_servers', target: AD.user }), 500); }
-+function admSysDm() { const t = $a('adm-sysdm').value.trim(); if (!t) { admStatus('Write something first', true); return; } wsSend({ type: 'admin_broadcast_dm', target: AD.user, text: t }); $a('adm-sysdm').value = ''; }
-+function admPostAs() {
-+  const ch = $a('adm-pa-ch').value, t = $a('adm-sysdm').value.trim();
-+  if (!ch) { admStatus('Pick a server and channel', true); return; }
-+  if (!t) { admStatus('Write the message above first', true); return; }
-+  wsSend({ type: 'admin_impersonate_send', asUser: AD.user, channelId: ch, text: t }); $a('adm-sysdm').value = '';
-+}
-+function admPurge() { const sv = $a('adm-purge-sv').value; if (!sv) { admStatus('Pick a server', true); return; } if (confirm(`Delete ALL of ${AD.user}'s messages in that server?`)) wsSend({ type: 'admin_purge_user_messages', target: AD.user, serverId: sv }); }
-+function admDMs() { const el = $a('admin-dm-result'); if (el) el.innerHTML = admLoading; wsSend({ type: 'admin_view_dms', target: AD.user }); }
-+function admNote() { const t = $a('adm-note').value.trim(); if (!t) return; wsSend({ type: 'admin_add_note', target: AD.user, note: t }); $a('adm-note').value = ''; setTimeout(() => wsSend({ type: 'admin_get_notes', target: AD.user }), 400); }
-+function renderAdminNotes(target, notes) {
-+  const box = $a('adm-notes'); if (!box) return;
-+  box.innerHTML = notes.length ? notes.map((n, i) => `<div class="adm-note"><div style="display:flex;justify-content:space-between;color:var(--t3);font-size:10px;margin-bottom:2px"><span>${esc(n.by || '?')} · ${n.at ? new Date(n.at).toLocaleString('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span><span style="cursor:pointer;color:var(--red)" onclick="adminDeleteNote(AD.user,${i})">✕</span></div>${esc(n.text || '')}</div>`).join('') : '<div class="adm-sub">No notes yet.</div>';
-+}
-+function renderAdminUserServers(target, servers) {
-+  const box = $a('adm-usv'); if (!box) return;
-+  box.innerHTML = servers.length ? servers.map(s => `<div class="adm-card" style="display:flex;align-items:center;gap:8px"><b style="flex:1">${esc(s.name)}</b><span class="adm-sub">owner: ${esc(s.ownerId || '?')}</span><button class="btn-g adm-red" style="font-size:11px" data-id="${esc(s.id)}" onclick="admKickFrom(this.dataset.id)">Remove</button></div>`).join('') : `<div class="adm-sub">${esc(target)} isn't in any servers.</div>`;
-+}
-+function admShowDMs(msg) {
-+  const el = $a('admin-dm-result'); if (!el) return;
-+  const dms = msg.dms || [];
-+  el.innerHTML = dms.length ? dms.map(d => `<div class="adm-card" style="margin-bottom:8px"><div style="display:flex;align-items:center;margin-bottom:5px"><b style="flex:1">💬 with ${esc(d.name)}</b><button class="btn-g adm-red" style="font-size:10px" data-b="${esc(d.name)}" onclick="admDelDm(this)">🗑 Delete thread</button></div>
-+    ${(d.messages || []).slice(-20).map(m => `<div class="adm-msg"><b style="min-width:70px;color:var(--t2)">${esc(m.author || '?')}</b><span class="t">${esc(m.text || '[attachment]')}</span></div>`).join('') || '<div class="adm-sub">No messages</div>'}</div>`).join('') : '<div class="adm-sub">No DM conversations.</div>';
-+}
-+function admDelDm(btn) { const b = btn.dataset.b; if (!confirm(`Delete the whole DM thread between ${AD.user} and ${b}?`)) return; wsSend({ type: 'admin_delete_dm_history', userA: AD.user, userB: b }); btn.closest('.adm-card').remove(); }
-+
-+// ══ SERVERS ══════════════════════════════════
-+function admServersShell() {
-+  if (AD.svId) { admSvView(); return; }
-+  $a('adm-main').innerHTML = `<div class="adm-bar"><input id="admin-sv-search" class="m-inp" placeholder="🔍 Search by name or owner…" oninput="adminFilterServers()"><button class="btn-g" onclick="wsSend({type:'admin_list_servers'})">↻</button></div><div id="admin-sv-list" class="adm-list">${admLoading}</div>`;
-+  if (typeof _adminServers !== 'undefined' && _adminServers.length) renderAdminServers(_adminServers);
-+}
-+function adminLoadServers() { wsSend({ type: 'admin_list_servers' }); }
-+function adminFilterServers() {
-+  const q = ($a('admin-sv-search')?.value || '').toLowerCase();
-+  renderAdminServers(q ? _adminServers.filter(s => (s.name || '').toLowerCase().includes(q) || (s.ownerId || '').toLowerCase().includes(q)) : _adminServers);
-+}
-+function renderAdminServers(servers) {
-+  if (AD.sec !== 'servers') { if (AD.user) admFillSvSelects(); return; }
-+  if (AD.svId) { admSvView(); return; }
-+  const box = $a('admin-sv-list'); if (!box) return;
-+  box.innerHTML = servers.length ? servers.map(s => `<div class="adm-row" data-id="${esc(s.id)}" onclick="admOpenSv(this.dataset.id)">
-+    <div class="adm-av" style="background:var(--accent)">${esc((s.name || '?')[0].toUpperCase())}</div>
-+    <div style="flex:1;min-width:0"><div class="adm-nm">${esc(s.name)}${s.isPublic === false ? '<i class="adm-b adm-b3">🔒 private</i>' : ''}</div>
-+    <div class="adm-sub">Owner ${esc(s.ownerId || '?')} · ${s.memberCount || 0} members · ${s.channelCount || 0} channels · ${admDate(s.createdAt)}</div></div></div>`).join('') : '<div class="adm-sub">No servers found.</div>';
-+}
-+function admOpenSv(id) { AD.svId = id; admSvView(); }
-+function admSvView() {
-+  const s = admSv(AD.svId);
-+  if (!s) { AD.svId = null; admServersShell(); return; }
-+  const chs = s.channels || [];
-+  $a('adm-main').innerHTML = `<button class="btn-g adm-back" onclick="AD.svId=null;AD.chId=null;admServersShell()">← All servers</button>
-+  <div class="adm-hero"><div class="adm-av" style="background:var(--accent)">${esc((s.name || '?')[0].toUpperCase())}</div><div style="flex:1"><div class="adm-nm" style="font-size:17px">${esc(s.name)}</div><div class="adm-sub">Owner ${esc(s.ownerId || '?')} · ${s.memberCount || 0} members · ${s.isPublic === false ? 'private' : 'public'}${s.desc ? ' · ' + esc(s.desc.slice(0, 60)) : ''}</div></div></div>
-+  <div class="adm-btns" style="margin-bottom:6px"><button class="btn-g" onclick="admSvRename()">✏️ Rename</button><button class="btn-g" onclick="admSvDesc()">📝 Description</button><button class="btn-g" onclick="admSvPublic(${s.isPublic === false})">${s.isPublic === false ? '🌐 Make public' : '🔒 Make private'}</button><button class="btn-g" onclick="adminTransferOwnership(AD.svId);admSvRefresh()">↗ Transfer</button><button class="btn-g" onclick="admSvClone()">🧬 Clone</button><button class="btn-g adm-red" onclick="admSvDelete()">🗑 Delete</button></div>
-+  <div class="adm-h">Channels</div><div class="adm-list">${chs.map(c => `<div class="adm-card" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap" data-c="${esc(c.id)}" data-n="${esc(c.name)}"><b style="flex:1;min-width:90px">${c.type === 'voice' ? '🔊' : '#'} ${esc(c.name)}</b>
-+    <button class="btn-g" style="font-size:11px" onclick="admChView(this.parentNode)">👁 View</button><button class="btn-g" style="font-size:11px" title="Lock" onclick="admChLock(this.parentNode,true)">🔒</button><button class="btn-g" style="font-size:11px" title="Unlock" onclick="admChLock(this.parentNode,false)">🔓</button><button class="btn-g" style="font-size:11px" title="Slowmode" onclick="admChSlow(this.parentNode)">🐌</button><button class="btn-g" style="font-size:11px" title="Export JSON" onclick="admChExport(this.parentNode)">⬇️</button><button class="btn-g adm-red" style="font-size:11px" title="Wipe history" onclick="admChWipe(this.parentNode)">🧹</button><button class="btn-g adm-red" style="font-size:11px" title="Delete channel" onclick="admChDel(this.parentNode)">✕</button></div>`).join('') || '<div class="adm-sub">No channels.</div>'}</div>
-+  <div class="adm-line" style="margin-top:6px"><input id="adm-newch" class="m-inp" placeholder="new-channel-name"><select id="adm-newch-t" class="m-inp" style="max-width:90px;flex:0"><option value="text">text</option><option value="voice">voice</option></select><button class="btn-p" onclick="admChAdd()">➕ Add channel</button></div>
-+  <div class="adm-h">Members</div><div class="adm-line"><select id="adm-mem" class="m-inp">${(_adminAccounts || []).map(a => `<option>${esc(a.name)}</option>`).join('')}</select><button class="btn-g" onclick="admMem('admin_add_member')">➕ Add</button><button class="btn-g adm-red" onclick="admMem('admin_kick_from_server')">👢 Kick</button></div>
-+  <div id="admin-ch-view-result" style="display:none;margin-top:12px"></div>`;
-+  if (!(_adminAccounts || []).length) wsSend({ type: 'admin_list_accounts' });
-+}
-+function admSvRefresh() { setTimeout(() => wsSend({ type: 'admin_list_servers' }), 600); }
-+function admSvRename() { const n = prompt('New server name:', admSv(AD.svId)?.name || ''); if (n && n.trim()) { wsSend({ type: 'admin_rename_server', serverId: AD.svId, name: n.trim() }); admSvRefresh(); } }
-+function admSvDesc() { const d = prompt('Server description:', admSv(AD.svId)?.desc || ''); if (d !== null) { wsSend({ type: 'admin_set_server_desc', serverId: AD.svId, desc: d.trim() }); admSvRefresh(); } }
-+function admSvPublic(v) { wsSend({ type: 'admin_set_server_public', serverId: AD.svId, isPublic: v }); admSvRefresh(); }
-+function admSvClone() { const n = prompt('Name for the clone:', (admSv(AD.svId)?.name || '') + ' (copy)'); if (n && n.trim()) { wsSend({ type: 'admin_clone_server', serverId: AD.svId, name: n.trim() }); admSvRefresh(); } }
-+function admSvDelete() { adminForceDeleteServer(AD.svId); AD.svId = null; admServersShell(); admSvRefresh(); }
-+function admChAdd() { const n = $a('adm-newch').value.trim().toLowerCase().replace(/\s+/g, '-'); if (!n) { admStatus('Give the channel a name', true); return; } wsSend({ type: 'admin_add_channel', serverId: AD.svId, name: n, chType: $a('adm-newch-t').value }); admSvRefresh(); }
-+function admMem(type) { wsSend({ type, target: $a('adm-mem').value, serverId: AD.svId }); admSvRefresh(); }
-+function admChView(el) { AD.chId = el.dataset.c; AD.chName = el.dataset.n; const b = $a('admin-ch-view-result'); b.style.display = 'block'; b.innerHTML = admLoading; wsSend({ type: 'admin_view_channel', channelId: AD.chId }); }
-+function admChLock(el, locked) { wsSend({ type: 'admin_lock_channel', channelId: el.dataset.c, locked }); }
-+function admChSlow(el) { const s = prompt('Slowmode seconds (0 = off):', '0'); if (s !== null) wsSend({ type: 'admin_set_slowmode', channelId: el.dataset.c, seconds: Math.max(0, Math.min(3600, parseInt(s) || 0)) }); }
-+function admChExport(el) { wsSend({ type: 'admin_export_channel', channelId: el.dataset.c }); }
-+function admChWipe(el) { if (confirm(`Wipe ALL history in #${el.dataset.n}?`)) wsSend({ type: 'admin_wipe_channel', channelId: el.dataset.c }); }
-+function admChDel(el) { if (confirm(`Delete channel #${el.dataset.n}?`)) { wsSend({ type: 'admin_delete_channel', serverId: AD.svId, channelId: el.dataset.c }); admSvRefresh(); } }
-+function admShowChannel(msg) {
-+  const box = $a('admin-ch-view-result'); if (!box) return;
-+  AD.chId = msg.channelId || AD.chId;
-+  const ms = (msg.messages || []).slice(-80);
-+  box.style.display = 'block';
-+  box.innerHTML = `<div class="adm-h" style="margin-top:0">#${esc(AD.chName || 'channel')} — last ${ms.length} message(s)</div><div class="adm-card" style="max-height:300px;overflow-y:auto">` + (ms.length ? ms.map(m => `<div class="adm-msg" data-m="${esc(m.id || '')}">
-+    <b style="color:${esc(m.authorColor || 'var(--accent)')}">${esc(m.author || '?')}</b><span class="adm-sub">${m.ts ? new Date(m.ts).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
-+    <span class="t">${esc((m.text || '').slice(0, 300))}${(m.attachments || []).length ? ' <i class="adm-sub">[attachment]</i>' : ''}</span>
-+    ${m.id ? `<span style="cursor:pointer" title="Edit" onclick="admMsgEdit(this.parentNode)">✎</span><span style="cursor:pointer;color:var(--red)" title="Delete" onclick="admMsgDel(this.parentNode)">🗑</span>` : ''}</div>`).join('') : '<div class="adm-sub">No messages.</div>') + '</div>';
-+}
-+function admMsgDel(el) { if (!confirm('Delete this message?')) return; wsSend({ type: 'admin_delete_message', channelId: AD.chId, messageId: el.dataset.m }); el.remove(); }
-+function admMsgEdit(el) { const t = prompt('Replace the text with:', el.querySelector('.t').textContent.trim()); if (t === null) return; wsSend({ type: 'admin_edit_message', channelId: AD.chId, messageId: el.dataset.m, text: t }); setTimeout(() => wsSend({ type: 'admin_view_channel', channelId: AD.chId }), 500); }
-+
-+// ══ LIVE ═════════════════════════════════════
-+function admLiveShell() {
-+  $a('adm-main').innerHTML = `<div class="adm-bar" style="justify-content:space-between"><b>Right now</b><button class="btn-g" onclick="admLiveLoad()">↻ Refresh</button></div>
-+  <div id="admin-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px">${admLoading}</div><div id="admin-stats-meta" class="adm-sub" style="margin-top:6px;font-family:'DM Mono',monospace"></div>
-+  <div class="adm-h">Voice calls (join silently)</div><div id="admin-calls-list" class="adm-list">${admLoading}</div>
-+  <div class="adm-h">Online users</div><div id="admin-online-list" class="adm-list">${admLoading}</div>`;
-+}
-+function admLiveLoad() { wsSend({ type: 'admin_get_stats' }); wsSend({ type: 'admin_list_online' }); wsSend({ type: 'admin_list_calls' }); if (!(_adminAccounts || []).length) wsSend({ type: 'admin_list_accounts' }); }
-+function adminLoadOnline() { wsSend({ type: 'admin_list_online' }); wsSend({ type: 'admin_list_calls' }); }
-+function renderAdminOnline(users) {
-+  const box = $a('admin-online-list'); if (!box) return;
-+  box.innerHTML = users.length ? users.map(u => { const a = admAcct(u.name) || u; return `<div class="adm-row" data-n="${esc(u.name)}" onclick="admOpenUserFrom(this.dataset.n)"><span class="adm-dot"></span><div style="flex:1" class="adm-nm">${esc(u.name || '?')}<span class="adm-sub">#${u.tag || '0000'}</span>${admBadges(u)}</div>${admCanAssume(a) ? `<button class="btn-g adm-be" data-n="${esc(u.name)}" onclick="event.stopPropagation();admBe(this.dataset.n)">🎭 Be</button>` : ''}</div>`; }).join('') : '<div class="adm-sub">Nobody online.</div>';
-+}
-+function admOpenUserFrom(n) { admGo('people'); admOpenUser(n); }
-+
-+// ══ BANS & LOG ═══════════════════════════════
-+function admLogShell() {
-+  $a('adm-main').innerHTML = `<div class="adm-h" style="margin-top:0">Ban someone</div><div class="adm-line"><input id="adm-lb-u" class="m-inp" placeholder="Username" maxlength="24"><select id="adm-lb-d" class="m-inp" style="max-width:110px;flex:0"><option>30m</option><option>2h</option><option selected>1d</option><option>7d</option><option>30d</option><option>permanent</option></select><input id="adm-lb-r" class="m-inp" placeholder="Reason" maxlength="120"><button class="btn-g adm-red" onclick="admQuickBan()">🔨 Ban</button></div>
-+  <div class="adm-h">Active bans</div><div id="admin-bans-list" class="adm-list">${admLoading}</div>
-+  <div class="adm-h">Frozen accounts</div><div id="admin-frozen-list" class="adm-list">${admLoading}</div>
-+  <div class="adm-h" style="display:flex;justify-content:space-between;align-items:center">Audit log <span class="adm-btns"><button class="btn-g" style="font-size:10px" onclick="adminLoadAuditLog()">↻</button><button class="btn-g adm-red" style="font-size:10px" onclick="adminClearAuditLog()">Clear</button></span></div><div id="admin-audit-list" class="adm-list">${admLoading}</div>`;
-+}
-+function admQuickBan() {
-+  const t = $a('adm-lb-u').value.trim(); if (!t) { admStatus('Enter a username', true); return; }
-+  const d = $a('adm-lb-d').value; if (!confirm(`Ban ${t} for ${d}?`)) return;
-+  wsSend({ type: 'admin_ban', target: t, duration: d, reason: $a('adm-lb-r').value.trim() }); setTimeout(adminLoadBans, 500);
-+}
-+
-+// ══ BROADCAST ════════════════════════════════
-+function admSendShell() {
-+  $a('adm-main').innerHTML = `<details class="adm-sec" open><summary>📢 Popup alert to everyone</summary><div><input id="admin-alert-title" class="m-inp" placeholder="Title" maxlength="80"><textarea id="admin-alert-body" class="m-inp" rows="2" maxlength="500" placeholder="Message" style="resize:vertical"></textarea><div class="adm-btns"><button class="btn-p" onclick="adminSendAlert()">Send alert</button></div><div id="admin-alert-result" class="adm-sub"></div></div></details>
-+  <details class="adm-sec"><summary>📣 Announcement (unread badge)</summary><div><textarea id="admin-announce-text" class="m-inp" rows="2" maxlength="500" placeholder="Text" style="resize:vertical"></textarea><div class="adm-btns"><button class="btn-p" onclick="adminSendAnnouncement()">Send to all</button></div></div></details>
-+  <details class="adm-sec"><summary>✉️ Mass DM everyone</summary><div><textarea id="admin-massdm-text" class="m-inp" rows="2" maxlength="2000" placeholder="Message" style="resize:vertical"></textarea><div class="adm-btns"><button class="btn-g adm-red" onclick="adminMassDm()">Send mass DM</button></div></div></details>
-+  <details class="adm-sec"><summary>🗒 Message of the day</summary><div><textarea id="admin-motd-text" class="m-inp" rows="2" maxlength="500" placeholder="Message of the day" style="resize:vertical"></textarea><div class="adm-btns"><button class="btn-p" onclick="adminSetMotd()">💾 Save</button><button class="btn-g" onclick="adminClearMotd()">✕ Clear</button></div><div id="admin-motd-result" class="adm-sub"></div></div></details>
-+  <details class="adm-sec danger"><summary>🔧 Maintenance mode</summary><div><div class="adm-sub">Blocks everyone except admins.</div><div class="adm-btns"><button class="btn-g adm-red" onclick="adminSetMaintenance(true)">Enable</button><button class="btn-g" onclick="adminSetMaintenance(false)">Disable</button></div></div></details>`;
-+}
-diff --git a/b/client/js/assume.js b/b/client/js/assume.js
++// keep checking while the panel is open (cheap: the server caches the report for 20 s)
++setInterval(() => { try { const m = document.getElementById('admin-panel-modal'); if (m && m.classList.contains('open') && !document.hidden && (AD.sec === 'alts' || AD.user)) admAltAsk(); } catch (_) {} }, 20000);
+diff --git a/b/client/js/device.js b/b/client/js/device.js
 new file mode 100644
-index 0000000..456624f
+index 0000000..98917fc
 --- /dev/null
-+++ b/b/client/js/assume.js
-@@ -0,0 +1,23 @@
-+// "Be someone" support. MUST load first. When this tab was switched into another account (sessionStorage flag),
-+// localStorage is redirected to a private prefix so the admin's own cached data is never touched.
++++ b/b/client/js/device.js
+@@ -0,0 +1,113 @@
++// ══════════════════════════════════════════════
++// DEVICE SIGNALS for alt-account detection. NEVER uses the IP address, so VPNs/proxies don't matter.
++// 1) a random device id kept in 3 places (localStorage + cookie + IndexedDB; any survivor restores the others)
++// 2) hashed hardware fingerprints (GPU, canvas, audio, screen, cores, fonts...). Survives incognito / cleared storage.
++// Only hashes leave the browser. Skipped completely while an admin is "being" someone (assume.js).
++// ══════════════════════════════════════════════
++const NXDEV = { ids: [], fp: [], hw: [], ready: false, lastSent: 0 };
 +(function () {
-+  let A = null; try { A = JSON.parse(sessionStorage.getItem('nx-assume') || 'null'); } catch (_) {}
-+  window.NX_ASSUME = A;
-+  if (!A) return;
-+  const sp = Storage.prototype, g = sp.getItem, s = sp.setItem, r = sp.removeItem, L = window.localStorage, P = 'as:';
-+  sp.getItem = function (k) { return g.call(this, this === L ? P + k : k); };
-+  sp.setItem = function (k, v) { return s.call(this, this === L ? P + k : k, v); };
-+  sp.removeItem = function (k) { return r.call(this, this === L ? P + k : k); };
-+  window.nxAssumeExit = function () {
-+    try { sessionStorage.setItem('nx-session', A.real); sessionStorage.removeItem('nx-assume'); } catch (_) {}
-+    location.reload();
-+  };
-+  document.addEventListener('DOMContentLoaded', function () {
-+    const b = document.createElement('div');
-+    b.style.cssText = 'position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:2147483000;display:flex;align-items:center;gap:10px;padding:5px 6px 5px 14px;border-radius:99px;background:linear-gradient(135deg,#5865f2,#c084fc);color:#fff;font:600 12px system-ui,sans-serif;box-shadow:0 4px 18px rgba(0,0,0,.45);animation:nxa .3s ease';
-+    b.innerHTML = '<style>@keyframes nxa{from{opacity:0;transform:translate(-50%,-14px)}}</style><span>🎭 You are <b></b> — everything you do is as them</span><button style="border:0;border-radius:99px;padding:4px 12px;font:700 12px system-ui;cursor:pointer;background:#fff;color:#4338ca">Exit</button>';
-+    b.querySelector('b').textContent = A.name;
-+    b.querySelector('button').onclick = window.nxAssumeExit;
-+    document.body.appendChild(b);
++  const h53 = (s, seed) => { let a = 0xdeadbeef ^ seed, b = 0x41c6ce57 ^ seed; for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); a = Math.imul(a ^ c, 2654435761); b = Math.imul(b ^ c, 1597334677); } a = Math.imul(a ^ (a >>> 16), 2246822507) ^ Math.imul(b ^ (b >>> 13), 3266489909); b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909); return (4294967296 * (2097151 & b) + (a >>> 0)).toString(16).padStart(14, '0'); };
++  const hash = s => h53(s, 1) + h53(s, 7) + h53(s, 13); // 42 hex chars
++  const rnd = () => { try { const u = new Uint8Array(16); crypto.getRandomValues(u); return [...u].map(x => x.toString(16).padStart(2, '0')).join(''); } catch (_) { return hash(Math.random() + ':' + Date.now()).slice(0, 32); } };
++  const okId = v => typeof v === 'string' && /^[0-9a-f]{16,64}$/.test(v);
++
++  // ── persistent id in 3 stores ──
++  const idb = (mode, val) => new Promise(res => {
++    try {
++      const r = indexedDB.open('nx-dev', 1);
++      r.onupgradeneeded = () => r.result.createObjectStore('k');
++      r.onerror = () => res(null);
++      r.onsuccess = () => { try { const db = r.result, tx = db.transaction('k', mode === 'set' ? 'readwrite' : 'readonly'), st = tx.objectStore('k');
++        if (mode === 'set') { st.put(val, 'did'); tx.oncomplete = () => { db.close(); res(true); }; tx.onerror = () => res(null); }
++        else { const g = st.get('did'); g.onsuccess = () => { db.close(); res(g.result || null); }; g.onerror = () => res(null); } } catch (_) { res(null); } };
++    } catch (_) { res(null); }
 +  });
++  const getCookie = () => { try { const m = document.cookie.match(/(?:^|; )nx_did=([0-9a-f]+)/); return m ? m[1] : null; } catch (_) { return null; } };
++  const setCookie = v => { try { document.cookie = 'nx_did=' + v + '; max-age=315360000; path=/; SameSite=Lax'; } catch (_) {} };
++  async function deviceIds() {
++    const found = [];
++    try { found.push(localStorage.getItem('nx-did')); } catch (_) {}
++    found.push(getCookie());
++    found.push(await idb('get'));
++    const ids = [...new Set(found.filter(okId))];
++    const id = ids[0] || rnd();
++    if (!ids.length) ids.push(id);
++    try { localStorage.setItem('nx-did', id); } catch (_) {}
++    setCookie(id); await idb('set', id);
++    return ids.slice(0, 6);
++  }
++
++  // ── hardware fingerprint ──
++  function canvasSig() {
++    try {
++      const c = document.createElement('canvas'); c.width = 240; c.height = 60; const x = c.getContext('2d');
++      x.textBaseline = 'alphabetic'; x.fillStyle = '#f60'; x.fillRect(100, 1, 62, 20);
++      x.fillStyle = '#069'; x.font = '15px Arial'; x.fillText('Nexus \u{1F427} alt-check 123', 2, 15);
++      x.fillStyle = 'rgba(102,204,0,0.7)'; x.font = '18px serif'; x.fillText('Nexus \u{1F427} alt-check 123', 4, 45);
++      x.globalCompositeOperation = 'multiply'; x.fillStyle = 'rgb(255,0,255)'; x.beginPath(); x.arc(50, 30, 20, 0, 6.283); x.fill();
++      return hash(c.toDataURL());
++    } catch (_) { return 'nocanvas'; }
++  }
++  function glSig() {
++    try {
++      const c = document.createElement('canvas'), g = c.getContext('webgl') || c.getContext('experimental-webgl');
++      if (!g) return { r: 'nogl', p: '' };
++      const e = g.getExtension('WEBGL_debug_renderer_info');
++      const r = e ? g.getParameter(e.UNMASKED_VENDOR_WEBGL) + '|' + g.getParameter(e.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.VENDOR) + '|' + g.getParameter(g.RENDERER);
++      const p = [g.MAX_TEXTURE_SIZE, g.MAX_VERTEX_ATTRIBS, g.MAX_VERTEX_UNIFORM_VECTORS, g.MAX_FRAGMENT_UNIFORM_VECTORS, g.MAX_VARYING_VECTORS, g.MAX_RENDERBUFFER_SIZE, g.ALIASED_LINE_WIDTH_RANGE, g.ALIASED_POINT_SIZE_RANGE].map(k => { try { const v = g.getParameter(k); return v && v.length ? [...v].join(',') : v; } catch (_) { return '?'; } }).join(';') + ';' + (g.getSupportedExtensions() || []).length;
++      return { r, p };
++    } catch (_) { return { r: 'nogl', p: '' }; }
++  }
++  function audioSig() {
++    return new Promise(res => {
++      try {
++        const O = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!O) return res('noaudio');
++        const ctx = new O(1, 5000, 44100), o = ctx.createOscillator(), k = ctx.createDynamicsCompressor();
++        o.type = 'triangle'; o.frequency.value = 10000;
++        [['threshold', -50], ['knee', 40], ['ratio', 12], ['attack', 0], ['release', 0.25]].forEach(([n, v]) => { try { k[n].value = v; } catch (_) {} });
++        o.connect(k); k.connect(ctx.destination); o.start(0);
++        const t = setTimeout(() => res('audiotimeout'), 1500);
++        ctx.oncomplete = ev => { clearTimeout(t); let s = 0; const d = ev.renderedBuffer.getChannelData(0); for (let i = 4500; i < 5000; i++) s += Math.abs(d[i]); res(String(s)); };
++        ctx.startRendering();
++      } catch (_) { res('audioerr'); }
++    });
++  }
++  function fontSig() {
++    try {
++      const fonts = ['Arial', 'Verdana', 'Times New Roman', 'Courier New', 'Georgia', 'Comic Sans MS', 'Impact', 'Trebuchet MS', 'Segoe UI', 'Calibri', 'Cambria', 'Consolas', 'Helvetica', 'Helvetica Neue', 'Menlo', 'Monaco', 'Roboto', 'Noto Sans', 'Ubuntu', 'DejaVu Sans', 'Liberation Sans', 'Cantarell', 'Open Sans', 'Lucida Grande', 'Tahoma', 'Palatino', 'Gill Sans', 'Futura', 'Apple Color Emoji', 'Segoe UI Emoji'];
++      const s = document.createElement('span'); s.style.cssText = 'position:absolute;left:-9999px;top:-9999px;font-size:72px;visibility:hidden'; s.textContent = 'mmmmmmmmmmlliWQ@#';
++      document.body.appendChild(s);
++      const base = ['monospace', 'sans-serif', 'serif'].map(b => { s.style.fontFamily = b; return s.offsetWidth + 'x' + s.offsetHeight; });
++      const bits = fonts.map(f => ['monospace', 'sans-serif', 'serif'].some((b, i) => { s.style.fontFamily = `'${f}',${b}`; return s.offsetWidth + 'x' + s.offsetHeight !== base[i]; }) ? 1 : 0).join('');
++      s.remove(); return bits;
++    } catch (_) { return 'nofonts'; }
++  }
++  async function fingerprints() {
++    const n = navigator, dpr = window.devicePixelRatio || 1, sc = window.screen || {};
++    // physical pixels: width*dpr stays constant when the page is zoomed, so zoom/resizing can't change it
++    const scr = Math.round((sc.width || 0) * dpr) + 'x' + Math.round((sc.height || 0) * dpr) + 'x' + (sc.colorDepth || 0);
++    const gl = glSig(), fonts = fontSig(), au = await audioSig();
++    const core = [n.hardwareConcurrency || 0, n.deviceMemory || 0, n.platform || '', n.maxTouchPoints || 0, scr].join('|');
++    // fp = this browser on this machine (strong). hw = the machine itself, whichever browser (weaker).
++    return { fp: hash(['fp1', canvasSig(), au, gl.r, gl.p, core, fonts].join('#')), hw: hash(['hw1', gl.r.split('|').pop(), core, fonts].join('#')) };
++  }
++
++  const assuming = () => { try { return !!sessionStorage.getItem('nx-assume'); } catch (_) { return false; } };
++  NXDEV.init = (async () => {
++    if (assuming()) return;
++    try {
++      NXDEV.ids = await deviceIds();
++      const f = await fingerprints(); NXDEV.fp = [f.fp]; NXDEV.hw = [f.hw];
++    } catch (_) {}
++    NXDEV.ready = true;
++  })();
++  NXDEV.get = () => (assuming() || !NXDEV.ids.length) ? null : { ids: NXDEV.ids, fp: NXDEV.fp, hw: NXDEV.hw };
 +})();
++// called after `identified` (and by identify itself if the signals are already computed); at most every 30 min per page
++async function nxDeviceReport() {
++  try {
++    await NXDEV.init;
++    const dev = NXDEV.get(); if (!dev || Date.now() - NXDEV.lastSent < 30 * 60 * 1000) return;
++    if (wsSend({ type: 'device_report', dev })) NXDEV.lastSent = Date.now();
++  } catch (_) {}
++}
+diff --git a/a/client/js/websocket.js b/b/client/js/websocket.js
+index 69a6b0b..8b628b1 100644
+--- a/a/client/js/websocket.js
++++ b/b/client/js/websocket.js
+@@ -41,7 +41,8 @@ function connectWS() {
+     dbg('✓ WS connected', 'ok');
+     wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null,token:S.token,
+       // lets the server tell us which cached servers were deleted / we're no longer in
+-      knownServerIds:(S.servers||[]).map(s=>s.id)});
++      knownServerIds:(S.servers||[]).map(s=>s.id),
++      dev:(typeof NXDEV!=='undefined'&&NXDEV.ready?NXDEV.get():null)});
+     dbg('→ identify sent', 'info');
+     // Identify timeout: if server doesn't send 'identified' within 10s, the
+     // connection is silently stuck (e.g. Deno cold-start not finishing). Force reconnect.
 diff --git a/a/client/js/ws-handler.js b/b/client/js/ws-handler.js
-index e33557b..c136df6 100644
+index c136df6..414d79a 100644
 --- a/a/client/js/ws-handler.js
 +++ b/b/client/js/ws-handler.js
-@@ -233,6 +233,7 @@ function handleIn(msg) {
+@@ -56,6 +56,7 @@ function handleIn(msg) {
+       dbg('← identified: backend sent ' + (msg.servers?.length||0) + ' server(s)', (msg.servers?.length ? 'ok' : 'warn'));
+       // FIX #9: Flush any messages that were queued while we were offline
+       checkServerProtocol(msg.protocol);
++      try { nxDeviceReport(); } catch (_) {}
+       if (msg.user?.status) applyOwnStatus(msg.user.status);       // my status survives refreshes (server remembers it)
+       _lastPong = Date.now();
+       setTimeout(() => { if (S.curSv) requestMembers(S.curSv.id); }, 300); // events missed while disconnected
+@@ -214,6 +215,8 @@ function handleIn(msg) {
+       console.log('[nexus] server_create confirmed by relay:', msg.serverId);
+       dbg('✓ server saved to backend: ' + msg.serverId.slice(0,8), 'ok');
        break;
- 
-     case 'admin_channel_history': {
-+      if (typeof admShowChannel === 'function') { admShowChannel(msg); break; }
-       const viewBox = document.getElementById('admin-ch-view-result');
-       if (!viewBox) break;
-       const chMsgs = msg.messages || [];
-@@ -1096,7 +1097,9 @@ function handleIn(msg) {
-       }
-       break;
-     }
-+    case 'admin_assume_ok': admAssumeStart(msg); break;
-     case 'admin_dm_data': {
-+      if (typeof admShowDMs === 'function') { admShowDMs(msg); break; }
-       const el = document.getElementById('admin-dm-result');
-       if (el) {
-         const allDms = msg.dms || [];
-@@ -1183,7 +1186,7 @@ function handleIn(msg) {
-     }
-     case 'info':
-       toast('ℹ️ ' + (msg.message || ''));
--      document.getElementById('admin-dm-result').textContent = msg.message || '';
-+      { const _dr = document.getElementById('admin-dm-result'); if (_dr) _dr.textContent = msg.message || ''; }
-       break;
-     case 'vcall_invite':
-       recvVcallInvite(msg);
++    case 'admin_alt_report': try { admAltData(msg); } catch (e) { console.warn(e); } break;
++    case 'admin_alt_alert': try { admAltAlert(msg); } catch (e) { console.warn(e); } break;
+     case 'admin_accounts_list':
+       if (isSystemAdmin()) {
+         _adminAccounts = msg.accounts || [];

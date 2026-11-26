@@ -56,6 +56,7 @@ function handleIn(msg) {
       dbg('← identified: backend sent ' + (msg.servers?.length||0) + ' server(s)', (msg.servers?.length ? 'ok' : 'warn'));
       // FIX #9: Flush any messages that were queued while we were offline
       checkServerProtocol(msg.protocol);
+      try { nxDeviceReport(); } catch (_) {}
       if (msg.user?.status) applyOwnStatus(msg.user.status);       // my status survives refreshes (server remembers it)
       _lastPong = Date.now();
       setTimeout(() => { if (S.curSv) requestMembers(S.curSv.id); }, 300); // events missed while disconnected
@@ -214,6 +215,8 @@ function handleIn(msg) {
       console.log('[nexus] server_create confirmed by relay:', msg.serverId);
       dbg('✓ server saved to backend: ' + msg.serverId.slice(0,8), 'ok');
       break;
+    case 'admin_alt_report': try { admAltData(msg); } catch (e) { console.warn(e); } break;
+    case 'admin_alt_alert': try { admAltAlert(msg); } catch (e) { console.warn(e); } break;
     case 'admin_accounts_list':
       if (isSystemAdmin()) {
         _adminAccounts = msg.accounts || [];

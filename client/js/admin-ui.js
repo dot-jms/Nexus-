@@ -68,7 +68,7 @@ const admBadges = a => (a.systemRole === 'admin' ? '<i class="adm-b adm-b1">⚡ 
 })();
 
 // ── shell ────────────────────────────────────
-const ADM_NAV = [['people', '👥 People'], ['servers', '🌐 Servers'], ['live', '📡 Live'], ['log', '🔨 Bans & Log'], ['send', '📢 Broadcast']];
+const ADM_NAV = [['people', '👥 People'], ['servers', '🌐 Servers'], ['alts', '🕵️ Alts'], ['live', '📡 Live'], ['log', '🔨 Bans & Log'], ['send', '📢 Broadcast']];
 function admBuild() {
   const ov = $a('admin-panel-modal');
   if (!ov || ov.dataset.v2) return;
@@ -95,6 +95,7 @@ function admGo(sec) {
   document.querySelectorAll('.adm-nav div').forEach(d => d.classList.toggle('on', d.dataset.k === sec));
   const m = $a('adm-main'); if (!m) return;
   if (sec === 'people') { admPeopleShell(); adminLoadAccounts(); }
+  else if (sec === 'alts') { admAltsShell(); admAltAsk(); }
   else if (sec === 'servers') { admServersShell(); wsSend({ type: 'admin_list_servers' }); }
   else if (sec === 'live') { admLiveShell(); admLiveLoad(); }
   else if (sec === 'log') { admLogShell(); adminLoadBans(); adminLoadFrozen(); adminLoadAuditLog(); }
@@ -128,7 +129,7 @@ function renderAdminAccounts(accounts) {
 function admOpenUser(name) {
   AD.user = name; AD.sec = 'people';
   wsSend({ type: 'admin_list_servers' });
-  admUserView();
+  admUserView(); admAltAsk();
   wsSend({ type: 'admin_get_notes', target: name });
   wsSend({ type: 'admin_list_user_servers', target: name });
 }
@@ -149,6 +150,7 @@ function admUserView() {
   <details class="adm-sec" open><summary>🔨 Moderation</summary><div>
     <div class="adm-line"><select id="adm-ban-dur" class="m-inp" style="max-width:120px"><option>30m</option><option>2h</option><option selected>1d</option><option>7d</option><option>30d</option><option>permanent</option></select><input id="adm-ban-reason" class="m-inp" placeholder="Reason (shown to them)" maxlength="120"><button class="btn-g adm-red" onclick="admBan()">🔨 Ban</button><button class="btn-g" onclick="wsSend({type:'admin_unban',target:AD.user})">✅ Unban</button></div>
     <div class="adm-btns"><button class="btn-g" onclick="admFreeze()">🧊 Freeze (can't post)</button><button class="btn-g" onclick="wsSend({type:'admin_unfreeze_user',target:AD.user})">🔥 Unfreeze</button><button class="btn-g adm-red" onclick="admLogout()">🚪 Force logout</button></div></div></details>
+  <details class="adm-sec" open><summary>🕵️ Alt check</summary><div id="adm-alt">${admLoading}</div></details>
   <details class="adm-sec"><summary>🖼 Profile</summary><div class="adm-btns">
     <button class="btn-g" onclick="admRename()">✏️ Rename</button><button class="btn-g" onclick="admTag()">🏷 Tag</button><button class="btn-g" onclick="$a('adm-color').click()">🎨 Colour</button><button class="btn-g" onclick="admBio()">📝 Bio</button><button class="btn-g" onclick="admPfp()">🖼 Change picture</button><button class="btn-g" onclick="wsSend({type:'admin_wipe_user_pfp',target:AD.user})">🚫 Remove picture</button>
     <button class="btn-g" onclick="openProfilePage(AD.user)">👤 Open profile</button></div></details>
@@ -343,3 +345,43 @@ function admSendShell() {
   <details class="adm-sec"><summary>🗒 Message of the day</summary><div><textarea id="admin-motd-text" class="m-inp" rows="2" maxlength="500" placeholder="Message of the day" style="resize:vertical"></textarea><div class="adm-btns"><button class="btn-p" onclick="adminSetMotd()">💾 Save</button><button class="btn-g" onclick="adminClearMotd()">✕ Clear</button></div><div id="admin-motd-result" class="adm-sub"></div></div></details>
   <details class="adm-sec danger"><summary>🔧 Maintenance mode</summary><div><div class="adm-sub">Blocks everyone except admins.</div><div class="adm-btns"><button class="btn-g adm-red" onclick="adminSetMaintenance(true)">Enable</button><button class="btn-g" onclick="adminSetMaintenance(false)">Disable</button></div></div></details>`;
 }
+
+// ══ ALT / SAME-DEVICE DETECTION (VPN-proof: device id + hardware fingerprint, never the IP) ═══════════
+// Server keeps re-scanning on every login, and this panel re-asks every 20 s while it is open, so accounts that were made
+// before the feature existed show up as soon as they next connect.
+AD.alt = null;
+const ALT_LV = { certain: ['🔴 Same device', 'adm-b3'], likely: ['🟠 Very likely same device', 'adm-b2'], possible: ['🟡 Possible', 'adm-b1'] };
+function admAltAsk() { wsSend({ type: 'admin_alt_report' }); }
+function admAltData(msg) { AD.alt = msg; admAltRender(); }
+function admAltAlert(m) { try { toast(`🕵️ ${m.name} looks like an alt of ${m.other}`); } catch (_) {} admAltAsk(); }
+function admAltRender() {
+  if (!$a('adm-main')) return;
+  if (AD.sec === 'alts' && !AD.user) admAltsList();
+  if (AD.user && $a('adm-alt')) admAltUser();
+}
+function admAltBadge(l) { const [t, c] = ALT_LV[l] || ALT_LV.possible; return `<i class="adm-b ${c}" style="font-size:10px">${t}</i>`; }
+function admAltCover(r) {
+  const n = (r.unscanned || []).length;
+  return `<div class="adm-sub">Scanned ${r.scanned}/${r.total} accounts${n ? ` · ${n} not scanned yet (they get scanned the next time they log in)` : ' · everyone is scanned'}. Auto-refreshes every 20 s.</div>`;
+}
+function admAltUser() {
+  const box = $a('adm-alt'), r = AD.alt; if (!box || !r) return;
+  const me = String(AD.user).toLowerCase();
+  const mine = (r.links || []).filter(l => l.a.toLowerCase() === me || l.b.toLowerCase() === me).sort((x, y) => (ALT_LV[x.level] ? 0 : 1) - (ALT_LV[y.level] ? 0 : 1) || (['certain', 'likely', 'possible'].indexOf(x.level) - ['certain', 'likely', 'possible'].indexOf(y.level)));
+  const unscanned = (r.unscanned || []).some(n => n.toLowerCase() === me);
+  let h = '';
+  if (unscanned) h += `<div class="adm-sub" style="color:#fbbf24">⏳ Not scanned yet: this account hasn't logged in since the alt check shipped. It fills in automatically the next time they connect.</div>`;
+  else if (!mine.length) h += `<div class="adm-sub">✅ No other account shares a device or fingerprint with them (as far as we can tell).</div>`;
+  h += mine.map(l => { const o = l.a.toLowerCase() === me ? l.b : l.a;
+    return `<div class="adm-row" data-n="${esc(o)}" onclick="admOpenUser(this.dataset.n)"><div style="flex:1;min-width:0"><div class="adm-nm">${esc(o)} ${admAltBadge(l.level)}</div><div class="adm-sub">${l.why.map(esc).join(' · ')}</div></div></div>`; }).join('');
+  h += admAltCover(r) + `<div class="adm-sub">Can't be fooled by VPNs or proxies. It can be fooled by a different physical device; shared school computers can cause "possible" matches.</div>`;
+  box.innerHTML = h;
+}
+function admAltsShell() { $a('adm-main').innerHTML = `<div class="adm-bar"><div style="flex:1;font-size:13px;font-weight:700">🕵️ Alt & same-device finder</div><button class="btn-g" onclick="admAltAsk()">↻ Re-scan</button></div><div id="adm-alts" class="adm-list">${admLoading}</div>`; if (AD.alt) admAltsList(); }
+function admAltsList() {
+  const box = $a('adm-alts'), r = AD.alt; if (!box || !r) return;
+  const cl = r.clusters || [];
+  box.innerHTML = (cl.length ? cl.map(c => `<div class="adm-sec" style="padding:10px 12px"><div class="adm-nm" style="margin-bottom:6px">${admAltBadge(c.level)} <span class="adm-sub">${c.members.length} accounts</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">${c.members.map(m => `<button class="btn-g" style="font-size:12px" data-n="${esc(m.name)}" onclick="admOpenUserFrom(this.dataset.n)">${esc(m.name)}</button>`).join('')}</div></div>`).join('') : '<div class="adm-sub">No linked accounts found right now.</div>') + admAltCover(r);
+}
+// keep checking while the panel is open (cheap: the server caches the report for 20 s)
+setInterval(() => { try { const m = document.getElementById('admin-panel-modal'); if (m && m.classList.contains('open') && !document.hidden && (AD.sec === 'alts' || AD.user)) admAltAsk(); } catch (_) {} }, 20000);
