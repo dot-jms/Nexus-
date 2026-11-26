@@ -230,7 +230,7 @@ function peRender() { // avatar, counters, interests, live preview, dirty flag
   const ic = peEl('pe-int-count'); if (ic) ic.textContent = e.interests.length + ' / 8';
   peEl('pe-int-tags').innerHTML = e.interests.map((t, i) => `<span class="pe-tag">${esc(t)}<button onclick="peIntDel(${i})" aria-label="Remove">✕</button></span>`).join('');
   peEl('pe-int-sugg').innerHTML = e.interests.length >= 8 ? '' : PF_INTERESTS.filter(t => !e.interests.some(x => x.toLowerCase() === t.toLowerCase())).map(t => `<button class="pe-chip" onclick="peIntAdd('${t}')">+ ${t}</button>`).join('');
-  const fr = pfFrameAttrs(e, d.color), nf = pfNameAttrs(e), links = pfSocialLinks(d.socials);
+  const can = pfCanStyle(u), fr = pfFrameAttrs(e, d.color, can), nf = pfNameAttrs(e, can), links = pfSocialLinks(d.socials);
   peEl('pe-preview').innerHTML = `<div class="pv-card" style="${pfCardCss(e)}"><div class="pv-banner" style="${pfBannerCss(e, d.color, d.banner)}"></div>
     <div class="pv-av ${fr.cls}" style="${fr.style}background:${d.pfp ? 'transparent' : pfHex(d.color, '#5865f2')}">${d.pfp ? `<img src="${safeUrl(d.pfp)}" alt="">` : esc((u.name || '?')[0].toUpperCase())}</div>
     <div class="pv-body"><div class="pv-name ${nf.cls}" style="${nf.style}">${esc(u.name)}</div><div class="pv-tag">#${esc(u.tag || '0000')}${e.pronouns ? ' · ' + esc(e.pronouns) : ''}</div>
@@ -238,6 +238,7 @@ function peRender() { // avatar, counters, interests, live preview, dirty flag
     ${d.bio ? `<div class="pv-sec"><div class="pv-sec-t">About me</div><div class="pv-bio">${esc(d.bio)}</div></div>` : ''}
     ${e.interests.length ? `<div class="pv-sec"><div class="pv-sec-t">Interests</div><div class="pp-chips">${e.interests.map(t => `<span class="pp-chip">${esc(t)}</span>`).join('')}</div></div>` : ''}
     ${links.length ? `<div class="pv-sec"><div class="pv-sec-t">Links</div>${links.map(l => `<span class="pv-link">${l.icon} ${esc(l.text)}</span>`).join('')}</div>` : ''}</div></div>`;
+  ['pe-sec-frame', 'pe-sec-name'].forEach(id => { const x = peEl(id); if (x) x.style.display = can ? '' : 'none'; });
   const dirty = peEl('pe-dirty'); if (dirty) dirty.classList.toggle('on', peIsDirty());
 }
 function peIsDirty() { return !!PE.d && JSON.stringify(PE.d) !== JSON.stringify(PE.o); }
@@ -263,7 +264,7 @@ function peResetStyle() { const e = PE.d.ext, d = pfExtDefaults(); e.banner = d.
 function peRandom() {
   const pick = a => a[Math.floor(Math.random() * a.length)], e = PE.d.ext, p = pick(PF_BANNERS), c = () => pick(PF_TINTS);
   e.banner = { kind: 'gradient', c1: p.c1, c2: p.c2, angle: Math.floor(Math.random() * 361) };
-  e.frame = { kind: pick(PF_FRAMES.filter(f => f.id !== 'none')).id, c1: c(), c2: c() }; e.nameFx = { kind: pick(PF_NAMEFX.filter(f => f.id !== 'none')).id, c1: c(), c2: c() };
+  if (pfCanStyle(S.user)) { e.frame = { kind: pick(PF_FRAMES.filter(f => f.id !== 'none')).id, c1: c(), c2: c() }; e.nameFx = { kind: pick(PF_NAMEFX.filter(f => f.id !== 'none')).id, c1: c(), c2: c() }; }
   e.cardTint = Math.random() < .7 ? c() : null; peSync();
 }
 // interests

@@ -1,7 +1,9 @@
-diff -ruN deploy-now/client/css/profile.css wip/client/css/profile.css
---- client/css/profile.css	1970-01-01 00:00:00.000000000 +0000
-+++ client/css/profile.css	2026-11-25 01:24:56.226539537 +0000
-@@ -0,0 +1,128 @@
+diff --git a/b/client/css/profile.css b/client/css/profile.css
+new file mode 100644
+index 0000000..fe9e483
+--- /dev/null
++++ b/client/css/profile.css
+@@ -0,0 +1,145 @@
 +/* ═══════════════════════════════════════════════════════════════
 +   profile.css — profile editor, picture cropper, avatar frames,
 +   name effects and the extra bits on the profile page.
@@ -108,7 +110,7 @@ diff -ruN deploy-now/client/css/profile.css wip/client/css/profile.css
 +.cr-stage:focus-visible { box-shadow: 0 0 0 2px var(--brand); }
 +.cr-stage canvas { display: block; width: 100%; height: 100%; }
 +.cr-mask { position: absolute; inset: 0; pointer-events: none; }
-+.cr-mask.circle { background: radial-gradient(circle at 50% 50%, transparent calc(50% - 1px), rgba(255,255,255,.9) calc(50% - 1px), rgba(255,255,255,.9) 50%, rgba(0,0,0,.62) 50%); }
++.cr-mask.circle { background: radial-gradient(circle closest-side at 50% 50%, transparent calc(100% - 1px), rgba(255,255,255,.9) calc(100% - 1px), rgba(255,255,255,.9) 100%, rgba(0,0,0,.62) 100%); } /* closest-side: the ring is exactly the inscribed circle the saved avatar uses */
 +.cr-mask.rect { box-shadow: inset 0 0 0 2px rgba(255,255,255,.85); }
 +.cr-zoom { display: flex; align-items: center; gap: 8px; margin: 0 auto 10px; max-width: 360px; }
 +.cr-zoom input { flex: 1; accent-color: var(--brand); }
@@ -130,9 +132,27 @@ diff -ruN deploy-now/client/css/profile.css wip/client/css/profile.css
 +  .pe-right { order: -1; border-left: 0; border-bottom: 1px solid var(--divider); overflow: visible; }
 +  .pe-left { overflow: visible; }
 +}
-diff -ruN deploy-now/client/index.html wip/client/index.html
---- client/index.html	2026-11-21 21:17:30.000000000 +0000
-+++ client/index.html	2026-11-25 01:24:56.226559996 +0000
++
++/* ── role name effects (chat + member list + role editor) ── */
++.rfx-gradient { background: linear-gradient(90deg, var(--rf1), var(--rf2)); -webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent; }
++.rfx-glow { color: var(--rf1) !important; text-shadow: 0 0 10px var(--rf1), 0 0 2px var(--rf1); }
++.rfx-shimmer { background: linear-gradient(100deg, var(--rf1), var(--rf2), var(--rf1)) 0 0 / 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent; animation: rfShimmer 3s linear infinite; }
++.rfx-rainbow { background: linear-gradient(90deg, #ff5f6d, #ffc371, #47e891, #4facfe, #a770ef, #ff5f6d) 0 0 / 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent; animation: rfShimmer 5s linear infinite; }
++@keyframes rfShimmer { from { background-position: 0 0; } to { background-position: -200% 0; } }
++@media (prefers-reduced-motion: reduce) { .rfx-shimmer, .rfx-rainbow { animation: none; } }
++/* role editor */
++.re-preview { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; margin-bottom: 14px; border-radius: 8px; background: var(--bg-tertiary, #1e1f22); }
++.re-sample { font-size: 13px; color: var(--text-normal, #dbdee1); }
++.re-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
++.re-chip { padding: 6px 11px; border: 0; border-radius: 4px; background: #4e5058; color: #fff; font-size: 13px; cursor: pointer; transition: background-color var(--fast, .1s) linear; }
++.re-chip:hover { background: #6d6f78; } .re-chip.on { background: var(--brand, #5865f2); }
++.re-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary, #b5bac1); }
++.re-row input[type=color] { vertical-align: middle; width: 36px; height: 26px; border: 0; padding: 0; background: none; cursor: pointer; }
++.role-tag { margin-left: 8px; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,.08); color: var(--text-muted, #949ba4); }
+diff --git a/client/index.html b/client/index.html
+index 5953ba4..a52bad8 100644
+--- a/client/index.html
++++ b/client/index.html
 @@ -15,6 +15,7 @@
  <link rel="stylesheet" href="css/dms.css">
  <link rel="stylesheet" href="css/calls.css">
@@ -161,12 +181,12 @@ diff -ruN deploy-now/client/index.html wip/client/index.html
 +    <div class="cr-tools">
 +      <button onclick="crRotate(-90)" title="Rotate left">⟲ Rotate</button><button onclick="crRotate(90)" title="Rotate right">⟳ Rotate</button><button onclick="crFlip()">⇋ Flip</button>
 +      <button onclick="crFit()" title="Show the whole picture">Fit</button><button onclick="crFill()" title="Fill the frame">Fill</button><button onclick="crReset()">Reset</button>
-+    </div>
+     </div>
+-    <input type="range" id="pfp-crop-zoom" min="1" max="4" step="0.01" value="1" style="width:200px;margin-bottom:16px" oninput="pfpCropZoom(this.value)">
 +    <div class="cr-bg" id="cr-bg">Empty space:
 +      <button data-bg="blur" onclick="crSetBg('blur')">Blur</button><button data-bg="color" onclick="crSetBg('color')">Colour</button><button data-bg="clear" onclick="crSetBg('clear')">Transparent</button>
 +      <input type="color" class="pe-color" id="cr-bg-color" value="#1e1f22" oninput="crSetBgColor(this.value)">
-     </div>
--    <input type="range" id="pfp-crop-zoom" min="1" max="4" step="0.01" value="1" style="width:200px;margin-bottom:16px" oninput="pfpCropZoom(this.value)">
++    </div>
 +    <div class="cr-pv circle" id="cr-pv"></div>
      <div class="m-row" style="justify-content:center">
        <button class="btn-g" onclick="closeM('pfp-crop-modal')">Cancel</button>
@@ -265,13 +285,13 @@ diff -ruN deploy-now/client/index.html wip/client/index.html
 +
 +        <div class="pe-panel" id="pe-p-style" style="display:none">
 +          <div class="pe-sec"><div class="pe-btns"><button onclick="peRandom()">🎲 Surprise me</button><button onclick="peResetStyle()">Reset style</button></div></div>
-+          <div class="pe-sec">
-+            <div class="pe-lbl">Avatar frame</div>
++          <div class="pe-sec" id="pe-sec-frame">
++            <div class="pe-lbl">Avatar frame <small>admins &amp; co-admins only</small></div>
 +            <div class="pe-chips" id="pe-frames"></div>
 +            <div class="pe-sub pe-row" id="pe-frame-cols" style="display:none;margin-top:10px"><input type="color" class="pe-color" id="pe-fr-c1" oninput="peIn()"><input type="color" class="pe-color" id="pe-fr-c2" oninput="peIn()"></div>
 +          </div>
-+          <div class="pe-sec">
-+            <div class="pe-lbl">Name effect <small>shown on your profile and hover card</small></div>
++          <div class="pe-sec" id="pe-sec-name">
++            <div class="pe-lbl">Name effect <small>shown on your profile, in chat and in the member list</small></div>
 +            <div class="pe-chips" id="pe-names"></div>
 +            <div class="pe-sub pe-row" id="pe-name-cols" style="display:none;margin-top:10px"><input type="color" class="pe-color" id="pe-nf-c1" oninput="peIn()"><input type="color" class="pe-color" id="pe-nf-c2" oninput="peIn()"></div>
 +          </div>
@@ -313,7 +333,33 @@ diff -ruN deploy-now/client/index.html wip/client/index.html
    </div>
  </div>
  
-@@ -1102,6 +1168,7 @@
+@@ -645,12 +711,21 @@
+       <div class="roles-list" id="stg-roles-list"></div>
+       <button class="btn-p" style="width:100%;margin-top:4px" onclick="openCreateRole()">+ Create Role</button>
+       <div id="role-editor" style="display:none;margin-top:18px;border-top:1px solid var(--border);padding-top:16px">
++        <div class="re-preview" id="re-preview"></div>
+         <div class="m-lbl">Role Name</div>
+-        <input class="m-inp" id="role-name-in" placeholder="e.g. Moderator" maxlength="32">
++        <input class="m-inp" id="role-name-in" placeholder="e.g. Moderator" maxlength="32" oninput="reUpdate()">
++        <div class="m-lbl">Quick looks</div>
++        <div class="re-chips" id="re-presets"></div>
+         <div class="m-lbl">Role Color</div>
+-        <div class="av-grid" id="role-color-grid" style="margin-bottom:12px"></div>
+-        <div class="m-lbl">Permissions</div>
+-        <div class="perm-list" id="perm-list"></div>
++        <div class="av-grid" id="role-color-grid" style="margin-bottom:8px"></div>
++        <div class="re-row"><label>Any colour <input type="color" id="re-c1" oninput="reColor(1,this.value)"></label><label id="re-c2-wrap">Second colour <input type="color" id="re-c2" oninput="reColor(2,this.value)"></label></div>
++        <div class="m-lbl">Name effect <small style="font-weight:400;color:var(--t3)">how the name looks in chat and the member list</small></div>
++        <div class="re-chips" id="re-fx"></div>
++        <div class="m-lbl">Badge icon <small style="font-weight:400;color:var(--t3)">optional emoji</small></div>
++        <input class="m-inp" id="re-icon" placeholder="e.g. 👑" maxlength="4" oninput="reUpdate()">
++        <div class="perm-row"><div><div class="perm-label">Show members separately</div><div class="perm-sub">Members with this role get their own group in the member list</div></div><div class="toggle-switch" id="re-hoist" onclick="this.classList.toggle('on');reUpdate()"></div></div>
++        <div id="re-perms"><div class="m-lbl">Permissions</div>
++        <div class="perm-list" id="perm-list"></div></div>
+         <div class="m-row" style="margin-top:14px">
+           <button class="btn-g" onclick="cancelRoleEdit()">Cancel</button>
+           <button class="btn-p" onclick="saveRole()">Save Role</button>
+@@ -1102,6 +1177,7 @@
  <script src="js/state.js"></script>
  <script src="js/auth.js"></script>
  <script src="js/app.js"></script>
@@ -321,10 +367,224 @@ diff -ruN deploy-now/client/index.html wip/client/index.html
  <script src="js/profile-edit.js"></script>
  <script src="js/websocket.js"></script>
  <script src="js/ws-handler.js"></script>
-diff -ruN deploy-now/client/js/auth.js wip/client/js/auth.js
---- client/js/auth.js	2026-11-21 21:17:30.000000000 +0000
-+++ client/js/auth.js	2026-11-25 01:24:56.226715656 +0000
-@@ -150,20 +150,7 @@
+diff --git a/client/js/admin.js b/client/js/admin.js
+index c338ab7..18558e8 100644
+--- a/client/js/admin.js
++++ b/client/js/admin.js
+@@ -150,12 +150,10 @@ function getMemberRole(sv, memberName) {
+ }
+ 
+ function roleLabel(sv, memberName) {
+-  const r = getMemberRole(sv, memberName);
+-  if (r === 'owner') return '<span class="role-badge owner">👑 Owner</span>';
+-  if (r === 'mod')   return '<span class="role-badge mod">🛡 Mod</span>';
+-  const custom = (sv.roles || []).find(x => x.id === r);
+-  if (custom) return `<span class="role-badge" style="background:${custom.color}22;color:${custom.color};border:1px solid ${custom.color}44">● ${esc(custom.name)}</span>`;
+-  return '';
++  const id = getMemberRole(sv, memberName); if (id === 'member') return '';
++  const r = getEffectiveRole(sv, id); if (!r) return '';
++  const c = pfHex(r.color, '#9090a8'), ic = r.icon ? esc(r.icon) : (id === 'owner' ? '👑' : id === 'mod' ? '🛡' : '●');
++  return `<span class="role-badge" style="background:${c}22;color:${c};border:1px solid ${c}44">${ic} ${esc(r.name)}</span>`;
+ }
+ 
+ // ── Server header dropdown ──
+@@ -295,63 +293,92 @@ function saveSvOverview() {
+ }
+ 
+ // ── ROLES PANE ──
++const RE = { color: '#9090a8', color2: '#9090a8', fx: 'none', icon: '', hoist: false, owner: false };
++const ROLE_PRESETS = [
++  { n: 'Staff',   color: '#f59e0b', color2: '#f59e0b', fx: 'glow',     icon: '🛡', hoist: true },
++  { n: 'VIP',     color: '#fbbf24', color2: '#f472b6', fx: 'gradient', icon: '✨', hoist: true },
++  { n: 'Legend',  color: '#00f5a0', color2: '#00d9f5', fx: 'shimmer',  icon: '💎', hoist: true },
++  { n: 'Rainbow', color: '#ff5f6d', color2: '#4facfe', fx: 'rainbow',  icon: '🌈', hoist: false },
++  { n: 'Regular', color: '#c9cdd6', color2: '#c9cdd6', fx: 'none',     icon: '',   hoist: false },
++  { n: 'Newbie',  color: '#8b8d94', color2: '#8b8d94', fx: 'none',     icon: '',   hoist: false },
++];
+ function buildRolesPane() {
+   const sv = S.curSv; if (!sv) return;
+   if (!sv.roles) sv.roles = [];
+   const list = document.getElementById('stg-roles-list');
+-  const allRoles = [...DEFAULT_ROLES.map(r=>({...r,...((sv.roleOverrides||{})[r.id]||{})})), ...sv.roles];
+-  list.innerHTML = allRoles.map(r => {
+-    const count = r.id==='owner' ? 1 :
+-      Object.values(sv.memberRoles||{}).filter(v=>v===r.id).length + (r.id==='member'? ((S.members[sv.id]||[]).length+1 - Object.keys(sv.memberRoles||{}).length) : 0);
+-    // Owner role can't be edited; mod/member can be edited but not deleted; custom can be edited+deleted
+-    const canEdit = r.id !== 'owner';
+-    const canDelete = !r.builtin; // can delete custom roles; mod/member are protected from deletion
+-    const actions = canEdit ? `
+-      <div class="role-row-acts">
+-        <div class="role-act-btn" onclick="editRole('${r.id}')" title="Edit">✏️</div>
+-        ${canDelete ? `<div class="role-act-btn del" onclick="deleteRole('${r.id}')" title="Delete">🗑</div>` : ''}
+-      </div>` : '<span style="font-size:10px;color:var(--t3);font-weight:600;padding:2px 7px;background:var(--s4);border-radius:4px">Protected</span>';
++  const ids = ['owner', 'mod', ...sv.roles.map(r => r.id), 'member']; // top to bottom = highest to lowest
++  list.innerHTML = ids.map(id => {
++    const r = getEffectiveRole(sv, id); if (!r) return '';
++    const at = roleFxAttrs(r), builtin = DEFAULT_ROLES.some(d => d.id === id), ci = sv.roles.findIndex(x => x.id === id), eid = esc(id);
++    const count = id === 'owner' ? 1 :
++      Object.values(sv.memberRoles || {}).filter(v => v === id).length + (id === 'member' ? ((S.members[sv.id] || []).length + 1 - Object.keys(sv.memberRoles || {}).length) : 0);
++    const mv = ci >= 0 ? `<div class="role-act-btn" onclick="moveRole('${eid}',-1)" title="Move up (higher in the list)">▲</div><div class="role-act-btn" onclick="moveRole('${eid}',1)" title="Move down">▼</div>` : '';
++    const del = !builtin ? `<div class="role-act-btn del" onclick="deleteRole('${eid}')" title="Delete">🗑</div>` : '';
+     return `<div class="role-row">
+-      <div class="role-dot" style="background:${r.color}"></div>
+-      <div class="role-row-name">${esc(r.name)}</div>
+-      <div class="role-row-count">${count} member${count!==1?'s':''}</div>
+-      ${actions}
++      <div class="role-dot" style="background:${pfHex(r.color, '#9090a8')}"></div>
++      <div class="role-row-name"><span class="${at.cls}" style="${at.style}">${r.icon ? esc(r.icon) + ' ' : ''}${esc(r.name)}</span>${r.hoist ? '<span class="role-tag">own group</span>' : ''}</div>
++      <div class="role-row-count">${count} member${count !== 1 ? 's' : ''}</div>
++      <div class="role-row-acts">${mv}<div class="role-act-btn" onclick="editRole('${eid}')" title="Edit">✏️</div>${del}</div>
+     </div>`;
+   }).join('');
+   document.getElementById('role-editor').style.display = 'none';
+   editingRoleId = null;
+ }
+ 
+-function openCreateRole() {
+-  editingRoleId = '__new__';
+-  editingRoleColor = COLORS[0];
+-  document.getElementById('role-name-in').value = '';
+-  buildRoleColorGrid();
+-  buildPermList(null);
++function moveRole(id, dir) {
++  const sv = S.curSv; if (!sv || !sv.roles) return;
++  const i = sv.roles.findIndex(r => r.id === id), j = i + dir; if (i < 0 || j < 0 || j >= sv.roles.length) return;
++  [sv.roles[i], sv.roles[j]] = [sv.roles[j], sv.roles[i]];
++  wsSend({ type: 'roles_update', serverId: sv.id, roles: sv.roles });
++  try { persist(); buildRolesPane(); renderMbs(); } catch (e) { console.error(e); }
++}
++
++function reLoad(r, isOwner) {
++  RE.color = pfHex(r.color, '#9090a8'); RE.color2 = pfHex(r.color2, RE.color); RE.fx = ROLE_FX.some(f => f.id === r.fx) ? r.fx : 'none';
++  RE.icon = r.icon || ''; RE.hoist = r.hoist === true; RE.owner = !!isOwner;
++  editingRoleColor = RE.color;
++  document.getElementById('role-name-in').value = r.name || '';
++  document.getElementById('re-icon').value = RE.icon;
++  document.getElementById('re-hoist').classList.toggle('on', RE.hoist);
++  document.getElementById('re-perms').style.display = isOwner ? 'none' : '';
++  document.getElementById('re-presets').innerHTML = ROLE_PRESETS.map((p, i) => `<button type="button" class="re-chip" onclick="rePreset(${i})">${p.icon ? p.icon + ' ' : ''}${p.n}</button>`).join('');
++  buildRoleColorGrid(RE.color); buildPermList(isOwner ? null : r.perms); reUpdate();
+   document.getElementById('role-editor').style.display = 'block';
+ }
+-
++function openCreateRole() { editingRoleId = '__new__'; reLoad({ name: '', color: COLORS[0], color2: COLORS[0], fx: 'none', icon: '', hoist: false, perms: [] }, false); }
+ function editRole(id) {
+   const sv = S.curSv; if (!sv) return;
+-  // Check custom roles first, then fall back to DEFAULT_ROLES
+-  let role = sv.roles?.find(r=>r.id===id) || DEFAULT_ROLES.find(r=>r.id===id);
+-  if (!role || id==='owner') return;
+-  editingRoleId = id;
+-  editingRoleColor = role.color;
+-  document.getElementById('role-name-in').value = role.name;
+-  buildRoleColorGrid(role.color);
+-  buildPermList(role.perms);
+-  document.getElementById('role-editor').style.display = 'block';
++  const role = getEffectiveRole(sv, id); if (!role) return;
++  editingRoleId = id; reLoad(role, id === 'owner');
++}
++function cancelRoleEdit() { document.getElementById('role-editor').style.display = 'none'; editingRoleId = null; }
++
++function reUpdate() { // read the text inputs, redraw the live preview + effect chips
++  RE.icon = (document.getElementById('re-icon').value || '').trim().slice(0, 4);
++  RE.hoist = document.getElementById('re-hoist').classList.contains('on');
++  document.getElementById('re-fx').innerHTML = ROLE_FX.map(f => `<button type="button" class="re-chip${RE.fx === f.id ? ' on' : ''}" onclick="reFx('${f.id}')">${f.n}</button>`).join('');
++  document.getElementById('re-c1').value = RE.color; document.getElementById('re-c2').value = RE.color2;
++  document.getElementById('re-c2-wrap').style.display = (RE.fx === 'gradient' || RE.fx === 'shimmer') ? '' : 'none';
++  const nm = (document.getElementById('role-name-in').value.trim() || 'Role name'), at = roleFxAttrs(RE), c = RE.color;
++  document.getElementById('re-preview').innerHTML = `<span class="role-badge" style="background:${c}22;color:${c};border:1px solid ${c}44">${RE.icon ? esc(RE.icon) : '●'} ${esc(nm)}</span>
++    <span class="m-auth ${at.cls}" style="${at.style}">${esc(S.user?.name || 'You')}</span><span class="re-sample">Hey, this is how the name looks in chat</span>`;
++}
++function reColor(which, v) { v = pfHex(v, RE.color); if (which === 1) { RE.color = v; editingRoleColor = v; document.querySelectorAll('#role-color-grid .av-opt').forEach(x => x.classList.toggle('sel', x.dataset.c === v)); } else RE.color2 = v; reUpdate(); }
++function reFx(id) { RE.fx = id; reUpdate(); }
++function rePreset(i) {
++  const p = ROLE_PRESETS[i]; if (!p) return;
++  RE.color = p.color; RE.color2 = p.color2; RE.fx = p.fx; RE.icon = p.icon; RE.hoist = p.hoist; editingRoleColor = p.color;
++  document.getElementById('re-icon').value = p.icon; document.getElementById('re-hoist').classList.toggle('on', p.hoist);
++  const nin = document.getElementById('role-name-in'); if (!nin.value.trim() && editingRoleId === '__new__') nin.value = p.n;
++  buildRoleColorGrid(p.color); reUpdate();
+ }
+ 
+-function cancelRoleEdit() { document.getElementById('role-editor').style.display='none'; editingRoleId=null; }
+-
+ function buildRoleColorGrid(selected) {
+   const g = document.getElementById('role-color-grid'); g.innerHTML = '';
+   COLORS.forEach(c => {
+-    const d=document.createElement('div'); d.className='av-opt'+(c===(selected||editingRoleColor)?' sel':'');
+-    d.style.background=c; d.dataset.c=c; d.textContent='●';
+-    d.onclick=()=>{ document.querySelectorAll('#role-color-grid .av-opt').forEach(x=>x.classList.remove('sel')); d.classList.add('sel'); editingRoleColor=c; };
++    const d = document.createElement('div'); d.className = 'av-opt' + (c === (selected || editingRoleColor) ? ' sel' : '');
++    d.style.background = c; d.dataset.c = c; d.textContent = '●';
++    d.onclick = () => { document.querySelectorAll('#role-color-grid .av-opt').forEach(x => x.classList.remove('sel')); d.classList.add('sel'); RE.color = c; editingRoleColor = c; if (RE.color2 === RE.color || RE.fx === 'none') RE.color2 = c; reUpdate(); };
+     g.appendChild(d);
+   });
+ }
+@@ -362,46 +389,39 @@ function buildPermList(activePerms) {
+     const on = activePerms ? activePerms.includes(p.id) : false;
+     pl.innerHTML += `<div class="perm-row">
+       <div><div class="perm-label">${p.label}</div><div class="perm-sub">${p.sub}</div></div>
+-      <div class="toggle-switch${on?' on':''}" data-perm="${p.id}" onclick="togglePerm(this)"></div>
++      <div class="toggle-switch${on ? ' on' : ''}" data-perm="${p.id}" onclick="togglePerm(this)"></div>
+     </div>`;
+   });
+ }
+-
+ function togglePerm(el) { el.classList.toggle('on'); }
+ 
+ function saveRole() {
+   const sv = S.curSv; if (!sv) return;
+   const name = document.getElementById('role-name-in').value.trim();
+   if (!name) { toast('Role needs a name'); return; }
+-  const selPerms = [...document.querySelectorAll('#perm-list .toggle-switch.on')].map(el=>el.dataset.perm);
+-  const isBuiltin = DEFAULT_ROLES.some(r => r.id === editingRoleId);
++  reUpdate();
++  const perms = RE.owner ? ['*'] : [...document.querySelectorAll('#perm-list .toggle-switch.on')].map(el => el.dataset.perm);
++  const look = { name, color: RE.color, color2: RE.color2, fx: RE.fx, icon: RE.icon, hoist: RE.hoist, perms };
+   if (!sv.roles) sv.roles = [];
+-  if (isBuiltin) {
+-    // Override the built-in role's properties on this server
++  if (DEFAULT_ROLES.some(r => r.id === editingRoleId)) { // built-in: only this server's overrides change
+     if (!sv.roleOverrides) sv.roleOverrides = {};
+-    sv.roleOverrides[editingRoleId] = { name, color: editingRoleColor, perms: selPerms };
+-    // Also update the in-memory DEFAULT_ROLES for this session? No, do it per-server lookup
+-    toast('✅ Role "'+name+'" updated');
+-    persist(); buildRolesPane();
+-    wsSend({ type:'roles_update', serverId:sv.id, overrides: sv.roleOverrides });
+-    return;
+-  }
+-  if (editingRoleId === '__new__') {
+-    sv.roles.push({ id: uid(), name, color: editingRoleColor, perms: selPerms });
++    sv.roleOverrides[editingRoleId] = look;
++    wsSend({ type: 'roles_update', serverId: sv.id, overrides: sv.roleOverrides });
+   } else {
+-    const r = sv.roles.find(x=>x.id===editingRoleId);
+-    if (r) { r.name=name; r.color=editingRoleColor; r.perms=selPerms; }
++    if (editingRoleId === '__new__') sv.roles.push({ id: uid(), ...look });
++    else { const i = sv.roles.findIndex(x => x.id === editingRoleId); if (i >= 0) sv.roles[i] = { id: editingRoleId, ...look }; }
++    wsSend({ type: 'roles_update', serverId: sv.id, roles: sv.roles });
+   }
+-  persist(); buildRolesPane(); renderMbs(); toast('✅ Role saved');
+-  wsSend({type:'roles_update', serverId:sv.id, roles:sv.roles});
++  try { persist(); buildRolesPane(); renderMbs(); if (S.curCh) renderMsgs(S.curCh.id); } catch (e) { console.error(e); }
++  toast('✅ Role "' + name + '" saved');
+ }
+ 
+ function deleteRole(id) {
+   const sv = S.curSv; if (!sv) return;
+   if (!confirm('Delete this role?')) return;
+-  sv.roles = (sv.roles||[]).filter(r=>r.id!==id);
+-  // demote members who had this role
+-  Object.keys(sv.memberRoles||{}).forEach(m=>{ if(sv.memberRoles[m]===id) delete sv.memberRoles[m]; });
++  sv.roles = (sv.roles || []).filter(r => r.id !== id);
++  Object.keys(sv.memberRoles || {}).forEach(m => { if (sv.memberRoles[m] === id) delete sv.memberRoles[m]; });
++  wsSend({ type: 'roles_update', serverId: sv.id, roles: sv.roles });
+   persist(); buildRolesPane(); renderMbs();
+ }
+ 
+diff --git a/client/js/auth.js b/client/js/auth.js
+index 6241d52..743c86c 100644
+--- a/client/js/auth.js
++++ b/client/js/auth.js
+@@ -150,20 +150,7 @@ let _pfpCropTarget = 'profile'; // 'profile' | 'signup' | 'admin_target'
  let _adminPfpTarget = null; // username when admin is setting someone else's pfp
  
  function onSuPfp(e) {
@@ -346,10 +606,11 @@ diff -ruN deploy-now/client/js/auth.js wip/client/js/auth.js
  }
  
  async function onSvIcon(e) {
-diff -ruN deploy-now/client/js/dms.js wip/client/js/dms.js
---- client/js/dms.js	2026-11-22 05:05:04.000000000 +0000
-+++ client/js/dms.js	2026-11-25 01:24:56.226822320 +0000
-@@ -614,17 +614,8 @@
+diff --git a/client/js/dms.js b/client/js/dms.js
+index 16fbb65..42d5a75 100644
+--- a/client/js/dms.js
++++ b/client/js/dms.js
+@@ -614,17 +614,8 @@ function dmPickGroupPfp() {
  async function dmGroupPfpChosen(e) {
    const f = e.target.files && e.target.files[0], d = dmEntry(curDM); if (!f || !d || d.kind !== 'group') return;
    if (!/^image\//.test(f.type)) { toast('That is not an image', 'err'); return; }
@@ -369,13 +630,89 @@ diff -ruN deploy-now/client/js/dms.js wip/client/js/dms.js
  }
  function dmClearGroupPfp() { const d = dmEntry(curDM); if (d && d.kind === 'group') wsSend({ type: 'group_set_pfp', gid: d.key.slice(2), pfp: null }); }
  function dmRenameGroup() {
-diff -ruN deploy-now/client/js/profile-edit.js wip/client/js/profile-edit.js
---- client/js/profile-edit.js	2026-11-21 21:17:30.000000000 +0000
-+++ client/js/profile-edit.js	2026-11-25 01:24:56.226910217 +0000
-@@ -1,167 +1,308 @@
+diff --git a/client/js/members.js b/client/js/members.js
+index 8f12c83..7184d59 100644
+--- a/client/js/members.js
++++ b/client/js/members.js
+@@ -63,9 +63,10 @@ function renderMbs() {
+       const canCtx=(myRole==='owner'||myRole==='mod')&&_nk(m.name)!==meKey;
+       const statusBg=isOffline?'var(--t3)':(m.status==='idle'?'var(--yellow)':m.status==='dnd'?'var(--red)':m.status==='invisible'?'var(--t3)':'var(--green)');
+       const offlineStyle=isOffline?'opacity:0.5;':'';
++      const rn=roleNameAttrs(sv,m.name);
+       html+=`<div class="mb-it" style="${offlineStyle}" onclick="openProfilePage('${esc(m.name)}')" oncontextmenu="${canCtx?`openMemberCtx('${esc(m.name)}',event)`:''}" onmouseenter="showUserHover('${esc(m.name)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" title="Click for profile${canCtx?' · Right-click for options':''}">
+-        <div class="mb-av" style="background:${avBg}">${avContent}<div class="mb-st" style="background:${statusBg}"></div></div>
+-        <div style="flex:1;min-width:0"><div class="mb-nm">${esc(m.name)}</div></div>
++        <div class="mb-av" data-name="${esc(m.name)}" style="background:${avBg}">${avContent}<div class="mb-st" style="background:${statusBg}"></div></div>
++        <div style="flex:1;min-width:0"><div class="mb-nm ${rn.cls}" data-name="${esc(m.name)}" style="${rn.style}">${esc(m.name)}</div></div>
+         <div class="mb-role">${badge}</div>
+       </div>`;
+     });
+@@ -74,11 +75,15 @@ function renderMbs() {
+   // Only an explicit online:true counts as online (a missing flag used to mean "online")
+   const online=all.filter(m=>m.online===true);
+   const offline=all.filter(m=>m.online!==true);
+-  const byRole=(arr)=>{
+-    const r=m=>getMemberRole(sv,m.name);
+-    return arr.filter(m=>r(m)==='owner').concat(arr.filter(m=>r(m)==='mod'),arr.filter(m=>r(m)!=='owner'&&r(m)!=='mod'));
+-  };
+-  if(online.length) renderGroup('Online',byRole(online));
++  // highest role first: owner, mod, then custom roles in the order the owner arranged them, then plain members
++  const rank=m=>{ const r=getMemberRole(sv,m.name); if(r==='owner')return 0; if(r==='mod')return 1; const i=(sv.roles||[]).findIndex(x=>x.id===r); return i>=0?2+i:1000; };
++  const byRole=(arr)=>arr.slice().sort((a,b)=>rank(a)-rank(b));
++  // roles set to "show members separately" get their own group above Online
++  const order=['owner','mod',...(sv.roles||[]).map(r=>r.id)].map(id=>getEffectiveRole(sv,id)).filter(r=>r&&r.hoist===true);
++  const hoisted=new Set(order.map(r=>r.id));
++  order.forEach(r=>{ const g=online.filter(m=>getMemberRole(sv,m.name)===r.id); if(g.length) renderGroup(esc(r.icon?r.icon+' '+r.name:r.name),g); });
++  const plainOnline=online.filter(m=>!hoisted.has(getMemberRole(sv,m.name)));
++  if(plainOnline.length) renderGroup('Online',byRole(plainOnline));
+   if(offline.length) renderGroup('Offline',byRole(offline),true);
+   el.innerHTML=html;
+ }
+diff --git a/client/js/messages.js b/client/js/messages.js
+index 4eb9e48..ba1b54d 100644
+--- a/client/js/messages.js
++++ b/client/js/messages.js
+@@ -65,20 +65,21 @@ function buildMsg(m,grp) {
+   });
+   let reacts='';
+   if((m.reactions||[]).length){ reacts='<div class="m-reacts">'+m.reactions.map(r=>`<div class="react${r.users?.includes(S.user?.name)?' me':''}" onclick="toggleReact('${m.id}','${r.emoji}')">${r.emoji}<span>${r.count}</span></div>`).join('')+'</div>'; }
++  const rn = (!curDM && S.curSv) ? roleNameAttrs(S.curSv, m.author) : { cls: '', style: '' };
+   const lead = grp
+     ? `<div class="m-gutter"><span class="m-gtime">${fmtClock(m.ts)}</span></div>`
+     : `<div class="m-av" data-author="${esc(m.author)}" style="background:${livePfp?'transparent':ac}" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${avInner}</div>`;
+   return `<div class="msg${grp?' grouped':''}" data-id="${m.id}">
+     ${lead}
+     <div class="m-body">
+-      ${!grp?`<div class="m-head"><span class="m-auth" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${esc(m.author)}</span><span class="m-time">${fmtStamp(m.ts)}</span></div>`:''}
++      ${!grp?`<div class="m-head"><span class="m-auth ${rn.cls}" data-author="${esc(m.author)}" style="${rn.style}" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${esc(m.author)}</span><span class="m-time">${fmtStamp(m.ts)}</span></div>`:''}
+       ${m.voiceMsg ? buildVoiceMsg(m) : `<div class="m-txt">${fmtTxt(m.text)}${m.edited?'<span class="m-edited">(edited)</span>':''}</div>`}${atts?`<div class="m-atts">${atts}</div>`:''}${reacts}
+     </div>
+     <div class="m-acts">
+       <div class="ma" title="Add Reaction" onclick="openReactPicker('${m.id}',event)">${MI.react}</div>
+       <div class="ma" title="Reply" onclick="replyTo('${esc(m.author)}')">${MI.reply}</div>
+       ${!curDM?`<div class="ma" title="Pin Message" onclick="pinMsg('${m.id}')">${MI.pin}</div>`:''}
+-      ${(isMe||isPlatformPower())?`<div class="ma" title="Edit" onclick="startEditMsg('${m.id}')">${MI.edit}</div>`:''}
++      ${(isMe||(!curDM&&isPlatformPower()))?`<div class="ma" title="Edit" onclick="startEditMsg('${m.id}')">${MI.edit}</div>`:''}
+       ${(isMe||isPlatformPower())?`<div class="ma danger" title="Delete" onclick="delMsg('${m.id}')">${MI.del}</div>`:''}
+     </div>
+   </div>`;
+@@ -173,6 +174,7 @@ function commitEdit(text) {
+     // DM / group edit path: tell the server first, then update the screen
+     const key = curDM, msgs = S.dmMessages[key]; if (!msgs) return;
+     const m = msgs.find(x => x.id === editingMsgId); if (!m) return;
++    if ((m.author || m.from) && (m.author || m.from) !== S.user?.name) { toast('You can only edit your own messages here'); editingMsgId = null; const i0 = document.getElementById('edit-indicator'); if (i0) i0.remove(); return; } // admins can't edit other people's DMs, so never mark them (edited)
+     const eid = editingMsgId;
+     wsSend(dmActionMsg('dm_edit', { messageId: eid, text }));
+     try {
+diff --git a/client/js/profile-edit.js b/client/js/profile-edit.js
+index 58f827c..0f8e8a7 100644
+--- a/client/js/profile-edit.js
++++ b/client/js/profile-edit.js
+@@ -1,167 +1,309 @@
 -// ── PROFILE EDIT ──
 -function buildProfileModal() {
 -  // no-op — profile modal is opened on demand via openProfileEdit()
+-}
 +// ══════════════════════════════════════════════════════════════════
 +// PICTURE CROPPER + PROFILE EDITOR
 +// The cropper is one canvas engine used for profile pictures, banners and group pictures: the preview and the saved
@@ -385,32 +722,6 @@ diff -ruN deploy-now/client/js/profile-edit.js wip/client/js/profile-edit.js
 +const CR_MIN = 0.25, CR_MAX = 6;
 +const CR = { img: null, w: 0, h: 0, rot: 0, flip: false, zoom: 1, ox: 0, oy: 0, bg: 'blur', bgColor: '#1e1f22', cfg: null, cw: 300, ch: 300, ptrs: new Map(), pinch: 0, raf: 0, bound: false };
 +const peEl = id => document.getElementById(id);
-+
-+// ---- pure geometry (unit-tested) ----
-+function crDims(st) { const q = ((st.rot % 360) + 360) % 180 !== 0; return { sw: q ? st.h : st.w, sh: q ? st.w : st.h }; }
-+function crCover(st, W, H) { const d = crDims(st); return Math.max(W / d.sw, H / d.sh); }
-+function crContainZoom(st, W, H) { const d = crDims(st), a = W / d.sw, b = H / d.sh; return Math.min(a, b) / Math.max(a, b); }
-+function crClamp(st, W, H) {
-+  const d = crDims(st), s = crCover(st, W, H) * st.zoom, dw = d.sw * s, dh = d.sh * s;
-+  const lx = dw >= W ? (dw - W) / 2 : W / 2, ly = dh >= H ? (dh - H) / 2 : H / 2; // zoomed in: never expose an edge; zoomed out: stay in the frame
-+  st.ox = Math.max(-lx / W, Math.min(lx / W, st.ox)); st.oy = Math.max(-ly / H, Math.min(ly / H, st.oy));
-+}
-+function crDrawOriented(c, img, st, scale, cx, cy) {
-+  c.save(); c.translate(cx, cy); c.rotate(st.rot * Math.PI / 180); if (st.flip) c.scale(-1, 1);
-+  c.drawImage(img, -st.w * scale / 2, -st.h * scale / 2, st.w * scale, st.h * scale); c.restore();
- }
-+function crDraw(ctx, img, st, W, H) {
-+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-+  ctx.clearRect(0, 0, W, H);
-+  if (st.bg === 'color') { ctx.fillStyle = st.bgColor; ctx.fillRect(0, 0, W, H); }
-+  else if (st.bg === 'blur') { // cheap blur that works everywhere (no ctx.filter): draw tiny, scale up smoothly
-+    const tw = 24, th = Math.max(6, Math.round(24 * H / W)), t = document.createElement('canvas'); t.width = tw; t.height = th;
-+    const tc = t.getContext('2d');
-+    if (tc) { crDrawOriented(tc, img, st, crCover(st, tw, th), tw / 2, th / 2); ctx.drawImage(t, 0, 0, W, H); ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(0, 0, W, H); }
-+  }
-+  crDrawOriented(ctx, img, st, crCover(st, W, H) * st.zoom, W / 2 + st.ox * W, H / 2 + st.oy * H);
-+}
-+function crFr() { return { W: CR.cfg ? CR.cfg.aspect : 1, H: 1 }; }
  
 -function openProfileEdit() {
 -  const av = document.getElementById('profile-modal-av');
@@ -437,13 +748,40 @@ diff -ruN deploy-now/client/js/profile-edit.js wip/client/js/profile-edit.js
 -    grid.appendChild(d);
 -  });
 -  openM('profile-edit-modal');
++// ---- pure geometry (unit-tested) ----
++function crDims(st) { const q = ((st.rot % 360) + 360) % 180 !== 0; return { sw: q ? st.h : st.w, sh: q ? st.w : st.h }; }
++function crCover(st, W, H) { const d = crDims(st); return Math.max(W / d.sw, H / d.sh); }
++function crContainZoom(st, W, H) { const d = crDims(st), a = W / d.sw, b = H / d.sh; return Math.min(a, b) / Math.max(a, b); }
++function crClamp(st, W, H) {
++  const d = crDims(st), s = crCover(st, W, H) * st.zoom, dw = d.sw * s, dh = d.sh * s;
++  const lx = dw >= W ? (dw - W) / 2 : W / 2, ly = dh >= H ? (dh - H) / 2 : H / 2; // zoomed in: never expose an edge; zoomed out: stay in the frame
++  st.ox = Math.max(-lx / W, Math.min(lx / W, st.ox)); st.oy = Math.max(-ly / H, Math.min(ly / H, st.oy));
++}
++function crDrawOriented(c, img, st, scale, cx, cy) {
++  c.save(); c.translate(cx, cy); c.rotate(st.rot * Math.PI / 180); if (st.flip) c.scale(-1, 1);
++  c.drawImage(img, -st.w * scale / 2, -st.h * scale / 2, st.w * scale, st.h * scale); c.restore();
+ }
++function crDraw(ctx, img, st, W, H) {
++  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
++  ctx.clearRect(0, 0, W, H);
++  if (st.bg === 'color') { ctx.fillStyle = st.bgColor; ctx.fillRect(0, 0, W, H); }
++  else if (st.bg === 'blur') { // cheap blur that works everywhere (no ctx.filter): draw tiny, scale up smoothly
++    const tw = 24, th = Math.max(6, Math.round(24 * H / W)), t = document.createElement('canvas'); t.width = tw; t.height = th;
++    const tc = t.getContext('2d');
++    if (tc) { crDrawOriented(tc, img, st, crCover(st, tw, th), tw / 2, th / 2); ctx.drawImage(t, 0, 0, W, H); ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(0, 0, W, H); }
++  }
++  crDrawOriented(ctx, img, st, crCover(st, W, H) * st.zoom, W / 2 + st.ox * W, H / 2 + st.oy * H);
++}
++function crFr() { return { W: CR.cfg ? CR.cfg.aspect : 1, H: 1 }; }
+ 
+-let pfpCropState = { x:0, y:0, zoom:1, src:null, dragging:false, startX:0, startY:0, startImgX:0, startImgY:0 };
 +// ---- state changes ----
 +function crSchedule() { if (!CR.raf) CR.raf = requestAnimationFrame(crRender); }
 +function crPanBy(dx, dy) { const f = crFr(); CR.ox += dx; CR.oy += dy; crClamp(CR, f.W, f.H); crSchedule(); }
 +function crSetZoom(z, ax, ay) { // anchor (ax,ay) = a point in frame fractions from the centre that stays put (cursor / pinch centre)
 +  ax = ax || 0; ay = ay || 0; const f = crFr(), nz = Math.max(CR_MIN, Math.min(CR_MAX, z)), r = nz / CR.zoom;
 +  CR.ox = ax - (ax - CR.ox) * r; CR.oy = ay - (ay - CR.oy) * r; CR.zoom = nz; crClamp(CR, f.W, f.H); crSchedule();
- }
++}
 +function crSliderIn(v) { crSetZoom(CR_MIN * Math.pow(CR_MAX / CR_MIN, Number(v) / 1000)); }
 +function crNudgeZoom(dir) { crSetZoom(CR.zoom * (dir > 0 ? 1.15 : 1 / 1.15)); }
 +function crRotate(d) { CR.rot = (CR.rot + d + 360) % 360; const f = crFr(); crClamp(CR, f.W, f.H); crSchedule(); }
@@ -454,7 +792,21 @@ diff -ruN deploy-now/client/js/profile-edit.js wip/client/js/profile-edit.js
 +function crSetBg(b) { CR.bg = b; crSchedule(); }
 +function crSetBgColor(v) { CR.bgColor = v; CR.bg = 'color'; crSchedule(); }
  
--let pfpCropState = { x:0, y:0, zoom:1, src:null, dragging:false, startX:0, startY:0, startImgX:0, startImgY:0 };
+-function onPfpChange(e) {
+-  const f = e.target.files[0]; if (!f) return;
+-  e.target.value = '';
+-  const reader = new FileReader();
+-  reader.onload = ev => {
+-    _pfpCropTarget = 'profile';
+-    pfpCropState = { x:0, y:0, zoom:1, src:ev.target.result, dragging:false };
+-    const img = document.getElementById('pfp-crop-img');
+-    img.src = ev.target.result;
+-    document.getElementById('pfp-crop-zoom').value = 1;
+-    img.onload = () => { pfpCropApply(); };
+-    openM('pfp-crop-modal');
+-    setTimeout(initCropEvents, 50);
+-  };
+-  reader.readAsDataURL(f);
 +function crRender() {
 +  CR.raf = 0; const cv = peEl('cr-canvas'); if (!cv || !CR.img) return;
 +  const c = cv.getContext && cv.getContext('2d'); if (!c) return;
@@ -492,25 +844,8 @@ diff -ruN deploy-now/client/js/profile-edit.js wip/client/js/profile-edit.js
 +    else if (k === '0') crReset(); else if (k === 'r' || k === 'R') crRotate(90);
 +  });
 +  window.addEventListener('resize', () => { if (peEl('pfp-crop-modal').classList.contains('open')) crLayout(); });
-+}
+ }
  
--function onPfpChange(e) {
--  const f = e.target.files[0]; if (!f) return;
--  e.target.value = '';
--  const reader = new FileReader();
--  reader.onload = ev => {
--    _pfpCropTarget = 'profile';
--    pfpCropState = { x:0, y:0, zoom:1, src:ev.target.result, dragging:false };
--    const img = document.getElementById('pfp-crop-img');
--    img.src = ev.target.result;
--    document.getElementById('pfp-crop-zoom').value = 1;
--    img.onload = () => { pfpCropApply(); };
--    openM('pfp-crop-modal');
--    setTimeout(initCropEvents, 50);
--  };
--  reader.readAsDataURL(f);
--}
--
 -function pfpCropApply() {
 -  const wrap = document.getElementById('pfp-crop-wrap');
 -  const img = document.getElementById('pfp-crop-img');
@@ -523,24 +858,6 @@ diff -ruN deploy-now/client/js/profile-edit.js wip/client/js/profile-edit.js
 -  img.style.width = iw + 'px'; img.style.height = ih + 'px';
 -  img.style.left = pfpCropState.x + 'px'; img.style.top = pfpCropState.y + 'px';
 -  img.style.transform = '';
--}
--
--function pfpCropZoom(val) {
--  pfpCropState.zoom = parseFloat(val);
--  pfpCropApply();
--}
--
--// Drag to reposition — initialized once when first needed
--let _cropEventsInit = false;
--function initCropEvents() {
--  if (_cropEventsInit) return;
--  _cropEventsInit = true;
--  let drag = false, sx = 0, sy = 0, ox = 0, oy = 0;
--  function start(ex, ey) { drag = true; sx = ex; sy = ey; ox = pfpCropState.x; oy = pfpCropState.y; }
--  function move(ex, ey) {
--    if (!drag) return;
--    pfpCropState.x = ox + (ex - sx); pfpCropState.y = oy + (ey - sy);
--    pfpCropApply();
 +// ---- open / apply ----
 +function openCropper(source, cfg) {
 +  cfg = Object.assign({ kind: 'pfp', aspect: 1, outW: 256, outH: 256, maxChars: 44000, stageW: 300, shape: 'circle', title: 'Profile picture', alpha: true, onApply: null, target: 'profile' }, cfg || {});
@@ -571,7 +888,58 @@ diff -ruN deploy-now/client/js/profile-edit.js wip/client/js/profile-edit.js
 +      const d = c.toDataURL(m, q); if (d.indexOf('data:' + m) !== 0) break; // this browser cannot encode that format
 +      if (d.length <= cfg.maxChars) return d;
 +    }
-   }
++  }
++  throw new Error('too_large');
++}
++async function commitPfpCrop() { // name kept: the Apply button, and old tests, call this
++  const btn = peEl('cr-apply'); if (btn.disabled) return; btn.disabled = true;
++  try {
++    const data = await crEncode(), cfg = CR.cfg;
++    if (typeof cfg.onApply === 'function') cfg.onApply(data);
++    else if (cfg.target === 'signup') { suPfpData = data; const pv = peEl('su-pfp-preview'); if (pv) pv.innerHTML = `<img src="${data}" alt="pfp">`; }
++    else if (cfg.target === 'admin_target' && _adminPfpTarget) {
++      wsSend({ type: 'admin_set_pfp', target: _adminPfpTarget, pfp: data });
++      const r = peEl('admin-users-result'); if (r) r.textContent = `✅ PFP updated for ${_adminPfpTarget}`; _adminPfpTarget = null;
++    }
++    else peSetPfp(data);
++    closeM('pfp-crop-modal');
++  } catch (err) { toast(err.message === 'too_large' ? '⚠️ Still too large. Try zooming out, or turn off Transparent.' : '⚠️ Could not process the image'); }
++  finally { btn.disabled = false; }
+ }
++function pfpOpenFile(file, target) { window._pfpCropTarget = target; openCropper(file, { target, kind: 'pfp', title: 'Profile picture' }); }
++function peOpenAvatarCropper(src) { openCropper(src, { target: 'profile', kind: 'pfp', title: 'Profile picture' }); }
++function peOpenBannerCropper(src) { openCropper(src, { target: 'banner', kind: 'banner', aspect: 3, outW: 480, outH: 160, maxChars: 46000, stageW: 440, shape: 'rect', alpha: false, title: 'Banner image', onApply: peSetBanner }); }
++function onPfpChange(e) { const f = e.target.files[0]; e.target.value = ''; if (f) peOpenAvatarCropper(f); }
++function onBannerChange(e) { const f = e.target.files[0]; e.target.value = ''; if (f) peOpenBannerCropper(f); }
+ 
+-function pfpCropZoom(val) {
+-  pfpCropState.zoom = parseFloat(val);
+-  pfpCropApply();
++// ══════════════════════════════════════════════════════════════════
++// PROFILE EDITOR
++// ══════════════════════════════════════════════════════════════════
++const PE = { d: null, o: null, tab: 'look', bound: false };
++let peMyBanner = null; // my own banner image (kept out of S.user so it never lands in the saved session)
++function peApplyOwnExt(msg) { // server → me, right after login
++  if (!S.user) return; S.user.ext = pfNormExt(msg.ext); peMyBanner = pfSafeImg(msg.banner) || null;
++  try { lsSet('nx-session', { token: S.token, user: S.user }); } catch (_) {}
+ }
++function buildProfileModal() {} // markup now lives in index.html; kept so old callers still work
++function peClone(x) { return JSON.parse(JSON.stringify(x)); }
++function peHandle(v) { v = (v || '').trim(); const m = v.match(/^https?:\/\/[^/]+\/(?:@|profile\/|user\/)?([^/?#]+)/i); return (m ? m[1] : v).replace(/^@/, ''); }
+ 
+-// Drag to reposition — initialized once when first needed
+-let _cropEventsInit = false;
+-function initCropEvents() {
+-  if (_cropEventsInit) return;
+-  _cropEventsInit = true;
+-  let drag = false, sx = 0, sy = 0, ox = 0, oy = 0;
+-  function start(ex, ey) { drag = true; sx = ex; sy = ey; ox = pfpCropState.x; oy = pfpCropState.y; }
+-  function move(ex, ey) {
+-    if (!drag) return;
+-    pfpCropState.x = ox + (ex - sx); pfpCropState.y = oy + (ey - sy);
+-    pfpCropApply();
+-  }
 -  function end() { drag = false; }
 -  const w = document.getElementById('pfp-crop-wrap');
 -  w.addEventListener('mousedown', e => { e.preventDefault(); start(e.clientX, e.clientY); });
@@ -586,8 +954,21 @@ diff -ruN deploy-now/client/js/profile-edit.js wip/client/js/profile-edit.js
 -    const newVal = Math.min(4, Math.max(1, pfpCropState.zoom - e.deltaY * 0.002));
 -    pfpCropState.zoom = newVal; slider.value = newVal; pfpCropApply();
 -  }, {passive:false});
--}
--
++function peBuildOnce() {
++  if (PE.bound) return; PE.bound = true;
++  peEl('pe-links').innerHTML = PF_SOCIALS.map(s => `<div class="pe-inp-row"><span title="${s.label}">${s.icon}</span><input class="m-inp" id="profile-${s.k}-in" placeholder="${s.label}: ${s.ph}" maxlength="100" oninput="peIn()"></div>`).join('');
++  peEl('pe-tints').innerHTML = '<div class="pe-sw none" onclick="peTint(null)" title="No tint">✕</div>' + PF_TINTS.map(c => `<div class="pe-sw" style="background:${c}" data-c="${c}" onclick="peTint('${c}')"></div>`).join('') + '<input type="color" class="pe-color" id="pe-tint-custom" oninput="peTint(this.value)" title="Any colour">';
++  document.addEventListener('paste', e => {
++    const crop = peEl('pfp-crop-modal').classList.contains('open'), ed = peEl('profile-edit-modal').classList.contains('open'); if (!crop && !ed) return;
++    const f = [...((e.clipboardData && e.clipboardData.files) || [])].find(x => /^image\//.test(x.type)); if (!f) return; e.preventDefault();
++    if (crop) openCropper(f, CR.cfg); else peOpenAvatarCropper(f);
++  });
++  const m = peEl('profile-edit-modal'), clr = () => m.querySelectorAll('.pe-drop').forEach(x => x.classList.remove('pe-drop')), has = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
++  ['dragenter', 'dragover'].forEach(t => m.addEventListener(t, e => { if (!has(e)) return; e.preventDefault(); clr(); const z = e.target.closest('[data-drop]'); (z || m.firstElementChild).classList.add('pe-drop'); }));
++  m.addEventListener('dragleave', e => { if (e.target === m) clr(); });
++  m.addEventListener('drop', e => { clr(); const f = [...((e.dataTransfer && e.dataTransfer.files) || [])].find(x => /^image\//.test(x.type)); if (!f) return; e.preventDefault(); const z = e.target.closest('[data-drop]'); if (z && z.dataset.drop === 'banner') peOpenBannerCropper(f); else peOpenAvatarCropper(f); });
+ }
+ 
 -async function commitPfpCrop() {
 -  const canvas = document.createElement('canvas');
 -  const size = 256; canvas.width = size; canvas.height = size;
@@ -607,77 +988,12 @@ diff -ruN deploy-now/client/js/profile-edit.js wip/client/js/profile-edit.js
 -  // be ~120–180 KB from a high-detail source image. compressImage also enforces the
 -  // 150 KB hard cap with a retry at half-quality.
 -  let data;
-+  throw new Error('too_large');
-+}
-+async function commitPfpCrop() { // name kept: the Apply button, and old tests, call this
-+  const btn = peEl('cr-apply'); if (btn.disabled) return; btn.disabled = true;
-   try {
+-  try {
 -    data = await compressImage(canvas.toDataURL('image/jpeg', 1.0), IMG_LIMITS.pfp);
 -  } catch(err) {
 -    toast('⚠️ PFP image is too complex to compress within limits. Try a simpler image.');
 -    return;
 -  }
-+    const data = await crEncode(), cfg = CR.cfg;
-+    if (typeof cfg.onApply === 'function') cfg.onApply(data);
-+    else if (cfg.target === 'signup') { suPfpData = data; const pv = peEl('su-pfp-preview'); if (pv) pv.innerHTML = `<img src="${data}" alt="pfp">`; }
-+    else if (cfg.target === 'admin_target' && _adminPfpTarget) {
-+      wsSend({ type: 'admin_set_pfp', target: _adminPfpTarget, pfp: data });
-+      const r = peEl('admin-users-result'); if (r) r.textContent = `✅ PFP updated for ${_adminPfpTarget}`; _adminPfpTarget = null;
-+    }
-+    else peSetPfp(data);
-+    closeM('pfp-crop-modal');
-+  } catch (err) { toast(err.message === 'too_large' ? '⚠️ Still too large. Try zooming out, or turn off Transparent.' : '⚠️ Could not process the image'); }
-+  finally { btn.disabled = false; }
-+}
-+function pfpOpenFile(file, target) { window._pfpCropTarget = target; openCropper(file, { target, kind: 'pfp', title: 'Profile picture' }); }
-+function peOpenAvatarCropper(src) { openCropper(src, { target: 'profile', kind: 'pfp', title: 'Profile picture' }); }
-+function peOpenBannerCropper(src) { openCropper(src, { target: 'banner', kind: 'banner', aspect: 3, outW: 480, outH: 160, maxChars: 46000, stageW: 440, shape: 'rect', alpha: false, title: 'Banner image', onApply: peSetBanner }); }
-+function onPfpChange(e) { const f = e.target.files[0]; e.target.value = ''; if (f) peOpenAvatarCropper(f); }
-+function onBannerChange(e) { const f = e.target.files[0]; e.target.value = ''; if (f) peOpenBannerCropper(f); }
- 
--  if (_pfpCropTarget === 'signup') {
--    suPfpData = data;
--    const p = document.getElementById('su-pfp-preview');
--    p.innerHTML = `<img src="${suPfpData}" alt="pfp">`;
--  } else if (_pfpCropTarget === 'admin_target' && _adminPfpTarget) {
--    wsSend({ type: 'admin_set_pfp', target: _adminPfpTarget, pfp: data });
--    document.getElementById('admin-users-result').textContent = `✅ PFP updated for ${_adminPfpTarget}`;
--    _adminPfpTarget = null;
--  } else {
--    // 'profile' — set pending pfp on edit modal
--    const av = document.getElementById('profile-modal-av');
--    av.innerHTML = `<img src="${data}" alt="pfp"><div class="av-overlay">Change</div>`;
--    av._pendingPfp = data;
--  }
--  closeM('pfp-crop-modal');
-+// ══════════════════════════════════════════════════════════════════
-+// PROFILE EDITOR
-+// ══════════════════════════════════════════════════════════════════
-+const PE = { d: null, o: null, tab: 'look', bound: false };
-+let peMyBanner = null; // my own banner image (kept out of S.user so it never lands in the saved session)
-+function peApplyOwnExt(msg) { // server → me, right after login
-+  if (!S.user) return; S.user.ext = pfNormExt(msg.ext); peMyBanner = pfSafeImg(msg.banner) || null;
-+  try { lsSet('nx-session', { token: S.token, user: S.user }); } catch (_) {}
-+}
-+function buildProfileModal() {} // markup now lives in index.html; kept so old callers still work
-+function peClone(x) { return JSON.parse(JSON.stringify(x)); }
-+function peHandle(v) { v = (v || '').trim(); const m = v.match(/^https?:\/\/[^/]+\/(?:@|profile\/|user\/)?([^/?#]+)/i); return (m ? m[1] : v).replace(/^@/, ''); }
-+
-+function peBuildOnce() {
-+  if (PE.bound) return; PE.bound = true;
-+  peEl('pe-links').innerHTML = PF_SOCIALS.map(s => `<div class="pe-inp-row"><span title="${s.label}">${s.icon}</span><input class="m-inp" id="profile-${s.k}-in" placeholder="${s.label}: ${s.ph}" maxlength="100" oninput="peIn()"></div>`).join('');
-+  peEl('pe-tints').innerHTML = '<div class="pe-sw none" onclick="peTint(null)" title="No tint">✕</div>' + PF_TINTS.map(c => `<div class="pe-sw" style="background:${c}" data-c="${c}" onclick="peTint('${c}')"></div>`).join('') + '<input type="color" class="pe-color" id="pe-tint-custom" oninput="peTint(this.value)" title="Any colour">';
-+  document.addEventListener('paste', e => {
-+    const crop = peEl('pfp-crop-modal').classList.contains('open'), ed = peEl('profile-edit-modal').classList.contains('open'); if (!crop && !ed) return;
-+    const f = [...((e.clipboardData && e.clipboardData.files) || [])].find(x => /^image\//.test(x.type)); if (!f) return; e.preventDefault();
-+    if (crop) openCropper(f, CR.cfg); else peOpenAvatarCropper(f);
-+  });
-+  const m = peEl('profile-edit-modal'), clr = () => m.querySelectorAll('.pe-drop').forEach(x => x.classList.remove('pe-drop')), has = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
-+  ['dragenter', 'dragover'].forEach(t => m.addEventListener(t, e => { if (!has(e)) return; e.preventDefault(); clr(); const z = e.target.closest('[data-drop]'); (z || m.firstElementChild).classList.add('pe-drop'); }));
-+  m.addEventListener('dragleave', e => { if (e.target === m) clr(); });
-+  m.addEventListener('drop', e => { clr(); const f = [...((e.dataTransfer && e.dataTransfer.files) || [])].find(x => /^image\//.test(x.type)); if (!f) return; e.preventDefault(); const z = e.target.closest('[data-drop]'); if (z && z.dataset.drop === 'banner') peOpenBannerCropper(f); else peOpenAvatarCropper(f); });
-+}
-+
 +function openProfileEdit() {
 +  const u = S.user; peBuildOnce();
 +  PE.o = { color: u.color, pfp: u.pfp || null, banner: peMyBanner, ext: pfNormExt(u.ext), bio: u.bio || '', socials: Object.assign({}, u.socials || {}) };
@@ -736,7 +1052,7 @@ diff -ruN deploy-now/client/js/profile-edit.js wip/client/js/profile-edit.js
 +  const ic = peEl('pe-int-count'); if (ic) ic.textContent = e.interests.length + ' / 8';
 +  peEl('pe-int-tags').innerHTML = e.interests.map((t, i) => `<span class="pe-tag">${esc(t)}<button onclick="peIntDel(${i})" aria-label="Remove">✕</button></span>`).join('');
 +  peEl('pe-int-sugg').innerHTML = e.interests.length >= 8 ? '' : PF_INTERESTS.filter(t => !e.interests.some(x => x.toLowerCase() === t.toLowerCase())).map(t => `<button class="pe-chip" onclick="peIntAdd('${t}')">+ ${t}</button>`).join('');
-+  const fr = pfFrameAttrs(e, d.color), nf = pfNameAttrs(e), links = pfSocialLinks(d.socials);
++  const can = pfCanStyle(u), fr = pfFrameAttrs(e, d.color, can), nf = pfNameAttrs(e, can), links = pfSocialLinks(d.socials);
 +  peEl('pe-preview').innerHTML = `<div class="pv-card" style="${pfCardCss(e)}"><div class="pv-banner" style="${pfBannerCss(e, d.color, d.banner)}"></div>
 +    <div class="pv-av ${fr.cls}" style="${fr.style}background:${d.pfp ? 'transparent' : pfHex(d.color, '#5865f2')}">${d.pfp ? `<img src="${safeUrl(d.pfp)}" alt="">` : esc((u.name || '?')[0].toUpperCase())}</div>
 +    <div class="pv-body"><div class="pv-name ${nf.cls}" style="${nf.style}">${esc(u.name)}</div><div class="pv-tag">#${esc(u.tag || '0000')}${e.pronouns ? ' · ' + esc(e.pronouns) : ''}</div>
@@ -744,11 +1060,27 @@ diff -ruN deploy-now/client/js/profile-edit.js wip/client/js/profile-edit.js
 +    ${d.bio ? `<div class="pv-sec"><div class="pv-sec-t">About me</div><div class="pv-bio">${esc(d.bio)}</div></div>` : ''}
 +    ${e.interests.length ? `<div class="pv-sec"><div class="pv-sec-t">Interests</div><div class="pp-chips">${e.interests.map(t => `<span class="pp-chip">${esc(t)}</span>`).join('')}</div></div>` : ''}
 +    ${links.length ? `<div class="pv-sec"><div class="pv-sec-t">Links</div>${links.map(l => `<span class="pv-link">${l.icon} ${esc(l.text)}</span>`).join('')}</div>` : ''}</div></div>`;
++  ['pe-sec-frame', 'pe-sec-name'].forEach(id => { const x = peEl(id); if (x) x.style.display = can ? '' : 'none'; });
 +  const dirty = peEl('pe-dirty'); if (dirty) dirty.classList.toggle('on', peIsDirty());
 +}
 +function peIsDirty() { return !!PE.d && JSON.stringify(PE.d) !== JSON.stringify(PE.o); }
 +function peClose() { if (peIsDirty() && !confirm('Discard your changes?')) return; closeM('profile-edit-modal'); }
-+
+ 
+-  if (_pfpCropTarget === 'signup') {
+-    suPfpData = data;
+-    const p = document.getElementById('su-pfp-preview');
+-    p.innerHTML = `<img src="${suPfpData}" alt="pfp">`;
+-  } else if (_pfpCropTarget === 'admin_target' && _adminPfpTarget) {
+-    wsSend({ type: 'admin_set_pfp', target: _adminPfpTarget, pfp: data });
+-    document.getElementById('admin-users-result').textContent = `✅ PFP updated for ${_adminPfpTarget}`;
+-    _adminPfpTarget = null;
+-  } else {
+-    // 'profile' — set pending pfp on edit modal
+-    const av = document.getElementById('profile-modal-av');
+-    av.innerHTML = `<img src="${data}" alt="pfp"><div class="av-overlay">Change</div>`;
+-    av._pendingPfp = data;
+-  }
+-  closeM('pfp-crop-modal');
 +// avatar
 +function peAvatarUpload() { peEl('pfp-file-in').click(); }
 +function peAvatarEdit() { if (PE.d.pfp) peOpenAvatarCropper(PE.d.pfp); else peAvatarUpload(); }
@@ -769,7 +1101,7 @@ diff -ruN deploy-now/client/js/profile-edit.js wip/client/js/profile-edit.js
 +function peRandom() {
 +  const pick = a => a[Math.floor(Math.random() * a.length)], e = PE.d.ext, p = pick(PF_BANNERS), c = () => pick(PF_TINTS);
 +  e.banner = { kind: 'gradient', c1: p.c1, c2: p.c2, angle: Math.floor(Math.random() * 361) };
-+  e.frame = { kind: pick(PF_FRAMES.filter(f => f.id !== 'none')).id, c1: c(), c2: c() }; e.nameFx = { kind: pick(PF_NAMEFX.filter(f => f.id !== 'none')).id, c1: c(), c2: c() };
++  if (pfCanStyle(S.user)) { e.frame = { kind: pick(PF_FRAMES.filter(f => f.id !== 'none')).id, c1: c(), c2: c() }; e.nameFx = { kind: pick(PF_NAMEFX.filter(f => f.id !== 'none')).id, c1: c(), c2: c() }; }
 +  e.cardTint = Math.random() < .7 ? c() : null; peSync();
 +}
 +// interests
@@ -832,10 +1164,11 @@ diff -ruN deploy-now/client/js/profile-edit.js wip/client/js/profile-edit.js
      refreshAvatars(S.user.name);
      if (curDM) renderDMMessages(curDM);
    } catch (e) { console.error('[nexus] saveProfile UI error', e); toast('⚠️ Saved, but the screen failed to update: ' + e.message); }
-diff -ruN deploy-now/client/js/profile-page.js wip/client/js/profile-page.js
---- client/js/profile-page.js	2026-11-21 21:17:30.000000000 +0000
-+++ client/js/profile-page.js	2026-11-25 01:24:56.226974500 +0000
-@@ -18,7 +18,7 @@
+diff --git a/client/js/profile-page.js b/client/js/profile-page.js
+index 7f7b714..9c91d2c 100644
+--- a/client/js/profile-page.js
++++ b/client/js/profile-page.js
+@@ -18,7 +18,7 @@ function openProfilePage(username) {
  // ── public profiles on demand ──
  // People whose avatar/profile we don't have (authors of old messages, people who left the server, ...) are
  // requested once, in batches, so an avatar no longer depends on which server's member list is loaded.
@@ -844,7 +1177,7 @@ diff -ruN deploy-now/client/js/profile-page.js wip/client/js/profile-page.js
  let _profileTimer = null;
  function _needProfile(name) {
    if (!name || _profileAsked.has(name) || name === S.user?.name) return;
-@@ -29,15 +29,19 @@
+@@ -29,15 +29,19 @@ function flushProfileRequests() {
    if (!_profilePending.size || S.ws?.readyState !== 1) return; // retried when the connection (re)identifies
    const names = [..._profilePending].slice(0, 60);
    names.forEach(n => { _profilePending.delete(n); _profileAsked.add(n); });
@@ -866,7 +1199,15 @@ diff -ruN deploy-now/client/js/profile-page.js wip/client/js/profile-page.js
      Object.values(S.members || {}).forEach(arr => {
        const m = arr.find(x => x.name === p.name);
        if (m) Object.assign(m, { pfp: p.pfp, color: p.color, bio: p.bio, socials: p.socials, createdAt: p.createdAt });
-@@ -68,7 +72,7 @@
+@@ -47,6 +51,7 @@ function applyProfiles(list) {
+   });
+   if (!changed) return;
+   refreshAvatars();
++  try { pfDecorate(); } catch (_) {}
+   if (S.curSv) renderMbs();
+   dmProfilesUpdated();
+   // an open profile page for one of them now gets the fresh data
+@@ -68,7 +73,7 @@ function refreshAvatars(onlyName) {
  function buildLocalProfile(username) {
    // Build from local state: server members, DM contacts, etc.
    const isSelf = username === S.user?.name;
@@ -875,7 +1216,7 @@ diff -ruN deploy-now/client/js/profile-page.js wip/client/js/profile-page.js
    // Check members list
    for (const svId in S.members) {
      const m = (S.members[svId]||[]).find(x=>x.name===username);
-@@ -84,13 +88,16 @@
+@@ -84,13 +89,16 @@ function renderProfilePage(u) {
    const isSelf = u.name === S.user?.name;
    const isPuck = S.user?.systemRole === 'admin';
    // Banner gradient from user color
@@ -890,17 +1231,17 @@ diff -ruN deploy-now/client/js/profile-page.js wip/client/js/profile-page.js
    const avEl = document.getElementById('pp-av');
    avEl.style.background = safeUrl(u.pfp) ? 'transparent' : (u.color||COLORS[0]);
    avEl.innerHTML = safeUrl(u.pfp) ? `<img src="${safeUrl(u.pfp)}" style="width:100%;height:100%;object-fit:cover">` : esc(u.name[0]?.toUpperCase()||'?');
-+  const fr = pfFrameAttrs(ext, u.color || COLORS[0]);
++  const fr = pfFrameAttrs(ext, u.color || COLORS[0], pfCanStyle(u));
 +  avEl.className = ('pp-av ' + fr.cls).trim(); avEl.style.cssText += ';' + fr.style;
    // Edit/admin button area
    const editBtn = document.getElementById('pp-edit-btn');
    if (isSelf) {
-@@ -106,8 +113,13 @@
+@@ -106,8 +114,13 @@ function renderProfilePage(u) {
      editBtn.innerHTML = '';
    }
    // Name / tag
 -  document.getElementById('pp-name').textContent = u.name;
-+  const nameEl = document.getElementById('pp-name'), nf = pfNameAttrs(ext);
++  const nameEl = document.getElementById('pp-name'), nf = pfNameAttrs(ext, pfCanStyle(u));
 +  nameEl.textContent = u.name; nameEl.className = ('pp-name ' + nf.cls).trim(); nameEl.style.cssText = nf.style;
    document.getElementById('pp-tag').textContent = '#' + (u.tag||'????');
 +  const meta = document.getElementById('pp-meta');
@@ -910,7 +1251,7 @@ diff -ruN deploy-now/client/js/profile-page.js wip/client/js/profile-page.js
    // Badges
    let badgeHtml = '';
    if (u.systemRole==='admin') badgeHtml += `<span class="pp-badge" style="background:rgba(88,101,242,.2);color:var(--accent);border:1px solid rgba(88,101,242,.3)">⚡ Admin</span>`;
-@@ -120,9 +132,7 @@
+@@ -120,9 +133,7 @@ function renderProfilePage(u) {
    else bioSection.style.display = 'none';
    // Socials section
    const socSection = document.getElementById('pp-socials-section');
@@ -921,7 +1262,7 @@ diff -ruN deploy-now/client/js/profile-page.js wip/client/js/profile-page.js
    if (soc) { document.getElementById('pp-socials').innerHTML = soc; socSection.style.display = ''; }
    else socSection.style.display = 'none';
    // Member since
-@@ -167,19 +177,7 @@
+@@ -167,19 +178,7 @@ function puckEditPfp(targetName) {
  }
  
  function onAdminPfpChange(e) {
@@ -942,11 +1283,11 @@ diff -ruN deploy-now/client/js/profile-page.js wip/client/js/profile-page.js
  }
  
  // Admin panel: rename via input field
-@@ -217,20 +215,23 @@
+@@ -217,20 +216,23 @@ function showUserHover(username, anchorEl) {
      const color = u.color || COLORS[hash(username)%COLORS.length];
      const avContent = u.pfp ? `<img src="${u.pfp}">` : esc((username[0]||'?').toUpperCase());
      const avBg = u.pfp ? 'transparent' : color;
-+    const hx = pfNormExt(u.ext), hfr = pfFrameAttrs(hx, color), hnf = pfNameAttrs(hx);
++    const hx = pfNormExt(u.ext), hfr = pfFrameAttrs(hx, color, pfCanStyle(u)), hnf = pfNameAttrs(hx, pfCanStyle(u));
 +    if (!u.ext && !_profileAsked.has(username)) { _profileAsked.add(username); _profilePending.add(username); flushProfileRequests(); } // their style arrives for next time
      let badgesHtml = '';
      if (u.systemRole==='admin') badgesHtml += `<span class="pp-badge" style="font-size:9px;background:rgba(88,101,242,.2);color:var(--accent);border:1px solid rgba(88,101,242,.3)">⚡ Admin</span>`;
@@ -970,10 +1311,12 @@ diff -ruN deploy-now/client/js/profile-page.js wip/client/js/profile-page.js
      document.body.appendChild(popup);
      _hoverPopup = popup;
      // Position near anchor
-diff -ruN deploy-now/client/js/profile-style.js wip/client/js/profile-style.js
---- client/js/profile-style.js	1970-01-01 00:00:00.000000000 +0000
-+++ client/js/profile-style.js	2026-11-25 01:24:56.227242368 +0000
-@@ -0,0 +1,117 @@
+diff --git a/b/client/js/profile-style.js b/client/js/profile-style.js
+new file mode 100644
+index 0000000..cc85293
+--- /dev/null
++++ b/client/js/profile-style.js
+@@ -0,0 +1,155 @@
 +// ══════════════════════════════════════════════════════════════════
 +// PROFILE STYLE — banner / avatar frame / name effect / card tint helpers.
 +// Shared by the profile page, the hover card and the editor's live preview, so all three always look the same.
@@ -1058,14 +1401,14 @@ diff -ruN deploy-now/client/js/profile-style.js wip/client/js/profile-style.js
 +  return `background:linear-gradient(160deg,${c}cc 0%,${c}22 100%),${c}33`;
 +}
 +// class + inline custom properties for an avatar element (profile.css draws the frame from them)
-+function pfFrameAttrs(ext, innerColor) {
++function pfFrameAttrs(ext, innerColor, allowed) {
 +  const f = pfNormExt(ext).frame;
-+  if (f.kind === 'none') return { cls: '', style: '' };
++  if (allowed === false || f.kind === 'none') return { cls: '', style: '' };
 +  return { cls: 'fr-' + f.kind, style: `--fr1:${f.c1};--fr2:${f.c2};--av-in:${pfHex(innerColor, '#1e1f22')};` };
 +}
-+function pfNameAttrs(ext) {
++function pfNameAttrs(ext, allowed) {
 +  const n = pfNormExt(ext).nameFx;
-+  if (n.kind === 'none') return { cls: '', style: '' };
++  if (allowed === false || n.kind === 'none') return { cls: '', style: '' };
 +  return { cls: 'nf-' + n.kind, style: `--nf1:${n.c1};--nf2:${n.c2};` };
 +}
 +// background for the whole card (a soft wash of the chosen tint over the normal surface)
@@ -1091,22 +1434,89 @@ diff -ruN deploy-now/client/js/profile-style.js wip/client/js/profile-style.js
 +  });
 +  return out;
 +}
-diff -ruN deploy-now/client/js/state.js wip/client/js/state.js
---- client/js/state.js	2026-11-22 05:05:04.000000000 +0000
-+++ client/js/state.js	2026-11-25 01:24:56.227044681 +0000
-@@ -13,7 +13,7 @@
++
++
++// ── Frames + name effects are an admin / co-admin perk: nobody else gets them, whatever is stored. ──
++function pfCanStyle(p) { return !!p && (p.systemRole === 'admin' || p.coAdmin === true); }
++function pfStyleFor(name) { // who is this, may they have a frame / name effect, and what is it
++  if (!name) return { ok: false };
++  const me = (typeof S !== 'undefined') ? S.user : null, isMe = !!me && name === me.name;
++  const p = isMe ? me : (typeof profileCache !== 'undefined' ? profileCache[name] : null);
++  if (!isMe && (!p || p.ext === undefined) && typeof _needProfile === 'function') _needProfile(name); // arrives via applyProfiles
++  return p ? { ok: pfCanStyle(p), ext: p.ext, color: p.color } : { ok: false };
++}
++function pfSetVars(el, css) { String(css || '').split(';').forEach(kv => { const i = kv.indexOf(':'); if (i > 0) el.style.setProperty(kv.slice(0, i).trim(), kv.slice(i + 1).trim()); }); }
++// Puts the frame on every avatar and the name effect on every name that is on screen (chat, member list).
++// Idempotent, so it is simply re-run whenever those lists change (see the observer below) or profiles arrive.
++function pfDecorate() {
++  document.querySelectorAll('.m-av[data-author], .mb-av[data-name]').forEach(el => {
++    const s = pfStyleFor(el.dataset.author || el.dataset.name);
++    [...el.classList].filter(c => c.indexOf('fr-') === 0).forEach(c => el.classList.remove(c));
++    ['--fr1', '--fr2', '--av-in'].forEach(v => el.style.removeProperty(v));
++    if (!s.ok) return;
++    const a = pfFrameAttrs(s.ext, s.color, true); if (!a.cls) return;
++    el.classList.add(a.cls); pfSetVars(el, a.style);
++  });
++  document.querySelectorAll('.m-auth[data-author], .mb-nm[data-name]').forEach(el => {
++    const s = pfStyleFor(el.dataset.author || el.dataset.name);
++    [...el.classList].filter(c => c.indexOf('nf-') === 0).forEach(c => el.classList.remove(c));
++    ['--nf1', '--nf2'].forEach(v => el.style.removeProperty(v));
++    if (!s.ok) return;
++    const a = pfNameAttrs(s.ext, true); if (!a.cls) return; // no personal effect: the role's own look (if any) stays
++    el.classList.add(a.cls); pfSetVars(el, a.style);
++  });
++}
++(function () {
++  let t = 0; const run = () => { t = 0; try { pfDecorate(); } catch (e) { console.error(e); } };
++  const arm = () => { if (typeof MutationObserver === 'undefined') return; const mo = new MutationObserver(() => { if (!t) t = (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : setTimeout)(run); });
++    ['msgs', 'members'].forEach(id => { const el = document.getElementById(id); if (el) mo.observe(el, { childList: true, subtree: true }); }); };
++  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
++})();
+diff --git a/client/js/roles.js b/client/js/roles.js
+index c43463f..66612ac 100644
+--- a/client/js/roles.js
++++ b/client/js/roles.js
+@@ -52,3 +52,22 @@ function hasPerm(sv, perm) {
+   const r = allRoles.find(x => x.id === role);
+   return r ? (r.perms.includes('*') || r.perms.includes(perm)) : false;
+ }
++
++
++// ── Role appearance: colour, optional second colour, name effect, badge icon, own group in the member list ──
++const ROLE_FX = [{ id: 'none', n: 'Plain' }, { id: 'gradient', n: 'Gradient' }, { id: 'glow', n: 'Glow' }, { id: 'shimmer', n: 'Shimmer' }, { id: 'rainbow', n: 'Rainbow' }];
++function roleFxAttrs(r) { // { cls, style } for a name written in this role's look
++  const c1 = pfHex(r && r.color, '#9090a8'), c2 = pfHex(r && r.color2, c1), fx = r && ROLE_FX.some(f => f.id === r.fx) ? r.fx : 'none';
++  return { cls: fx !== 'none' ? 'rfx rfx-' + fx : '', style: `color:${c1};--rf1:${c1};--rf2:${c2};` };
++}
++function getEffectiveRole(sv, id) { // built-ins merged with this server's overrides, or the custom role itself
++  if (!sv || !id) return null;
++  const base = DEFAULT_ROLES.find(r => r.id === id);
++  if (base) return { ...base, ...((sv.roleOverrides || {})[id] || {}) };
++  return (sv.roles || []).find(r => r.id === id) || null;
++}
++function roleNameAttrs(sv, name) { // the look of a member's name in chat / member list; low roles are grey by default
++  if (!sv) return { cls: '', style: '' };
++  const r = getEffectiveRole(sv, getMemberRole(sv, name));
++  return r ? roleFxAttrs(r) : { cls: '', style: '' };
++}
+diff --git a/client/js/state.js b/client/js/state.js
+index 2f62f29..6034210 100644
+--- a/client/js/state.js
++++ b/client/js/state.js
+@@ -13,7 +13,7 @@ const WS_URL = (() => {
  })();
  // The newest server this client is written for. If the server is older (not redeployed yet), saves for newer
  // features are silently ignored and "disappear" on refresh, so the client warns loudly instead.
 -const REQUIRED_SERVER_PROTOCOL = 6;
-+const REQUIRED_SERVER_PROTOCOL = 7; // 7: profile personalisation (banner, frame, name effect, pronouns, interests, more links)
++const REQUIRED_SERVER_PROTOCOL = 8; // 8: admin-only frames/name effects, richer roles (effects, icon, hoist, overrides persisted) ; // 7: profile personalisation (banner, frame, name effect, pronouns, interests, more links)
  
  // ── STATE ──
  const S = {
-diff -ruN deploy-now/client/js/ws-handler.js wip/client/js/ws-handler.js
---- client/js/ws-handler.js	2026-11-22 05:05:04.000000000 +0000
-+++ client/js/ws-handler.js	2026-11-25 01:24:56.227169517 +0000
-@@ -2,7 +2,7 @@
+diff --git a/client/js/ws-handler.js b/client/js/ws-handler.js
+index a924888..e33557b 100644
+--- a/client/js/ws-handler.js
++++ b/client/js/ws-handler.js
+@@ -2,7 +2,7 @@ function handleIn(msg) {
    // BUG 2 FIX: Guard entire handler against unidentified state.
    // WS messages can arrive before identify completes (e.g. server broadcasts during auth).
    // Whitelisted types that are safe before S.user is populated:
@@ -1115,7 +1525,24 @@ diff -ruN deploy-now/client/js/ws-handler.js wip/client/js/ws-handler.js
    if (!S.user && !PRE_AUTH_SAFE.has(msg.type)) return;
    switch(msg.type) {
      case 'message':
-@@ -550,6 +550,7 @@
+@@ -21,6 +21,16 @@ function handleIn(msg) {
+     case 'typing':
+       if(msg.author!==S.user.name) showTyping(msg.author, msg.channelId);
+       break;
++    case 'roles_update': { // someone with the right edited this server's roles: look + order + permissions
++      const rsv = S.servers.find(x => x.id === msg.serverId);
++      if (rsv) {
++        if (Array.isArray(msg.roles)) rsv.roles = msg.roles;
++        if (msg.overrides && typeof msg.overrides === 'object') rsv.roleOverrides = msg.overrides;
++        if (S.curSv && S.curSv.id === rsv.id) { if (S.curSv !== rsv) { S.curSv.roles = rsv.roles; S.curSv.roleOverrides = rsv.roleOverrides; } renderMbs(); if (S.curCh) renderMsgs(S.curCh.id); }
++        persist();
++      }
++      break;
++    }
+     case 'role_assign': {
+       // Update local server's memberRoles
+       const sv = S.servers.find(s => s.id === msg.serverId);
+@@ -550,6 +560,7 @@ function handleIn(msg) {
        break;
      }
      case 'dm_stubs': break;   // protocol 5 and older; dm_contacts carries the list now
@@ -1123,7 +1550,15 @@ diff -ruN deploy-now/client/js/ws-handler.js wip/client/js/ws-handler.js
      case 'user_pfp':
        if (S.user) {
          // msg.pfp may be null — that means the server confirmed no pfp. Always apply.
-@@ -938,6 +939,7 @@
+@@ -773,6 +784,7 @@ function handleIn(msg) {
+         // Restore roles and memberRoles from backend (always trust server even if empty)
+         if (si.roles !== undefined)        sv.roles       = si.roles;
+         if (si.memberRoles !== undefined)  sv.memberRoles = si.memberRoles;
++        if (si.roleOverrides !== undefined) sv.roleOverrides = si.roleOverrides;
+         if (si.banner !== undefined)       sv.banner      = si.banner;
+         // shorts + pins are only sent to members: this is how a new member gets them on joining
+         if (si.shorts) mergeServerShorts(sv, si.shorts);
+@@ -938,6 +950,7 @@ function handleIn(msg) {
        if (msg.pfp !== undefined) S.user.pfp = msg.pfp || null;
        if (msg.bio !== undefined) S.user.bio = msg.bio;
        if (msg.socials) S.user.socials = msg.socials;
@@ -1131,7 +1566,7 @@ diff -ruN deploy-now/client/js/ws-handler.js wip/client/js/ws-handler.js
        lsSet('nx-session', { token: S.token, user: S.user });
        persist();
        updateUser();
-@@ -950,6 +952,12 @@
+@@ -950,6 +963,12 @@ function handleIn(msg) {
        if (msg.color) profileCache[updUser].color = msg.color;
        if (msg.pfp !== undefined) profileCache[updUser].pfp = msg.pfp;
        if (msg.bio !== undefined) profileCache[updUser].bio = msg.bio;

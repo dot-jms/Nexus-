@@ -65,20 +65,21 @@ function buildMsg(m,grp) {
   });
   let reacts='';
   if((m.reactions||[]).length){ reacts='<div class="m-reacts">'+m.reactions.map(r=>`<div class="react${r.users?.includes(S.user?.name)?' me':''}" onclick="toggleReact('${m.id}','${r.emoji}')">${r.emoji}<span>${r.count}</span></div>`).join('')+'</div>'; }
+  const rn = (!curDM && S.curSv) ? roleNameAttrs(S.curSv, m.author) : { cls: '', style: '' };
   const lead = grp
     ? `<div class="m-gutter"><span class="m-gtime">${fmtClock(m.ts)}</span></div>`
     : `<div class="m-av" data-author="${esc(m.author)}" style="background:${livePfp?'transparent':ac}" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${avInner}</div>`;
   return `<div class="msg${grp?' grouped':''}" data-id="${m.id}">
     ${lead}
     <div class="m-body">
-      ${!grp?`<div class="m-head"><span class="m-auth" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${esc(m.author)}</span><span class="m-time">${fmtStamp(m.ts)}</span></div>`:''}
+      ${!grp?`<div class="m-head"><span class="m-auth ${rn.cls}" data-author="${esc(m.author)}" style="${rn.style}" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${esc(m.author)}</span><span class="m-time">${fmtStamp(m.ts)}</span></div>`:''}
       ${m.voiceMsg ? buildVoiceMsg(m) : `<div class="m-txt">${fmtTxt(m.text)}${m.edited?'<span class="m-edited">(edited)</span>':''}</div>`}${atts?`<div class="m-atts">${atts}</div>`:''}${reacts}
     </div>
     <div class="m-acts">
       <div class="ma" title="Add Reaction" onclick="openReactPicker('${m.id}',event)">${MI.react}</div>
       <div class="ma" title="Reply" onclick="replyTo('${esc(m.author)}')">${MI.reply}</div>
       ${!curDM?`<div class="ma" title="Pin Message" onclick="pinMsg('${m.id}')">${MI.pin}</div>`:''}
-      ${(isMe||isPlatformPower())?`<div class="ma" title="Edit" onclick="startEditMsg('${m.id}')">${MI.edit}</div>`:''}
+      ${(isMe||(!curDM&&isPlatformPower()))?`<div class="ma" title="Edit" onclick="startEditMsg('${m.id}')">${MI.edit}</div>`:''}
       ${(isMe||isPlatformPower())?`<div class="ma danger" title="Delete" onclick="delMsg('${m.id}')">${MI.del}</div>`:''}
     </div>
   </div>`;
@@ -173,6 +174,7 @@ function commitEdit(text) {
     // DM / group edit path: tell the server first, then update the screen
     const key = curDM, msgs = S.dmMessages[key]; if (!msgs) return;
     const m = msgs.find(x => x.id === editingMsgId); if (!m) return;
+    if ((m.author || m.from) && (m.author || m.from) !== S.user?.name) { toast('You can only edit your own messages here'); editingMsgId = null; const i0 = document.getElementById('edit-indicator'); if (i0) i0.remove(); return; } // admins can't edit other people's DMs, so never mark them (edited)
     const eid = editingMsgId;
     wsSend(dmActionMsg('dm_edit', { messageId: eid, text }));
     try {

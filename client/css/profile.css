@@ -104,7 +104,7 @@ input[type=range].pe-range { width: 100%; accent-color: var(--brand); }
 .cr-stage:focus-visible { box-shadow: 0 0 0 2px var(--brand); }
 .cr-stage canvas { display: block; width: 100%; height: 100%; }
 .cr-mask { position: absolute; inset: 0; pointer-events: none; }
-.cr-mask.circle { background: radial-gradient(circle at 50% 50%, transparent calc(50% - 1px), rgba(255,255,255,.9) calc(50% - 1px), rgba(255,255,255,.9) 50%, rgba(0,0,0,.62) 50%); }
+.cr-mask.circle { background: radial-gradient(circle closest-side at 50% 50%, transparent calc(100% - 1px), rgba(255,255,255,.9) calc(100% - 1px), rgba(255,255,255,.9) 100%, rgba(0,0,0,.62) 100%); } /* closest-side: the ring is exactly the inscribed circle the saved avatar uses */
 .cr-mask.rect { box-shadow: inset 0 0 0 2px rgba(255,255,255,.85); }
 .cr-zoom { display: flex; align-items: center; gap: 8px; margin: 0 auto 10px; max-width: 360px; }
 .cr-zoom input { flex: 1; accent-color: var(--brand); }
@@ -126,3 +126,20 @@ input[type=range].pe-range { width: 100%; accent-color: var(--brand); }
   .pe-right { order: -1; border-left: 0; border-bottom: 1px solid var(--divider); overflow: visible; }
   .pe-left { overflow: visible; }
 }
+
+/* ── role name effects (chat + member list + role editor) ── */
+.rfx-gradient { background: linear-gradient(90deg, var(--rf1), var(--rf2)); -webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent; }
+.rfx-glow { color: var(--rf1) !important; text-shadow: 0 0 10px var(--rf1), 0 0 2px var(--rf1); }
+.rfx-shimmer { background: linear-gradient(100deg, var(--rf1), var(--rf2), var(--rf1)) 0 0 / 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent; animation: rfShimmer 3s linear infinite; }
+.rfx-rainbow { background: linear-gradient(90deg, #ff5f6d, #ffc371, #47e891, #4facfe, #a770ef, #ff5f6d) 0 0 / 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent; animation: rfShimmer 5s linear infinite; }
+@keyframes rfShimmer { from { background-position: 0 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .rfx-shimmer, .rfx-rainbow { animation: none; } }
+/* role editor */
+.re-preview { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; margin-bottom: 14px; border-radius: 8px; background: var(--bg-tertiary, #1e1f22); }
+.re-sample { font-size: 13px; color: var(--text-normal, #dbdee1); }
+.re-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.re-chip { padding: 6px 11px; border: 0; border-radius: 4px; background: #4e5058; color: #fff; font-size: 13px; cursor: pointer; transition: background-color var(--fast, .1s) linear; }
+.re-chip:hover { background: #6d6f78; } .re-chip.on { background: var(--brand, #5865f2); }
+.re-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary, #b5bac1); }
+.re-row input[type=color] { vertical-align: middle; width: 36px; height: 26px; border: 0; padding: 0; background: none; cursor: pointer; }
+.role-tag { margin-left: 8px; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,.08); color: var(--text-muted, #949ba4); }

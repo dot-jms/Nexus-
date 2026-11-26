@@ -150,12 +150,10 @@ function getMemberRole(sv, memberName) {
 }
 
 function roleLabel(sv, memberName) {
-  const r = getMemberRole(sv, memberName);
-  if (r === 'owner') return '<span class="role-badge owner">👑 Owner</span>';
-  if (r === 'mod')   return '<span class="role-badge mod">🛡 Mod</span>';
-  const custom = (sv.roles || []).find(x => x.id === r);
-  if (custom) return `<span class="role-badge" style="background:${custom.color}22;color:${custom.color};border:1px solid ${custom.color}44">● ${esc(custom.name)}</span>`;
-  return '';
+  const id = getMemberRole(sv, memberName); if (id === 'member') return '';
+  const r = getEffectiveRole(sv, id); if (!r) return '';
+  const c = pfHex(r.color, '#9090a8'), ic = r.icon ? esc(r.icon) : (id === 'owner' ? '👑' : id === 'mod' ? '🛡' : '●');
+  return `<span class="role-badge" style="background:${c}22;color:${c};border:1px solid ${c}44">${ic} ${esc(r.name)}</span>`;
 }
 
 // ── Server header dropdown ──
@@ -295,63 +293,92 @@ function saveSvOverview() {
 }
 
 // ── ROLES PANE ──
+const RE = { color: '#9090a8', color2: '#9090a8', fx: 'none', icon: '', hoist: false, owner: false };
+const ROLE_PRESETS = [
+  { n: 'Staff',   color: '#f59e0b', color2: '#f59e0b', fx: 'glow',     icon: '🛡', hoist: true },
+  { n: 'VIP',     color: '#fbbf24', color2: '#f472b6', fx: 'gradient', icon: '✨', hoist: true },
+  { n: 'Legend',  color: '#00f5a0', color2: '#00d9f5', fx: 'shimmer',  icon: '💎', hoist: true },
+  { n: 'Rainbow', color: '#ff5f6d', color2: '#4facfe', fx: 'rainbow',  icon: '🌈', hoist: false },
+  { n: 'Regular', color: '#c9cdd6', color2: '#c9cdd6', fx: 'none',     icon: '',   hoist: false },
+  { n: 'Newbie',  color: '#8b8d94', color2: '#8b8d94', fx: 'none',     icon: '',   hoist: false },
+];
 function buildRolesPane() {
   const sv = S.curSv; if (!sv) return;
   if (!sv.roles) sv.roles = [];
   const list = document.getElementById('stg-roles-list');
-  const allRoles = [...DEFAULT_ROLES.map(r=>({...r,...((sv.roleOverrides||{})[r.id]||{})})), ...sv.roles];
-  list.innerHTML = allRoles.map(r => {
-    const count = r.id==='owner' ? 1 :
-      Object.values(sv.memberRoles||{}).filter(v=>v===r.id).length + (r.id==='member'? ((S.members[sv.id]||[]).length+1 - Object.keys(sv.memberRoles||{}).length) : 0);
-    // Owner role can't be edited; mod/member can be edited but not deleted; custom can be edited+deleted
-    const canEdit = r.id !== 'owner';
-    const canDelete = !r.builtin; // can delete custom roles; mod/member are protected from deletion
-    const actions = canEdit ? `
-      <div class="role-row-acts">
-        <div class="role-act-btn" onclick="editRole('${r.id}')" title="Edit">✏️</div>
-        ${canDelete ? `<div class="role-act-btn del" onclick="deleteRole('${r.id}')" title="Delete">🗑</div>` : ''}
-      </div>` : '<span style="font-size:10px;color:var(--t3);font-weight:600;padding:2px 7px;background:var(--s4);border-radius:4px">Protected</span>';
+  const ids = ['owner', 'mod', ...sv.roles.map(r => r.id), 'member']; // top to bottom = highest to lowest
+  list.innerHTML = ids.map(id => {
+    const r = getEffectiveRole(sv, id); if (!r) return '';
+    const at = roleFxAttrs(r), builtin = DEFAULT_ROLES.some(d => d.id === id), ci = sv.roles.findIndex(x => x.id === id), eid = esc(id);
+    const count = id === 'owner' ? 1 :
+      Object.values(sv.memberRoles || {}).filter(v => v === id).length + (id === 'member' ? ((S.members[sv.id] || []).length + 1 - Object.keys(sv.memberRoles || {}).length) : 0);
+    const mv = ci >= 0 ? `<div class="role-act-btn" onclick="moveRole('${eid}',-1)" title="Move up (higher in the list)">▲</div><div class="role-act-btn" onclick="moveRole('${eid}',1)" title="Move down">▼</div>` : '';
+    const del = !builtin ? `<div class="role-act-btn del" onclick="deleteRole('${eid}')" title="Delete">🗑</div>` : '';
     return `<div class="role-row">
-      <div class="role-dot" style="background:${r.color}"></div>
-      <div class="role-row-name">${esc(r.name)}</div>
-      <div class="role-row-count">${count} member${count!==1?'s':''}</div>
-      ${actions}
+      <div class="role-dot" style="background:${pfHex(r.color, '#9090a8')}"></div>
+      <div class="role-row-name"><span class="${at.cls}" style="${at.style}">${r.icon ? esc(r.icon) + ' ' : ''}${esc(r.name)}</span>${r.hoist ? '<span class="role-tag">own group</span>' : ''}</div>
+      <div class="role-row-count">${count} member${count !== 1 ? 's' : ''}</div>
+      <div class="role-row-acts">${mv}<div class="role-act-btn" onclick="editRole('${eid}')" title="Edit">✏️</div>${del}</div>
     </div>`;
   }).join('');
   document.getElementById('role-editor').style.display = 'none';
   editingRoleId = null;
 }
 
-function openCreateRole() {
-  editingRoleId = '__new__';
-  editingRoleColor = COLORS[0];
-  document.getElementById('role-name-in').value = '';
-  buildRoleColorGrid();
-  buildPermList(null);
-  document.getElementById('role-editor').style.display = 'block';
+function moveRole(id, dir) {
+  const sv = S.curSv; if (!sv || !sv.roles) return;
+  const i = sv.roles.findIndex(r => r.id === id), j = i + dir; if (i < 0 || j < 0 || j >= sv.roles.length) return;
+  [sv.roles[i], sv.roles[j]] = [sv.roles[j], sv.roles[i]];
+  wsSend({ type: 'roles_update', serverId: sv.id, roles: sv.roles });
+  try { persist(); buildRolesPane(); renderMbs(); } catch (e) { console.error(e); }
 }
 
+function reLoad(r, isOwner) {
+  RE.color = pfHex(r.color, '#9090a8'); RE.color2 = pfHex(r.color2, RE.color); RE.fx = ROLE_FX.some(f => f.id === r.fx) ? r.fx : 'none';
+  RE.icon = r.icon || ''; RE.hoist = r.hoist === true; RE.owner = !!isOwner;
+  editingRoleColor = RE.color;
+  document.getElementById('role-name-in').value = r.name || '';
+  document.getElementById('re-icon').value = RE.icon;
+  document.getElementById('re-hoist').classList.toggle('on', RE.hoist);
+  document.getElementById('re-perms').style.display = isOwner ? 'none' : '';
+  document.getElementById('re-presets').innerHTML = ROLE_PRESETS.map((p, i) => `<button type="button" class="re-chip" onclick="rePreset(${i})">${p.icon ? p.icon + ' ' : ''}${p.n}</button>`).join('');
+  buildRoleColorGrid(RE.color); buildPermList(isOwner ? null : r.perms); reUpdate();
+  document.getElementById('role-editor').style.display = 'block';
+}
+function openCreateRole() { editingRoleId = '__new__'; reLoad({ name: '', color: COLORS[0], color2: COLORS[0], fx: 'none', icon: '', hoist: false, perms: [] }, false); }
 function editRole(id) {
   const sv = S.curSv; if (!sv) return;
-  // Check custom roles first, then fall back to DEFAULT_ROLES
-  let role = sv.roles?.find(r=>r.id===id) || DEFAULT_ROLES.find(r=>r.id===id);
-  if (!role || id==='owner') return;
-  editingRoleId = id;
-  editingRoleColor = role.color;
-  document.getElementById('role-name-in').value = role.name;
-  buildRoleColorGrid(role.color);
-  buildPermList(role.perms);
-  document.getElementById('role-editor').style.display = 'block';
+  const role = getEffectiveRole(sv, id); if (!role) return;
+  editingRoleId = id; reLoad(role, id === 'owner');
 }
+function cancelRoleEdit() { document.getElementById('role-editor').style.display = 'none'; editingRoleId = null; }
 
-function cancelRoleEdit() { document.getElementById('role-editor').style.display='none'; editingRoleId=null; }
+function reUpdate() { // read the text inputs, redraw the live preview + effect chips
+  RE.icon = (document.getElementById('re-icon').value || '').trim().slice(0, 4);
+  RE.hoist = document.getElementById('re-hoist').classList.contains('on');
+  document.getElementById('re-fx').innerHTML = ROLE_FX.map(f => `<button type="button" class="re-chip${RE.fx === f.id ? ' on' : ''}" onclick="reFx('${f.id}')">${f.n}</button>`).join('');
+  document.getElementById('re-c1').value = RE.color; document.getElementById('re-c2').value = RE.color2;
+  document.getElementById('re-c2-wrap').style.display = (RE.fx === 'gradient' || RE.fx === 'shimmer') ? '' : 'none';
+  const nm = (document.getElementById('role-name-in').value.trim() || 'Role name'), at = roleFxAttrs(RE), c = RE.color;
+  document.getElementById('re-preview').innerHTML = `<span class="role-badge" style="background:${c}22;color:${c};border:1px solid ${c}44">${RE.icon ? esc(RE.icon) : '●'} ${esc(nm)}</span>
+    <span class="m-auth ${at.cls}" style="${at.style}">${esc(S.user?.name || 'You')}</span><span class="re-sample">Hey, this is how the name looks in chat</span>`;
+}
+function reColor(which, v) { v = pfHex(v, RE.color); if (which === 1) { RE.color = v; editingRoleColor = v; document.querySelectorAll('#role-color-grid .av-opt').forEach(x => x.classList.toggle('sel', x.dataset.c === v)); } else RE.color2 = v; reUpdate(); }
+function reFx(id) { RE.fx = id; reUpdate(); }
+function rePreset(i) {
+  const p = ROLE_PRESETS[i]; if (!p) return;
+  RE.color = p.color; RE.color2 = p.color2; RE.fx = p.fx; RE.icon = p.icon; RE.hoist = p.hoist; editingRoleColor = p.color;
+  document.getElementById('re-icon').value = p.icon; document.getElementById('re-hoist').classList.toggle('on', p.hoist);
+  const nin = document.getElementById('role-name-in'); if (!nin.value.trim() && editingRoleId === '__new__') nin.value = p.n;
+  buildRoleColorGrid(p.color); reUpdate();
+}
 
 function buildRoleColorGrid(selected) {
   const g = document.getElementById('role-color-grid'); g.innerHTML = '';
   COLORS.forEach(c => {
-    const d=document.createElement('div'); d.className='av-opt'+(c===(selected||editingRoleColor)?' sel':'');
-    d.style.background=c; d.dataset.c=c; d.textContent='●';
-    d.onclick=()=>{ document.querySelectorAll('#role-color-grid .av-opt').forEach(x=>x.classList.remove('sel')); d.classList.add('sel'); editingRoleColor=c; };
+    const d = document.createElement('div'); d.className = 'av-opt' + (c === (selected || editingRoleColor) ? ' sel' : '');
+    d.style.background = c; d.dataset.c = c; d.textContent = '●';
+    d.onclick = () => { document.querySelectorAll('#role-color-grid .av-opt').forEach(x => x.classList.remove('sel')); d.classList.add('sel'); RE.color = c; editingRoleColor = c; if (RE.color2 === RE.color || RE.fx === 'none') RE.color2 = c; reUpdate(); };
     g.appendChild(d);
   });
 }
@@ -362,46 +389,39 @@ function buildPermList(activePerms) {
     const on = activePerms ? activePerms.includes(p.id) : false;
     pl.innerHTML += `<div class="perm-row">
       <div><div class="perm-label">${p.label}</div><div class="perm-sub">${p.sub}</div></div>
-      <div class="toggle-switch${on?' on':''}" data-perm="${p.id}" onclick="togglePerm(this)"></div>
+      <div class="toggle-switch${on ? ' on' : ''}" data-perm="${p.id}" onclick="togglePerm(this)"></div>
     </div>`;
   });
 }
-
 function togglePerm(el) { el.classList.toggle('on'); }
 
 function saveRole() {
   const sv = S.curSv; if (!sv) return;
   const name = document.getElementById('role-name-in').value.trim();
   if (!name) { toast('Role needs a name'); return; }
-  const selPerms = [...document.querySelectorAll('#perm-list .toggle-switch.on')].map(el=>el.dataset.perm);
-  const isBuiltin = DEFAULT_ROLES.some(r => r.id === editingRoleId);
+  reUpdate();
+  const perms = RE.owner ? ['*'] : [...document.querySelectorAll('#perm-list .toggle-switch.on')].map(el => el.dataset.perm);
+  const look = { name, color: RE.color, color2: RE.color2, fx: RE.fx, icon: RE.icon, hoist: RE.hoist, perms };
   if (!sv.roles) sv.roles = [];
-  if (isBuiltin) {
-    // Override the built-in role's properties on this server
+  if (DEFAULT_ROLES.some(r => r.id === editingRoleId)) { // built-in: only this server's overrides change
     if (!sv.roleOverrides) sv.roleOverrides = {};
-    sv.roleOverrides[editingRoleId] = { name, color: editingRoleColor, perms: selPerms };
-    // Also update the in-memory DEFAULT_ROLES for this session? No, do it per-server lookup
-    toast('✅ Role "'+name+'" updated');
-    persist(); buildRolesPane();
-    wsSend({ type:'roles_update', serverId:sv.id, overrides: sv.roleOverrides });
-    return;
-  }
-  if (editingRoleId === '__new__') {
-    sv.roles.push({ id: uid(), name, color: editingRoleColor, perms: selPerms });
+    sv.roleOverrides[editingRoleId] = look;
+    wsSend({ type: 'roles_update', serverId: sv.id, overrides: sv.roleOverrides });
   } else {
-    const r = sv.roles.find(x=>x.id===editingRoleId);
-    if (r) { r.name=name; r.color=editingRoleColor; r.perms=selPerms; }
+    if (editingRoleId === '__new__') sv.roles.push({ id: uid(), ...look });
+    else { const i = sv.roles.findIndex(x => x.id === editingRoleId); if (i >= 0) sv.roles[i] = { id: editingRoleId, ...look }; }
+    wsSend({ type: 'roles_update', serverId: sv.id, roles: sv.roles });
   }
-  persist(); buildRolesPane(); renderMbs(); toast('✅ Role saved');
-  wsSend({type:'roles_update', serverId:sv.id, roles:sv.roles});
+  try { persist(); buildRolesPane(); renderMbs(); if (S.curCh) renderMsgs(S.curCh.id); } catch (e) { console.error(e); }
+  toast('✅ Role "' + name + '" saved');
 }
 
 function deleteRole(id) {
   const sv = S.curSv; if (!sv) return;
   if (!confirm('Delete this role?')) return;
-  sv.roles = (sv.roles||[]).filter(r=>r.id!==id);
-  // demote members who had this role
-  Object.keys(sv.memberRoles||{}).forEach(m=>{ if(sv.memberRoles[m]===id) delete sv.memberRoles[m]; });
+  sv.roles = (sv.roles || []).filter(r => r.id !== id);
+  Object.keys(sv.memberRoles || {}).forEach(m => { if (sv.memberRoles[m] === id) delete sv.memberRoles[m]; });
+  wsSend({ type: 'roles_update', serverId: sv.id, roles: sv.roles });
   persist(); buildRolesPane(); renderMbs();
 }
 

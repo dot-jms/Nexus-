@@ -51,6 +51,7 @@ function applyProfiles(list) {
   });
   if (!changed) return;
   refreshAvatars();
+  try { pfDecorate(); } catch (_) {}
   if (S.curSv) renderMbs();
   dmProfilesUpdated();
   // an open profile page for one of them now gets the fresh data
@@ -96,7 +97,7 @@ function renderProfilePage(u) {
   const avEl = document.getElementById('pp-av');
   avEl.style.background = safeUrl(u.pfp) ? 'transparent' : (u.color||COLORS[0]);
   avEl.innerHTML = safeUrl(u.pfp) ? `<img src="${safeUrl(u.pfp)}" style="width:100%;height:100%;object-fit:cover">` : esc(u.name[0]?.toUpperCase()||'?');
-  const fr = pfFrameAttrs(ext, u.color || COLORS[0]);
+  const fr = pfFrameAttrs(ext, u.color || COLORS[0], pfCanStyle(u));
   avEl.className = ('pp-av ' + fr.cls).trim(); avEl.style.cssText += ';' + fr.style;
   // Edit/admin button area
   const editBtn = document.getElementById('pp-edit-btn');
@@ -113,7 +114,7 @@ function renderProfilePage(u) {
     editBtn.innerHTML = '';
   }
   // Name / tag
-  const nameEl = document.getElementById('pp-name'), nf = pfNameAttrs(ext);
+  const nameEl = document.getElementById('pp-name'), nf = pfNameAttrs(ext, pfCanStyle(u));
   nameEl.textContent = u.name; nameEl.className = ('pp-name ' + nf.cls).trim(); nameEl.style.cssText = nf.style;
   document.getElementById('pp-tag').textContent = '#' + (u.tag||'????');
   const meta = document.getElementById('pp-meta');
@@ -215,7 +216,7 @@ function showUserHover(username, anchorEl) {
     const color = u.color || COLORS[hash(username)%COLORS.length];
     const avContent = u.pfp ? `<img src="${u.pfp}">` : esc((username[0]||'?').toUpperCase());
     const avBg = u.pfp ? 'transparent' : color;
-    const hx = pfNormExt(u.ext), hfr = pfFrameAttrs(hx, color), hnf = pfNameAttrs(hx);
+    const hx = pfNormExt(u.ext), hfr = pfFrameAttrs(hx, color, pfCanStyle(u)), hnf = pfNameAttrs(hx, pfCanStyle(u));
     if (!u.ext && !_profileAsked.has(username)) { _profileAsked.add(username); _profilePending.add(username); flushProfileRequests(); } // their style arrives for next time
     let badgesHtml = '';
     if (u.systemRole==='admin') badgesHtml += `<span class="pp-badge" style="font-size:9px;background:rgba(88,101,242,.2);color:var(--accent);border:1px solid rgba(88,101,242,.3)">⚡ Admin</span>`;

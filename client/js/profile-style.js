@@ -82,14 +82,14 @@ function pfBannerCss(ext, color, bannerImg) {
   return `background:linear-gradient(160deg,${c}cc 0%,${c}22 100%),${c}33`;
 }
 // class + inline custom properties for an avatar element (profile.css draws the frame from them)
-function pfFrameAttrs(ext, innerColor) {
+function pfFrameAttrs(ext, innerColor, allowed) {
   const f = pfNormExt(ext).frame;
-  if (f.kind === 'none') return { cls: '', style: '' };
+  if (allowed === false || f.kind === 'none') return { cls: '', style: '' };
   return { cls: 'fr-' + f.kind, style: `--fr1:${f.c1};--fr2:${f.c2};--av-in:${pfHex(innerColor, '#1e1f22')};` };
 }
-function pfNameAttrs(ext) {
+function pfNameAttrs(ext, allowed) {
   const n = pfNormExt(ext).nameFx;
-  if (n.kind === 'none') return { cls: '', style: '' };
+  if (allowed === false || n.kind === 'none') return { cls: '', style: '' };
   return { cls: 'nf-' + n.kind, style: `--nf1:${n.c1};--nf2:${n.c2};` };
 }
 // background for the whole card (a soft wash of the chosen tint over the normal surface)
@@ -115,3 +115,41 @@ function pfSocialLinks(socials) {
   });
   return out;
 }
+
+
+// ── Frames + name effects are an admin / co-admin perk: nobody else gets them, whatever is stored. ──
+function pfCanStyle(p) { return !!p && (p.systemRole === 'admin' || p.coAdmin === true); }
+function pfStyleFor(name) { // who is this, may they have a frame / name effect, and what is it
+  if (!name) return { ok: false };
+  const me = (typeof S !== 'undefined') ? S.user : null, isMe = !!me && name === me.name;
+  const p = isMe ? me : (typeof profileCache !== 'undefined' ? profileCache[name] : null);
+  if (!isMe && (!p || p.ext === undefined) && typeof _needProfile === 'function') _needProfile(name); // arrives via applyProfiles
+  return p ? { ok: pfCanStyle(p), ext: p.ext, color: p.color } : { ok: false };
+}
+function pfSetVars(el, css) { String(css || '').split(';').forEach(kv => { const i = kv.indexOf(':'); if (i > 0) el.style.setProperty(kv.slice(0, i).trim(), kv.slice(i + 1).trim()); }); }
+// Puts the frame on every avatar and the name effect on every name that is on screen (chat, member list).
+// Idempotent, so it is simply re-run whenever those lists change (see the observer below) or profiles arrive.
+function pfDecorate() {
+  document.querySelectorAll('.m-av[data-author], .mb-av[data-name]').forEach(el => {
+    const s = pfStyleFor(el.dataset.author || el.dataset.name);
+    [...el.classList].filter(c => c.indexOf('fr-') === 0).forEach(c => el.classList.remove(c));
+    ['--fr1', '--fr2', '--av-in'].forEach(v => el.style.removeProperty(v));
+    if (!s.ok) return;
+    const a = pfFrameAttrs(s.ext, s.color, true); if (!a.cls) return;
+    el.classList.add(a.cls); pfSetVars(el, a.style);
+  });
+  document.querySelectorAll('.m-auth[data-author], .mb-nm[data-name]').forEach(el => {
+    const s = pfStyleFor(el.dataset.author || el.dataset.name);
+    [...el.classList].filter(c => c.indexOf('nf-') === 0).forEach(c => el.classList.remove(c));
+    ['--nf1', '--nf2'].forEach(v => el.style.removeProperty(v));
+    if (!s.ok) return;
+    const a = pfNameAttrs(s.ext, true); if (!a.cls) return; // no personal effect: the role's own look (if any) stays
+    el.classList.add(a.cls); pfSetVars(el, a.style);
+  });
+}
+(function () {
+  let t = 0; const run = () => { t = 0; try { pfDecorate(); } catch (e) { console.error(e); } };
+  const arm = () => { if (typeof MutationObserver === 'undefined') return; const mo = new MutationObserver(() => { if (!t) t = (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : setTimeout)(run); });
+    ['msgs', 'members'].forEach(id => { const el = document.getElementById(id); if (el) mo.observe(el, { childList: true, subtree: true }); }); };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
+})();

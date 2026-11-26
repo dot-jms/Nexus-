@@ -52,3 +52,22 @@ function hasPerm(sv, perm) {
   const r = allRoles.find(x => x.id === role);
   return r ? (r.perms.includes('*') || r.perms.includes(perm)) : false;
 }
+
+
+// ── Role appearance: colour, optional second colour, name effect, badge icon, own group in the member list ──
+const ROLE_FX = [{ id: 'none', n: 'Plain' }, { id: 'gradient', n: 'Gradient' }, { id: 'glow', n: 'Glow' }, { id: 'shimmer', n: 'Shimmer' }, { id: 'rainbow', n: 'Rainbow' }];
+function roleFxAttrs(r) { // { cls, style } for a name written in this role's look
+  const c1 = pfHex(r && r.color, '#9090a8'), c2 = pfHex(r && r.color2, c1), fx = r && ROLE_FX.some(f => f.id === r.fx) ? r.fx : 'none';
+  return { cls: fx !== 'none' ? 'rfx rfx-' + fx : '', style: `color:${c1};--rf1:${c1};--rf2:${c2};` };
+}
+function getEffectiveRole(sv, id) { // built-ins merged with this server's overrides, or the custom role itself
+  if (!sv || !id) return null;
+  const base = DEFAULT_ROLES.find(r => r.id === id);
+  if (base) return { ...base, ...((sv.roleOverrides || {})[id] || {}) };
+  return (sv.roles || []).find(r => r.id === id) || null;
+}
+function roleNameAttrs(sv, name) { // the look of a member's name in chat / member list; low roles are grey by default
+  if (!sv) return { cls: '', style: '' };
+  const r = getEffectiveRole(sv, getMemberRole(sv, name));
+  return r ? roleFxAttrs(r) : { cls: '', style: '' };
+}

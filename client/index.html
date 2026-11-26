@@ -427,13 +427,13 @@
 
         <div class="pe-panel" id="pe-p-style" style="display:none">
           <div class="pe-sec"><div class="pe-btns"><button onclick="peRandom()">🎲 Surprise me</button><button onclick="peResetStyle()">Reset style</button></div></div>
-          <div class="pe-sec">
-            <div class="pe-lbl">Avatar frame</div>
+          <div class="pe-sec" id="pe-sec-frame">
+            <div class="pe-lbl">Avatar frame <small>admins &amp; co-admins only</small></div>
             <div class="pe-chips" id="pe-frames"></div>
             <div class="pe-sub pe-row" id="pe-frame-cols" style="display:none;margin-top:10px"><input type="color" class="pe-color" id="pe-fr-c1" oninput="peIn()"><input type="color" class="pe-color" id="pe-fr-c2" oninput="peIn()"></div>
           </div>
-          <div class="pe-sec">
-            <div class="pe-lbl">Name effect <small>shown on your profile and hover card</small></div>
+          <div class="pe-sec" id="pe-sec-name">
+            <div class="pe-lbl">Name effect <small>shown on your profile, in chat and in the member list</small></div>
             <div class="pe-chips" id="pe-names"></div>
             <div class="pe-sub pe-row" id="pe-name-cols" style="display:none;margin-top:10px"><input type="color" class="pe-color" id="pe-nf-c1" oninput="peIn()"><input type="color" class="pe-color" id="pe-nf-c2" oninput="peIn()"></div>
           </div>
@@ -711,12 +711,21 @@
       <div class="roles-list" id="stg-roles-list"></div>
       <button class="btn-p" style="width:100%;margin-top:4px" onclick="openCreateRole()">+ Create Role</button>
       <div id="role-editor" style="display:none;margin-top:18px;border-top:1px solid var(--border);padding-top:16px">
+        <div class="re-preview" id="re-preview"></div>
         <div class="m-lbl">Role Name</div>
-        <input class="m-inp" id="role-name-in" placeholder="e.g. Moderator" maxlength="32">
+        <input class="m-inp" id="role-name-in" placeholder="e.g. Moderator" maxlength="32" oninput="reUpdate()">
+        <div class="m-lbl">Quick looks</div>
+        <div class="re-chips" id="re-presets"></div>
         <div class="m-lbl">Role Color</div>
-        <div class="av-grid" id="role-color-grid" style="margin-bottom:12px"></div>
-        <div class="m-lbl">Permissions</div>
-        <div class="perm-list" id="perm-list"></div>
+        <div class="av-grid" id="role-color-grid" style="margin-bottom:8px"></div>
+        <div class="re-row"><label>Any colour <input type="color" id="re-c1" oninput="reColor(1,this.value)"></label><label id="re-c2-wrap">Second colour <input type="color" id="re-c2" oninput="reColor(2,this.value)"></label></div>
+        <div class="m-lbl">Name effect <small style="font-weight:400;color:var(--t3)">how the name looks in chat and the member list</small></div>
+        <div class="re-chips" id="re-fx"></div>
+        <div class="m-lbl">Badge icon <small style="font-weight:400;color:var(--t3)">optional emoji</small></div>
+        <input class="m-inp" id="re-icon" placeholder="e.g. 👑" maxlength="4" oninput="reUpdate()">
+        <div class="perm-row"><div><div class="perm-label">Show members separately</div><div class="perm-sub">Members with this role get their own group in the member list</div></div><div class="toggle-switch" id="re-hoist" onclick="this.classList.toggle('on');reUpdate()"></div></div>
+        <div id="re-perms"><div class="m-lbl">Permissions</div>
+        <div class="perm-list" id="perm-list"></div></div>
         <div class="m-row" style="margin-top:14px">
           <button class="btn-g" onclick="cancelRoleEdit()">Cancel</button>
           <button class="btn-p" onclick="saveRole()">Save Role</button>

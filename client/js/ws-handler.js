@@ -21,6 +21,16 @@ function handleIn(msg) {
     case 'typing':
       if(msg.author!==S.user.name) showTyping(msg.author, msg.channelId);
       break;
+    case 'roles_update': { // someone with the right edited this server's roles: look + order + permissions
+      const rsv = S.servers.find(x => x.id === msg.serverId);
+      if (rsv) {
+        if (Array.isArray(msg.roles)) rsv.roles = msg.roles;
+        if (msg.overrides && typeof msg.overrides === 'object') rsv.roleOverrides = msg.overrides;
+        if (S.curSv && S.curSv.id === rsv.id) { if (S.curSv !== rsv) { S.curSv.roles = rsv.roles; S.curSv.roleOverrides = rsv.roleOverrides; } renderMbs(); if (S.curCh) renderMsgs(S.curCh.id); }
+        persist();
+      }
+      break;
+    }
     case 'role_assign': {
       // Update local server's memberRoles
       const sv = S.servers.find(s => s.id === msg.serverId);
@@ -774,6 +784,7 @@ function handleIn(msg) {
         // Restore roles and memberRoles from backend (always trust server even if empty)
         if (si.roles !== undefined)        sv.roles       = si.roles;
         if (si.memberRoles !== undefined)  sv.memberRoles = si.memberRoles;
+        if (si.roleOverrides !== undefined) sv.roleOverrides = si.roleOverrides;
         if (si.banner !== undefined)       sv.banner      = si.banner;
         // shorts + pins are only sent to members: this is how a new member gets them on joining
         if (si.shorts) mergeServerShorts(sv, si.shorts);

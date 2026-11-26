@@ -63,9 +63,10 @@ function renderMbs() {
       const canCtx=(myRole==='owner'||myRole==='mod')&&_nk(m.name)!==meKey;
       const statusBg=isOffline?'var(--t3)':(m.status==='idle'?'var(--yellow)':m.status==='dnd'?'var(--red)':m.status==='invisible'?'var(--t3)':'var(--green)');
       const offlineStyle=isOffline?'opacity:0.5;':'';
+      const rn=roleNameAttrs(sv,m.name);
       html+=`<div class="mb-it" style="${offlineStyle}" onclick="openProfilePage('${esc(m.name)}')" oncontextmenu="${canCtx?`openMemberCtx('${esc(m.name)}',event)`:''}" onmouseenter="showUserHover('${esc(m.name)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" title="Click for profile${canCtx?' · Right-click for options':''}">
-        <div class="mb-av" style="background:${avBg}">${avContent}<div class="mb-st" style="background:${statusBg}"></div></div>
-        <div style="flex:1;min-width:0"><div class="mb-nm">${esc(m.name)}</div></div>
+        <div class="mb-av" data-name="${esc(m.name)}" style="background:${avBg}">${avContent}<div class="mb-st" style="background:${statusBg}"></div></div>
+        <div style="flex:1;min-width:0"><div class="mb-nm ${rn.cls}" data-name="${esc(m.name)}" style="${rn.style}">${esc(m.name)}</div></div>
         <div class="mb-role">${badge}</div>
       </div>`;
     });
@@ -74,11 +75,15 @@ function renderMbs() {
   // Only an explicit online:true counts as online (a missing flag used to mean "online")
   const online=all.filter(m=>m.online===true);
   const offline=all.filter(m=>m.online!==true);
-  const byRole=(arr)=>{
-    const r=m=>getMemberRole(sv,m.name);
-    return arr.filter(m=>r(m)==='owner').concat(arr.filter(m=>r(m)==='mod'),arr.filter(m=>r(m)!=='owner'&&r(m)!=='mod'));
-  };
-  if(online.length) renderGroup('Online',byRole(online));
+  // highest role first: owner, mod, then custom roles in the order the owner arranged them, then plain members
+  const rank=m=>{ const r=getMemberRole(sv,m.name); if(r==='owner')return 0; if(r==='mod')return 1; const i=(sv.roles||[]).findIndex(x=>x.id===r); return i>=0?2+i:1000; };
+  const byRole=(arr)=>arr.slice().sort((a,b)=>rank(a)-rank(b));
+  // roles set to "show members separately" get their own group above Online
+  const order=['owner','mod',...(sv.roles||[]).map(r=>r.id)].map(id=>getEffectiveRole(sv,id)).filter(r=>r&&r.hoist===true);
+  const hoisted=new Set(order.map(r=>r.id));
+  order.forEach(r=>{ const g=online.filter(m=>getMemberRole(sv,m.name)===r.id); if(g.length) renderGroup(esc(r.icon?r.icon+' '+r.name:r.name),g); });
+  const plainOnline=online.filter(m=>!hoisted.has(getMemberRole(sv,m.name)));
+  if(plainOnline.length) renderGroup('Online',byRole(plainOnline));
   if(offline.length) renderGroup('Offline',byRole(offline),true);
   el.innerHTML=html;
 }
