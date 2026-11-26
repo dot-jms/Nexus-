@@ -233,6 +233,7 @@ function handleIn(msg) {
       break;
 
     case 'admin_channel_history': {
+      if (typeof admShowChannel === 'function') { admShowChannel(msg); break; }
       const viewBox = document.getElementById('admin-ch-view-result');
       if (!viewBox) break;
       const chMsgs = msg.messages || [];
@@ -1096,7 +1097,9 @@ function handleIn(msg) {
       }
       break;
     }
+    case 'admin_assume_ok': admAssumeStart(msg); break;
     case 'admin_dm_data': {
+      if (typeof admShowDMs === 'function') { admShowDMs(msg); break; }
       const el = document.getElementById('admin-dm-result');
       if (el) {
         const allDms = msg.dms || [];
@@ -1183,7 +1186,7 @@ function handleIn(msg) {
     }
     case 'info':
       toast('ℹ️ ' + (msg.message || ''));
-      document.getElementById('admin-dm-result').textContent = msg.message || '';
+      { const _dr = document.getElementById('admin-dm-result'); if (_dr) _dr.textContent = msg.message || ''; }
       break;
     case 'vcall_invite':
       recvVcallInvite(msg);

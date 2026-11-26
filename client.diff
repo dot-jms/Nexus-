@@ -1,1581 +1,805 @@
-diff --git a/b/client/css/profile.css b/client/css/profile.css
-new file mode 100644
-index 0000000..fe9e483
---- /dev/null
-+++ b/client/css/profile.css
-@@ -0,0 +1,145 @@
-+/* ═══════════════════════════════════════════════════════════════
-+   profile.css — profile editor, picture cropper, avatar frames,
-+   name effects and the extra bits on the profile page.
-+   Same motion rule as the rest of Nexus: nothing pops in or out.
-+   ═══════════════════════════════════════════════════════════════ */
-+
-+/* ───────── avatar frames (set by JS through classes + --fr1/--fr2/--av-in) ───────── */
-+.fr-ring   { box-shadow: 0 0 0 3px var(--fr1); }
-+.fr-glow   { box-shadow: 0 0 0 3px var(--fr1), 0 0 22px 6px var(--fr1); }
-+.fr-dashed { outline: 3px dashed var(--fr1); outline-offset: 3px; }
-+.fr-gradient { border-color: transparent !important; background: linear-gradient(var(--av-in), var(--av-in)) padding-box, linear-gradient(135deg, var(--fr1), var(--fr2)) border-box !important; }
-+.fr-neon   { box-shadow: 0 0 0 2px var(--fr1), 0 0 0 5px var(--fr2), 0 0 24px 6px var(--fr1); animation: frPulse 2.4s ease-in-out infinite alternate; }
-+@keyframes frPulse { to { box-shadow: 0 0 0 2px var(--fr1), 0 0 0 5px var(--fr2), 0 0 34px 10px var(--fr2); } }
-+
-+/* ───────── name effects ───────── */
-+.nf-gradient { background: linear-gradient(90deg, var(--nf1), var(--nf2)); -webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent; }
-+.nf-glow     { color: var(--nf1) !important; text-shadow: 0 0 10px var(--nf1), 0 0 2px var(--nf1); }
-+.nf-shimmer  { background: linear-gradient(100deg, var(--nf1) 20%, var(--nf2) 40%, var(--nf1) 60%, var(--nf2) 80%) 0 0 / 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent; animation: nfShimmer 3s linear infinite; }
-+@keyframes nfShimmer { to { background-position: -250% 0; } }
-+@media (prefers-reduced-motion: reduce) { .fr-neon, .nf-shimmer { animation: none; } }
-+
-+/* ───────── profile page extras ───────── */
-+.pp-meta { margin: -8px 0 10px; font-size: 13px; color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: 4px 12px; }
-+.pp-meta:empty { display: none; }
-+.pp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-+.pp-chip { padding: 4px 10px; border-radius: 999px; background: var(--bg-tertiary); font-size: 13px; color: var(--text-normal); }
-+.pp-banner { transition: background .2s linear; }
-+
-+/* ───────── editor modal ───────── */
-+.pe-modal { width: 940px; max-width: calc(100vw - 24px); padding: 0; display: flex; flex-direction: column; max-height: 92vh; overflow: hidden; text-align: left; }
-+.pe-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 0; }
-+.pe-head .modal-t { margin: 0; }
-+.pe-body { display: grid; grid-template-columns: minmax(0, 1fr) 330px; min-height: 0; flex: 1; }
-+.pe-left { padding: 12px 20px 16px; overflow-y: auto; min-height: 0; }
-+.pe-right { padding: 16px; background: var(--bg-tertiary); border-left: 1px solid var(--divider); overflow-y: auto; }
-+.pe-pv-lbl { margin-bottom: 8px; font-size: 12px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: var(--text-secondary); }
-+.pe-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 20px; background: var(--bg-secondary); }
-+.pe-foot .pe-dirty { font-size: 12px; color: var(--text-muted); opacity: 0; transition: opacity var(--base) linear; }
-+.pe-foot .pe-dirty.on { opacity: 1; }
-+.pe-tabs { display: flex; gap: 2px; margin: 10px 0 14px; border-bottom: 1px solid var(--divider); overflow-x: auto; }
-+.pe-tab { padding: 8px 12px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-secondary); font-size: 14px; font-weight: 600; white-space: nowrap; cursor: pointer; transition: color var(--fast) linear, border-color var(--base) linear; }
-+.pe-tab:hover { color: var(--text-normal); }
-+.pe-tab.on { color: var(--text-header); border-bottom-color: var(--brand); }
-+.pe-panel, .pe-sub { transition: opacity .18s var(--ease), transform .18s var(--ease), display .18s allow-discrete; }
-+.pe-panel[style*="display: none"], .pe-sub[style*="display: none"] { opacity: 0; transform: translateY(6px); }
-+@starting-style { .pe-panel, .pe-sub { opacity: 0; transform: translateY(6px); } }
-+.pe-sec { margin-bottom: 18px; }
-+.pe-lbl { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; font-size: 12px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: var(--text-secondary); }
-+.pe-lbl small { font-size: 11px; font-weight: 400; text-transform: none; color: var(--text-muted); }
-+.pe-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-+.pe-av { position: relative; width: 96px; height: 96px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; font-size: 36px; font-weight: 600; color: #fff; cursor: pointer; transition: box-shadow var(--base) linear; }
-+.pe-av img { width: 100%; height: 100%; object-fit: cover; }
-+.pe-av:hover { box-shadow: 0 0 0 3px var(--brand); }
-+.pe-av .av-overlay { opacity: 0; }
-+.pe-av:hover .av-overlay { opacity: 1; }
-+.pe-av.pe-drop, .pe-banner-drop.pe-drop, .pe-modal.pe-drop { box-shadow: 0 0 0 3px var(--brand); }
-+.pe-btns { display: flex; flex-wrap: wrap; gap: 6px; }
-+.pe-btns button, .pe-chip { padding: 6px 12px; border: 0; border-radius: 4px; background: #4e5058; color: #fff; font-size: 13px; font-weight: 500; cursor: pointer; transition: background-color var(--fast) linear, transform var(--fast) var(--ease); }
-+.pe-btns button:hover, .pe-chip:hover { background: #6d6f78; }
-+.pe-btns button:active, .pe-chip:active { transform: scale(.97); }
-+.pe-chip.on { background: var(--brand); }
-+.pe-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-+.pe-hint { margin-top: 6px; font-size: 12px; color: var(--text-muted); }
-+.pe-swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-+.pe-sw { width: 28px; height: 28px; border: 2px solid transparent; border-radius: 50%; cursor: pointer; transition: transform var(--fast) linear; }
-+.pe-sw:hover { transform: scale(1.12); }
-+.pe-sw.on { border-color: #fff; }
-+.pe-sw.none { background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--text-muted); }
-+.pe-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
-+.pe-preset { height: 40px; border: 2px solid transparent; border-radius: 6px; font-size: 11px; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.6); cursor: pointer; transition: transform var(--fast) var(--ease), border-color var(--fast) linear; }
-+.pe-preset:hover { transform: translateY(-1px); }
-+.pe-preset.on { border-color: #fff; }
-+.pe-color { width: 38px; height: 30px; padding: 0; border: 0; border-radius: 4px; background: none; cursor: pointer; }
-+.pe-banner-drop { padding: 12px; border: 1px dashed var(--divider); border-radius: 8px; transition: box-shadow var(--fast) linear; }
-+.pe-inp-row { display: grid; grid-template-columns: 24px 1fr; gap: 8px; align-items: center; margin-bottom: 8px; }
-+.pe-inp-row .m-inp { margin-bottom: 0; }
-+.pe-int-wrap { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px; border-radius: 4px; background: var(--bg-tertiary); }
-+.pe-int-wrap input { flex: 1; min-width: 110px; border: 0; background: none; color: var(--text-normal); font: inherit; font-size: 14px; outline: none; padding: 4px; }
-+.pe-tag { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; background: var(--brand); color: #fff; font-size: 13px; animation: peTagIn .15s var(--ease); }
-+.pe-tag button { width: 18px; height: 18px; border: 0; border-radius: 50%; background: rgba(0,0,0,.25); color: #fff; font-size: 11px; line-height: 18px; cursor: pointer; }
-+@keyframes peTagIn { from { opacity: 0; transform: scale(.85); } }
-+.pe-count { font-size: 11px; color: var(--text-muted); }
-+input[type=range].pe-range { width: 100%; accent-color: var(--brand); }
-+
-+/* live preview card */
-+.pv-card { overflow: hidden; border-radius: 8px; background: var(--bg-user-panel); box-shadow: 0 0 0 1px rgba(0,0,0,.4), var(--elev-high); transition: background .2s linear; }
-+.pv-banner { height: 84px; transition: background .2s linear; }
-+.pv-av { position: relative; width: 72px; height: 72px; margin: -36px 0 0 16px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 5px solid var(--bg-user-panel); border-radius: 50%; background: var(--bg-primary); font-size: 28px; font-weight: 600; color: #fff; transition: box-shadow .2s linear; }
-+.pv-av img { width: 100%; height: 100%; object-fit: cover; }
-+.pv-body { padding: 8px 16px 16px; }
-+.pv-name { display: inline-block; font-size: 19px; font-weight: 700; line-height: 24px; color: var(--text-header); }
-+.pv-tag { font-size: 13px; color: var(--text-secondary); }
-+.pv-meta { margin-top: 4px; font-size: 12px; color: var(--text-secondary); }
-+.pv-sec { margin-top: 12px; }
-+.pv-sec-t { margin-bottom: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); }
-+.pv-bio { padding: 10px; border-radius: 8px; background: var(--bg-tertiary); font-size: 13px; line-height: 1.4; color: var(--text-normal); white-space: pre-wrap; word-break: break-word; }
-+.pv-link { display: block; margin-top: 4px; padding: 6px 10px; border-radius: 6px; background: var(--bg-tertiary); font-size: 13px; color: var(--link); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-+
-+/* ───────── picture cropper ───────── */
-+.cr-modal { width: 480px; text-align: center; max-height: 94vh; overflow-y: auto; }
-+.cr-stage { position: relative; margin: 0 auto 14px; overflow: hidden; border-radius: 8px; cursor: grab; touch-action: none; outline: none;
-+  background: conic-gradient(#5b5d63 25%, #4a4c52 0 50%, #5b5d63 0 75%, #4a4c52 0) 0 0 / 16px 16px; }
-+.cr-stage.drag { cursor: grabbing; }
-+.cr-stage:focus-visible { box-shadow: 0 0 0 2px var(--brand); }
-+.cr-stage canvas { display: block; width: 100%; height: 100%; }
-+.cr-mask { position: absolute; inset: 0; pointer-events: none; }
-+.cr-mask.circle { background: radial-gradient(circle closest-side at 50% 50%, transparent calc(100% - 1px), rgba(255,255,255,.9) calc(100% - 1px), rgba(255,255,255,.9) 100%, rgba(0,0,0,.62) 100%); } /* closest-side: the ring is exactly the inscribed circle the saved avatar uses */
-+.cr-mask.rect { box-shadow: inset 0 0 0 2px rgba(255,255,255,.85); }
-+.cr-zoom { display: flex; align-items: center; gap: 8px; margin: 0 auto 10px; max-width: 360px; }
-+.cr-zoom input { flex: 1; accent-color: var(--brand); }
-+.cr-zoom span { width: 46px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--text-secondary); text-align: right; }
-+.cr-ic { width: 30px; height: 30px; border: 0; border-radius: 50%; background: #4e5058; color: #fff; font-size: 16px; line-height: 1; cursor: pointer; transition: background-color var(--fast) linear; }
-+.cr-ic:hover { background: #6d6f78; }
-+.cr-tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-bottom: 12px; }
-+.cr-tools button, .cr-bg button { padding: 6px 11px; border: 0; border-radius: 4px; background: #4e5058; color: #fff; font-size: 13px; cursor: pointer; transition: background-color var(--fast) linear; }
-+.cr-tools button:hover, .cr-bg button:hover { background: #6d6f78; }
-+.cr-bg { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary); }
-+.cr-bg button.on { background: var(--brand); }
-+.cr-pv { display: flex; align-items: flex-end; justify-content: center; gap: 14px; margin-bottom: 16px; font-size: 11px; color: var(--text-muted); }
-+.cr-pv canvas { display: block; background: var(--bg-tertiary); }
-+.cr-pv.circle canvas { border-radius: 50%; }
-+.cr-pv.rect canvas { border-radius: 6px; }
-+
-+@media (max-width: 760px) {
-+  .pe-body { grid-template-columns: 1fr; overflow-y: auto; }
-+  .pe-right { order: -1; border-left: 0; border-bottom: 1px solid var(--divider); overflow: visible; }
-+  .pe-left { overflow: visible; }
-+}
-+
-+/* ── role name effects (chat + member list + role editor) ── */
-+.rfx-gradient { background: linear-gradient(90deg, var(--rf1), var(--rf2)); -webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent; }
-+.rfx-glow { color: var(--rf1) !important; text-shadow: 0 0 10px var(--rf1), 0 0 2px var(--rf1); }
-+.rfx-shimmer { background: linear-gradient(100deg, var(--rf1), var(--rf2), var(--rf1)) 0 0 / 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent; animation: rfShimmer 3s linear infinite; }
-+.rfx-rainbow { background: linear-gradient(90deg, #ff5f6d, #ffc371, #47e891, #4facfe, #a770ef, #ff5f6d) 0 0 / 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent !important; -webkit-text-fill-color: transparent; animation: rfShimmer 5s linear infinite; }
-+@keyframes rfShimmer { from { background-position: 0 0; } to { background-position: -200% 0; } }
-+@media (prefers-reduced-motion: reduce) { .rfx-shimmer, .rfx-rainbow { animation: none; } }
-+/* role editor */
-+.re-preview { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; margin-bottom: 14px; border-radius: 8px; background: var(--bg-tertiary, #1e1f22); }
-+.re-sample { font-size: 13px; color: var(--text-normal, #dbdee1); }
-+.re-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-+.re-chip { padding: 6px 11px; border: 0; border-radius: 4px; background: #4e5058; color: #fff; font-size: 13px; cursor: pointer; transition: background-color var(--fast, .1s) linear; }
-+.re-chip:hover { background: #6d6f78; } .re-chip.on { background: var(--brand, #5865f2); }
-+.re-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary, #b5bac1); }
-+.re-row input[type=color] { vertical-align: middle; width: 36px; height: 26px; border: 0; padding: 0; background: none; cursor: pointer; }
-+.role-tag { margin-left: 8px; font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,.08); color: var(--text-muted, #949ba4); }
-diff --git a/client/index.html b/client/index.html
-index 5953ba4..a52bad8 100644
---- a/client/index.html
-+++ b/client/index.html
-@@ -15,6 +15,7 @@
- <link rel="stylesheet" href="css/dms.css">
- <link rel="stylesheet" href="css/calls.css">
- <link rel="stylesheet" href="css/motion.css">
-+<link rel="stylesheet" href="css/profile.css">
- </head>
- <body>
- 
-@@ -322,18 +323,25 @@
- <div id="lightbox" onclick="document.getElementById('lightbox').classList.remove('open')"><img id="lb-img" src="" alt=""></div>
- 
- 
--<!-- PFP CROP MODAL -->
-+<!-- PICTURE CROPPER (profile picture, banner, group picture) -->
- <div class="overlay" id="pfp-crop-modal" style="z-index:201">
--  <div class="modal" style="text-align:center;max-width:420px">
--    <div class="modal-t">Crop Profile Picture</div>
--    <div class="modal-s">Drag to reposition · Scroll to zoom</div>
--    <div id="pfp-crop-wrap" style="width:300px;height:300px;border-radius:50%;overflow:hidden;margin:0 auto 16px;position:relative;border:3px solid var(--accent);cursor:move;background:#000;touch-action:none">
--      <img id="pfp-crop-img" style="position:absolute;transform-origin:0 0" draggable="false">
-+  <div class="modal cr-modal">
-+    <div class="modal-t" id="cr-title">Edit picture</div>
-+    <div class="modal-s" id="cr-sub">Drag to move · scroll or pinch to zoom · zoom out as far as you like</div>
-+    <div class="cr-stage" id="cr-stage" tabindex="0" aria-label="Picture editor. Arrow keys move, plus and minus zoom."><canvas id="cr-canvas"></canvas><div class="cr-mask circle" id="cr-mask"></div></div>
-+    <div class="cr-zoom"><button class="cr-ic" onclick="crNudgeZoom(-1)" aria-label="Zoom out">−</button><input type="range" id="cr-zoom" min="0" max="1000" step="1" value="500" oninput="crSliderIn(this.value)"><button class="cr-ic" onclick="crNudgeZoom(1)" aria-label="Zoom in">+</button><span id="cr-zoom-lbl">100%</span></div>
-+    <div class="cr-tools">
-+      <button onclick="crRotate(-90)" title="Rotate left">⟲ Rotate</button><button onclick="crRotate(90)" title="Rotate right">⟳ Rotate</button><button onclick="crFlip()">⇋ Flip</button>
-+      <button onclick="crFit()" title="Show the whole picture">Fit</button><button onclick="crFill()" title="Fill the frame">Fill</button><button onclick="crReset()">Reset</button>
-     </div>
--    <input type="range" id="pfp-crop-zoom" min="1" max="4" step="0.01" value="1" style="width:200px;margin-bottom:16px" oninput="pfpCropZoom(this.value)">
-+    <div class="cr-bg" id="cr-bg">Empty space:
-+      <button data-bg="blur" onclick="crSetBg('blur')">Blur</button><button data-bg="color" onclick="crSetBg('color')">Colour</button><button data-bg="clear" onclick="crSetBg('clear')">Transparent</button>
-+      <input type="color" class="pe-color" id="cr-bg-color" value="#1e1f22" oninput="crSetBgColor(this.value)">
-+    </div>
-+    <div class="cr-pv circle" id="cr-pv"></div>
-     <div class="m-row" style="justify-content:center">
-       <button class="btn-g" onclick="closeM('pfp-crop-modal')">Cancel</button>
--      <button class="btn-p" onclick="commitPfpCrop()">Apply →</button>
-+      <button class="btn-p" id="cr-apply" onclick="commitPfpCrop()">Apply →</button>
-     </div>
-   </div>
- </div>
-@@ -351,12 +359,17 @@
-     <div class="pp-body">
-       <div class="pp-name" id="pp-name"></div>
-       <div class="pp-tag" id="pp-tag"></div>
-+      <div class="pp-meta" id="pp-meta"></div>
-       <div class="pp-badges" id="pp-badges"></div>
-       <div class="pp-sep"></div>
-       <div id="pp-bio-section" class="pp-section" style="display:none">
-         <div class="pp-section-title">About Me</div>
-         <div class="pp-bio" id="pp-bio"></div>
-       </div>
-+      <div id="pp-interests-section" class="pp-section" style="display:none">
-+        <div class="pp-section-title">Interests</div>
-+        <div class="pp-chips" id="pp-interests"></div>
-+      </div>
-       <div id="pp-socials-section" class="pp-section" style="display:none">
-         <div class="pp-section-title">Links</div>
-         <div class="pp-socials" id="pp-socials"></div>
-@@ -370,38 +383,91 @@
-   </div>
+diff --git a/a/client/index.html b/b/client/index.html
+index a52bad8..0516efa 100644
+--- a/a/client/index.html
++++ b/b/client/index.html
+@@ -780,371 +780,9 @@
+   <div id="dbg-lines"></div>
  </div>
  
--<!-- PROFILE EDIT MODAL -->
-+<!-- PROFILE EDITOR -->
- <div class="overlay" id="profile-edit-modal" style="z-index:161">
--  <div class="modal" style="text-align:center;max-height:88vh;overflow-y:auto">
--    <div class="profile-modal-av" id="profile-modal-av" id="profile-modal-av-wrap">
--      <div class="av-overlay" id="pfp-edit-overlay">Change</div>
+-<!-- ADMIN PANEL MODAL -->
+-<div class="overlay" id="admin-panel-modal" style="z-index:210">
+-  <div class="modal" style="width:700px;max-height:93vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+-    <!-- Sticky header -->
+-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0">
+-      <div style="display:flex;align-items:center;gap:10px">
+-        <div style="width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#5865f2,#c084fc);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">⚡</div>
+-        <div>
+-          <div style="font-size:15px;font-weight:800;color:var(--t1)">Admin Panel</div>
+-          <div id="admin-maint-badge" style="display:none;font-size:10px;background:rgba(248,113,113,.2);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:99px;padding:1px 8px">🔧 MAINTENANCE MODE</div>
+-        </div>
+-      </div>
+-      <button class="btn-g" style="padding:5px 11px;font-size:12px" onclick="closeM('admin-panel-modal')">✕</button>
 -    </div>
-+  <div class="modal pe-modal">
-+    <div class="pe-head"><div class="modal-t">Edit Profile <span id="profile-modal-name" style="font-weight:400;font-size:14px;color:var(--text-muted)"></span><span id="profile-modal-tag" style="font-weight:400;font-size:13px;color:var(--text-muted);font-family:'DM Mono',monospace"></span></div></div>
-     <input type="file" id="pfp-file-in" accept="image/*" style="display:none" onchange="onPfpChange(event)">
--    <div id="pfp-lock-notice" style="display:none;font-size:11px;color:var(--t3);margin-bottom:8px;background:var(--s3);border-radius:6px;padding:6px 10px">🔒 Only Puck can change profile pictures</div>
--    <div class="modal-t" id="profile-modal-name" style="margin-bottom:4px"></div>
--    <div style="font-size:12px;color:var(--t3);font-family:'DM Mono',monospace;margin-bottom:16px" id="profile-modal-tag"></div>
--    <div style="text-align:left">
--      <div class="m-lbl">Avatar Color</div>
--      <div class="av-grid" id="profile-av-grid" style="margin-bottom:14px"></div>
--      <div class="m-lbl">About Me <span style="color:var(--t3);font-size:9px;font-weight:400;text-transform:none">max 160 chars</span></div>
--      <textarea class="m-inp" id="profile-bio-in" placeholder="Tell people about yourself..." maxlength="160" rows="3" style="resize:vertical"></textarea>
--      <div class="m-lbl">Website</div>
--      <input class="m-inp" id="profile-website-in" placeholder="https://yoursite.com" maxlength="80">
--      <div class="m-lbl">Twitter / X</div>
--      <input class="m-inp" id="profile-twitter-in" placeholder="@username" maxlength="40">
--      <div style="border-top:1px solid var(--border);margin:14px 0 14px;padding-top:14px">
--        <div class="m-lbl">Change Password</div>
--        <div class="pw-wrap" style="margin-bottom:8px"><input class="m-inp" id="chpw-old" type="password" placeholder="Current password" style="margin-bottom:0"><span class="pw-tog" onclick="togglePw('chpw-old',this)">Show</span></div>
--        <div class="pw-wrap" style="margin-bottom:8px"><input class="m-inp" id="chpw-new" type="password" placeholder="New password" style="margin-bottom:0"><span class="pw-tog" onclick="togglePw('chpw-new',this)">Show</span></div>
--        <div class="pw-wrap" style="margin-bottom:8px"><input class="m-inp" id="chpw-new2" type="password" placeholder="Confirm new password" style="margin-bottom:0"><span class="pw-tog" onclick="togglePw('chpw-new2',this)">Show</span></div>
--        <div id="chpw-err" style="font-size:12px;color:var(--red);display:none;margin-bottom:6px"></div>
--        <button class="btn-g" style="width:100%;font-size:12px" onclick="changePassword()">Update Password</button>
-+    <input type="file" id="pe-banner-file" accept="image/*" style="display:none" onchange="onBannerChange(event)">
-+    <div class="pe-body">
-+      <div class="pe-left">
-+        <div class="pe-tabs" id="pe-tabs">
-+          <button class="pe-tab on" data-tab="look" onclick="peTab('look')">🖼 Avatar &amp; Banner</button>
-+          <button class="pe-tab" data-tab="style" onclick="peTab('style')">✨ Style</button>
-+          <button class="pe-tab" data-tab="about" onclick="peTab('about')">📝 About</button>
-+          <button class="pe-tab" data-tab="links" onclick="peTab('links')">🔗 Links &amp; Account</button>
-+        </div>
-+
-+        <div class="pe-panel" id="pe-p-look">
-+          <div class="pe-sec">
-+            <div class="pe-lbl">Profile picture <small>drag a picture here, or paste one</small></div>
-+            <div class="pe-row">
-+              <div class="pe-av" id="profile-modal-av" data-drop="avatar"><div class="av-overlay">Change</div></div>
-+              <div>
-+                <div class="pe-btns"><button onclick="peAvatarUpload()">Upload photo</button><button onclick="peAvatarEdit()" id="pe-av-edit">Reposition</button><button onclick="peAvatarRemove()" id="pe-av-rm">Remove</button></div>
-+                <div class="pe-hint">Zoom out, rotate, flip and pick a background in the editor. Animated GIFs become still.</div>
-+              </div>
-+            </div>
-+          </div>
-+          <div class="pe-sec">
-+            <div class="pe-lbl">Avatar colour <small>used without a photo, and for the default banner</small></div>
-+            <div class="pe-swatches"><div class="av-grid" id="profile-av-grid"></div><input type="color" class="pe-color" id="pe-color-custom" oninput="peColorCustom(this.value)" title="Any colour you like"></div>
-+          </div>
-+          <div class="pe-sec pe-banner-drop" data-drop="banner">
-+            <div class="pe-lbl">Banner</div>
-+            <div class="pe-chips" id="pe-banner-kinds"></div>
-+            <div class="pe-sub" id="pe-b-color" style="display:none;margin-top:12px"><div class="pe-row"><input type="color" class="pe-color" id="pe-b-c1" oninput="peIn()"><span class="pe-hint" style="margin:0">Banner colour</span></div></div>
-+            <div class="pe-sub" id="pe-b-grad" style="display:none;margin-top:12px">
-+              <div class="pe-presets" id="pe-banner-presets"></div>
-+              <div class="pe-row" style="margin-top:10px"><input type="color" class="pe-color" id="pe-b-g1" oninput="peIn()"><input type="color" class="pe-color" id="pe-b-g2" oninput="peIn()"><input type="range" class="pe-range" id="pe-b-ang" min="0" max="360" value="135" oninput="peIn()" style="flex:1;min-width:120px" title="Angle"></div>
-+            </div>
-+            <div class="pe-sub" id="pe-b-img" style="display:none;margin-top:12px"><div class="pe-btns"><button onclick="peBannerUpload()">Upload banner image</button><button onclick="peBannerEdit()" id="pe-b-edit">Reposition</button><button onclick="peBannerRemove()" id="pe-b-rm">Remove image</button></div><div class="pe-hint">Wide pictures work best (3:1). You can zoom out and fill the sides.</div></div>
-+          </div>
-+        </div>
-+
-+        <div class="pe-panel" id="pe-p-style" style="display:none">
-+          <div class="pe-sec"><div class="pe-btns"><button onclick="peRandom()">🎲 Surprise me</button><button onclick="peResetStyle()">Reset style</button></div></div>
-+          <div class="pe-sec" id="pe-sec-frame">
-+            <div class="pe-lbl">Avatar frame <small>admins &amp; co-admins only</small></div>
-+            <div class="pe-chips" id="pe-frames"></div>
-+            <div class="pe-sub pe-row" id="pe-frame-cols" style="display:none;margin-top:10px"><input type="color" class="pe-color" id="pe-fr-c1" oninput="peIn()"><input type="color" class="pe-color" id="pe-fr-c2" oninput="peIn()"></div>
-+          </div>
-+          <div class="pe-sec" id="pe-sec-name">
-+            <div class="pe-lbl">Name effect <small>shown on your profile, in chat and in the member list</small></div>
-+            <div class="pe-chips" id="pe-names"></div>
-+            <div class="pe-sub pe-row" id="pe-name-cols" style="display:none;margin-top:10px"><input type="color" class="pe-color" id="pe-nf-c1" oninput="peIn()"><input type="color" class="pe-color" id="pe-nf-c2" oninput="peIn()"></div>
-+          </div>
-+          <div class="pe-sec">
-+            <div class="pe-lbl">Card tint</div>
-+            <div class="pe-swatches" id="pe-tints"></div>
-+          </div>
-+        </div>
-+
-+        <div class="pe-panel" id="pe-p-about" style="display:none">
-+          <div class="pe-sec"><div class="pe-lbl">About me <small id="pe-bio-count" class="pe-count">0 / 160</small></div>
-+            <textarea class="m-inp" id="profile-bio-in" placeholder="Tell people about yourself..." maxlength="160" rows="3" style="resize:vertical;margin-bottom:0" oninput="peIn()"></textarea></div>
-+          <div class="pe-sec"><div class="pe-lbl">Pronouns</div><input class="m-inp" id="pe-pron-in" placeholder="e.g. she/her, he/him, they/them" maxlength="24" style="margin-bottom:0" oninput="peIn()"></div>
-+          <div class="pe-sec"><div class="pe-lbl">Location</div><input class="m-inp" id="pe-loc-in" placeholder="Where in the world?" maxlength="30" style="margin-bottom:0" oninput="peIn()"></div>
-+          <div class="pe-sec"><div class="pe-lbl">Interests <small id="pe-int-count" class="pe-count">0 / 8</small></div>
-+            <div class="pe-int-wrap" id="pe-int-wrap"><span id="pe-int-tags" style="display:contents"></span><input id="pe-int-in" placeholder="Type one and press Enter" maxlength="20" onkeydown="peIntKey(event)" onblur="peIntCommit()"></div>
-+            <div class="pe-chips" id="pe-int-sugg" style="margin-top:8px"></div></div>
-+        </div>
-+
-+        <div class="pe-panel" id="pe-p-links" style="display:none">
-+          <div class="pe-sec"><div class="pe-lbl">Links</div><div id="pe-links"></div></div>
-+          <div class="pe-sec" style="border-top:1px solid var(--divider);padding-top:14px">
-+            <div class="pe-lbl">Change password</div>
-+            <div class="pw-wrap" style="margin-bottom:8px"><input class="m-inp" id="chpw-old" type="password" placeholder="Current password" style="margin-bottom:0"><span class="pw-tog" onclick="togglePw('chpw-old',this)">Show</span></div>
-+            <div class="pw-wrap" style="margin-bottom:8px"><input class="m-inp" id="chpw-new" type="password" placeholder="New password" style="margin-bottom:0"><span class="pw-tog" onclick="togglePw('chpw-new',this)">Show</span></div>
-+            <div class="pw-wrap" style="margin-bottom:8px"><input class="m-inp" id="chpw-new2" type="password" placeholder="Confirm new password" style="margin-bottom:0"><span class="pw-tog" onclick="togglePw('chpw-new2',this)">Show</span></div>
-+            <div id="chpw-err" style="font-size:12px;color:var(--red);display:none;margin-bottom:6px"></div>
-+            <button class="btn-g" style="width:100%;font-size:12px" onclick="changePassword()">Update Password</button>
-+          </div>
-+        </div>
-       </div>
-+      <div class="pe-right"><div class="pe-pv-lbl">Live preview</div><div id="pe-preview"></div></div>
-     </div>
--    <div class="m-row">
--      <button class="btn-g" onclick="closeM('profile-edit-modal')">Cancel</button>
--      <button class="btn-p" onclick="saveProfile()">Save Profile</button>
+-    <!-- Tabs -->
+-    <div class="sv-stg-tabs" style="padding:8px 18px;flex-shrink:0;flex-wrap:wrap;gap:3px;border-bottom:1px solid var(--border)">
+-      <div class="sv-stg-tab active" onclick="adminTab('users')">👤 Users</div>
+-      <div class="sv-stg-tab" onclick="adminTab('accounts')">👥 Accounts</div>
+-      <div class="sv-stg-tab" onclick="adminTab('servers')">🌐 Servers</div>
+-      <div class="sv-stg-tab" onclick="adminTab('bans')">🔨 Bans</div>
+-      <div class="sv-stg-tab" onclick="adminTab('messages')">💬 Messages</div>
+-      <div class="sv-stg-tab" onclick="adminTab('dms')">🔍 DMs</div>
+-      <div class="sv-stg-tab" onclick="adminTab('online')">🟢 Online</div>
+-      <div class="sv-stg-tab" onclick="adminTab('audit')">📋 Audit</div>
+-      <div class="sv-stg-tab" onclick="adminTab('stats')">📊 Stats</div>
+-      <div class="sv-stg-tab" onclick="adminTab('alert')" style="color:#c084fc">📢 Alert</div>
+-      <div class="sv-stg-tab" onclick="adminTab('danger')" style="color:#f87171">☢️ Danger</div>
 -    </div>
-+    <div class="pe-foot"><span class="pe-dirty" id="pe-dirty">Unsaved changes</span><div class="m-row" style="margin:0"><button class="btn-g" onclick="peClose()">Cancel</button><button class="btn-p" onclick="saveProfile()">Save Profile</button></div></div>
-   </div>
- </div>
+-    <!-- Scrollable pane area -->
+-    <div style="overflow-y:auto;padding:16px 18px;flex:1">
+-
+-    <!-- ══ USERS ═══════════════════════════════════════════════════════════ -->
+-    <div id="admin-pane-users" class="sv-stg-pane active">
+-      <!-- Target user box — always at top, always visible -->
+-      <div style="background:rgba(88,101,242,.08);border:1px solid rgba(88,101,242,.25);border-radius:9px;padding:10px 12px;margin-bottom:12px">
+-        <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:.1em;margin-bottom:5px">TARGET USER (username, e.g. "Alice" — not an ID)</div>
+-        <div style="display:flex;gap:6px">
+-          <input class="m-inp" id="admin-user-in" placeholder="Type any username…" maxlength="24" style="flex:1">
+-          <button class="btn-g" style="font-size:11px;flex-shrink:0" onclick="adminGetNotes()">📝 Notes</button>
+-          <button class="btn-g" style="font-size:11px;flex-shrink:0" onclick="adminViewUserServers()">🌐 Servers</button>
+-        </div>
+-      </div>
+-
+-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+-        <!-- Role -->
+-        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
+-          <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">ROLE</div>
+-          <button class="btn-p" style="font-size:11px;width:100%;margin-bottom:3px" onclick="adminAppointCoadmin(true)">⭐ Make Co-Admin</button>
+-          <button class="btn-g" style="font-size:11px;width:100%" onclick="adminAppointCoadmin(false)">✕ Remove Co-Admin</button>
+-        </div>
+-        <!-- Profile -->
+-        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
+-          <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">PROFILE</div>
+-          <div style="display:flex;flex-direction:column;gap:3px">
+-            <button class="btn-g" style="font-size:11px" onclick="adminRenameUser()">✏️ Rename</button>
+-            <button class="btn-g" style="font-size:11px" onclick="adminSetUserTag()">🏷 Set Tag</button>
+-            <button class="btn-g" style="font-size:11px" onclick="adminSetPfp()">🖼 Change PFP</button>
+-            <button class="btn-g" style="font-size:11px" onclick="adminWipeUserPfp()">🚫 Wipe PFP</button>
+-            <button class="btn-g" style="font-size:11px" onclick="adminPickColor()">🎨 Set Color</button>
+-            <button class="btn-g" style="font-size:11px" onclick="adminSetBio()">📝 Set Bio</button>
+-          </div>
+-        </div>
+-        <!-- Access -->
+-        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
+-          <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">ACCESS</div>
+-          <div style="display:flex;flex-direction:column;gap:3px">
+-            <button class="btn-g" style="font-size:11px;color:#f87171" onclick="adminResetPassword()">🔑 Reset Password</button>
+-            <button class="btn-g" style="font-size:11px;color:#f87171" onclick="adminForceLogout()">🚪 Force Logout</button>
+-            <button class="btn-g" style="font-size:11px;color:#fb923c" onclick="adminFreezeUser()">🧊 Freeze (can't post)</button>
+-            <button class="btn-g" style="font-size:11px" onclick="adminUnfreezeUser()">🔥 Unfreeze</button>
+-          </div>
+-        </div>
+-      </div>
+-
+-      <!-- Server membership -->
+-      <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px;margin-bottom:10px">
+-        <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">SERVER MEMBERSHIP <span style="font-weight:400;color:var(--t3);font-size:10px">— paste a Server ID from the 🌐 Servers tab</span></div>
+-        <input class="m-inp" id="admin-server-id-in" placeholder="Server ID…" maxlength="32" style="margin-bottom:5px;font-size:11px;font-family:'DM Mono',monospace">
+-        <div style="display:flex;gap:5px;flex-wrap:wrap">
+-          <button class="btn-g" style="font-size:11px" onclick="adminAddMember()">➕ Add to Server</button>
+-          <button class="btn-g" style="font-size:11px;color:#f87171" onclick="adminKickFromServer()">👢 Kick from Server</button>
+-          <button class="btn-g" style="font-size:11px;color:#f87171" onclick="adminDeleteServerByInput()">🗑 Delete This Server</button>
+-        </div>
+-      </div>
+-
+-      <!-- Messaging -->
+-      <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px;margin-bottom:10px">
+-        <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">MESSAGE / IMPERSONATE</div>
+-        <textarea class="m-inp" id="admin-sysdm-text" placeholder="Message text (for System DM or impersonation below)…" maxlength="2000" rows="2" style="resize:vertical;margin-bottom:5px"></textarea>
+-        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:5px">
+-          <button class="btn-p" style="font-size:11px" onclick="adminSendSystemDM()">📨 Send as System DM to user</button>
+-          <button class="btn-g" style="font-size:11px;color:#c084fc" onclick="adminImpersonateSend()">🎭 Post as this user in channel →</button>
+-        </div>
+-        <input class="m-inp" id="admin-imp-ch" placeholder="Channel ID for 🎭 impersonate (get from 💬 Messages tab → View → click an ID)" style="font-size:10px;font-family:'DM Mono',monospace">
+-      </div>
+-
+-      <!-- Notes -->
+-      <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
+-        <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">ADMIN NOTES <span style="font-weight:400">— internal only, never shown to user</span></div>
+-        <textarea class="m-inp" id="admin-note-text" placeholder="Note about this user…" maxlength="1000" rows="2" style="resize:vertical;margin-bottom:5px"></textarea>
+-        <button class="btn-g" style="font-size:11px" onclick="adminAddNote()">📌 Save Note</button>
+-        <div id="admin-notes-display" style="margin-top:7px;display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto"></div>
+-      </div>
+-
+-      <div id="admin-users-result" style="margin-top:9px;font-size:12px;color:var(--t3);background:var(--s3);border-radius:6px;padding:7px 10px;min-height:24px;border:1px solid var(--border)"></div>
+-      <input type="file" id="admin-pfp-file" accept="image/*" style="display:none" onchange="onAdminPfpChange(event)">
+-      <input type="color" id="admin-color-pick" style="display:none" onchange="adminApplyColor(this.value)">
+-    </div>
++<!-- ADMIN PANEL MODAL (built by js/admin-ui.js) -->
++<div class="overlay" id="admin-panel-modal" style="z-index:210"></div>
  
-@@ -645,12 +711,21 @@
-       <div class="roles-list" id="stg-roles-list"></div>
-       <button class="btn-p" style="width:100%;margin-top:4px" onclick="openCreateRole()">+ Create Role</button>
-       <div id="role-editor" style="display:none;margin-top:18px;border-top:1px solid var(--border);padding-top:16px">
-+        <div class="re-preview" id="re-preview"></div>
-         <div class="m-lbl">Role Name</div>
--        <input class="m-inp" id="role-name-in" placeholder="e.g. Moderator" maxlength="32">
-+        <input class="m-inp" id="role-name-in" placeholder="e.g. Moderator" maxlength="32" oninput="reUpdate()">
-+        <div class="m-lbl">Quick looks</div>
-+        <div class="re-chips" id="re-presets"></div>
-         <div class="m-lbl">Role Color</div>
--        <div class="av-grid" id="role-color-grid" style="margin-bottom:12px"></div>
--        <div class="m-lbl">Permissions</div>
--        <div class="perm-list" id="perm-list"></div>
-+        <div class="av-grid" id="role-color-grid" style="margin-bottom:8px"></div>
-+        <div class="re-row"><label>Any colour <input type="color" id="re-c1" oninput="reColor(1,this.value)"></label><label id="re-c2-wrap">Second colour <input type="color" id="re-c2" oninput="reColor(2,this.value)"></label></div>
-+        <div class="m-lbl">Name effect <small style="font-weight:400;color:var(--t3)">how the name looks in chat and the member list</small></div>
-+        <div class="re-chips" id="re-fx"></div>
-+        <div class="m-lbl">Badge icon <small style="font-weight:400;color:var(--t3)">optional emoji</small></div>
-+        <input class="m-inp" id="re-icon" placeholder="e.g. 👑" maxlength="4" oninput="reUpdate()">
-+        <div class="perm-row"><div><div class="perm-label">Show members separately</div><div class="perm-sub">Members with this role get their own group in the member list</div></div><div class="toggle-switch" id="re-hoist" onclick="this.classList.toggle('on');reUpdate()"></div></div>
-+        <div id="re-perms"><div class="m-lbl">Permissions</div>
-+        <div class="perm-list" id="perm-list"></div></div>
-         <div class="m-row" style="margin-top:14px">
-           <button class="btn-g" onclick="cancelRoleEdit()">Cancel</button>
-           <button class="btn-p" onclick="saveRole()">Save Role</button>
-@@ -1102,6 +1177,7 @@
+-    <!-- ══ ACCOUNTS ════════════════════════════════════════════════════════ -->
+-    <div id="admin-pane-accounts" class="sv-stg-pane">
+-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+-        <div style="font-size:12px;color:var(--t3)">All accounts. <strong style="color:var(--t2)">💬 DMs</strong> opens their DM history. <strong style="color:var(--t2)">Target →</strong> fills the Users tab.</div>
+-        <button class="btn-g" style="font-size:11px;padding:5px 10px;flex-shrink:0" onclick="adminLoadAccounts()">↻ Refresh</button>
+-      </div>
+-      <input class="m-inp" id="admin-acct-search" placeholder="Search by username…" oninput="adminFilterAccounts()" style="margin-bottom:8px">
+-      <div id="admin-acct-list" style="display:flex;flex-direction:column;gap:5px;max-height:500px;overflow-y:auto"></div>
+-    </div>
+-
+-    <!-- ══ SERVERS ═════════════════════════════════════════════════════════ -->
+-    <div id="admin-pane-servers" class="sv-stg-pane">
+-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+-        <div style="font-size:12px;color:var(--t3)">Click a Server ID to copy it, then paste it anywhere an ID is needed.</div>
+-        <div style="display:flex;gap:5px">
+-          <button class="btn-g" style="font-size:11px;padding:5px 10px" onclick="adminCloneServer()">🧬 Clone…</button>
+-          <button class="btn-g" style="font-size:11px;padding:5px 10px" onclick="adminLoadServers()">↻ Refresh</button>
+-        </div>
+-      </div>
+-      <input class="m-inp" id="admin-sv-search" placeholder="Search by name or owner…" oninput="adminFilterServers()" style="margin-bottom:8px">
+-      <div id="admin-sv-list" style="display:flex;flex-direction:column;gap:5px;max-height:240px;overflow-y:auto;margin-bottom:10px">
+-        <div style="font-size:12px;color:var(--t3)">Click Refresh to load.</div>
+-      </div>
+-      <!-- Edit panel — keyed off single Server ID field -->
+-      <div style="background:var(--s3);border:1px solid var(--border);border-radius:9px;padding:11px">
+-        <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:8px">Edit a Server <span style="font-weight:400;color:var(--t3);font-size:10px">— paste Server ID from list above</span></div>
+-        <input class="m-inp" id="admin-edit-sv-id" placeholder="Server ID…" style="margin-bottom:8px;font-family:'DM Mono',monospace;font-size:11px">
+-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+-          <div>
+-            <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Rename</div>
+-            <div style="display:flex;gap:3px"><input class="m-inp" id="admin-rn-name" placeholder="New name…" style="flex:1"><button class="btn-g" style="font-size:11px" onclick="adminRenameServer()">✏️</button></div>
+-          </div>
+-          <div>
+-            <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Description</div>
+-            <div style="display:flex;gap:3px"><input class="m-inp" id="admin-sv-desc-text" placeholder="Description…" style="flex:1"><button class="btn-g" style="font-size:11px" onclick="adminSetServerDesc()">💾</button></div>
+-          </div>
+-          <div>
+-            <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Add Channel</div>
+-            <div style="display:flex;gap:3px">
+-              <input class="m-inp" id="admin-ac-name" placeholder="channel-name…" style="flex:1">
+-              <select class="m-inp" id="admin-ac-type" style="padding:5px 6px;width:60px;flex-shrink:0"><option value="text">text</option><option value="voice">voice</option></select>
+-              <button class="btn-p" style="font-size:11px;flex-shrink:0" onclick="adminAddChannelFromEdit()">➕</button>
+-            </div>
+-          </div>
+-          <div>
+-            <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Delete Channel (Channel ID)</div>
+-            <div style="display:flex;gap:3px"><input class="m-inp" id="admin-dc-chid" placeholder="Channel ID…" style="flex:1;font-family:'DM Mono',monospace;font-size:11px"><button class="btn-g" style="font-size:11px;color:var(--red)" onclick="adminDeleteChannelFromEdit()">🗑</button></div>
+-          </div>
+-        </div>
+-        <div style="display:flex;gap:5px;margin-top:7px">
+-          <button class="btn-g" style="font-size:11px" onclick="adminSetServerPublic(true)">🌐 Make Public</button>
+-          <button class="btn-g" style="font-size:11px" onclick="adminSetServerPublic(false)">🔒 Make Private</button>
+-        </div>
+-      </div>
+-      <div id="admin-sv-result" style="margin-top:8px;font-size:12px;color:var(--t3)"></div>
+-    </div>
+-
+-    <!-- ══ BANS ════════════════════════════════════════════════════════════ -->
+-    <div id="admin-pane-bans" class="sv-stg-pane">
+-      <div style="font-size:11px;color:var(--t3);margin-bottom:7px">Duration: <code>30m</code> · <code>2h</code> · <code>7d</code> · <code>permanent</code></div>
+-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:5px">
+-        <input class="m-inp" id="admin-ban-user" placeholder="Username to ban…" maxlength="24">
+-        <input class="m-inp" id="admin-ban-dur" placeholder="Duration e.g. 7d, permanent" maxlength="20">
+-      </div>
+-      <input class="m-inp" id="admin-ban-reason" placeholder="Reason (shown to user)…" maxlength="120" style="margin-bottom:6px">
+-      <div style="display:flex;gap:6px;margin-bottom:12px">
+-        <button class="btn-g" style="font-size:12px;color:var(--red);flex:1" onclick="adminBanUser()">🔨 Ban</button>
+-        <button class="btn-g" style="font-size:12px;flex:1" onclick="adminUnbanUser()">✅ Unban</button>
+-      </div>
+-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+-        <div>
+-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+-            <div style="font-size:11px;font-weight:700;color:var(--t2)">Active Bans</div>
+-            <button class="btn-g" style="font-size:10px;padding:2px 7px" onclick="adminLoadBans()">↻</button>
+-          </div>
+-          <div id="admin-bans-list" style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto"><div style="font-size:12px;color:var(--t3)">Click ↻</div></div>
+-        </div>
+-        <div>
+-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+-            <div style="font-size:11px;font-weight:700;color:var(--t2)">Frozen Accounts</div>
+-            <button class="btn-g" style="font-size:10px;padding:2px 7px" onclick="adminLoadFrozen()">↻</button>
+-          </div>
+-          <div id="admin-frozen-list" style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto"><div style="font-size:12px;color:var(--t3)">Click ↻</div></div>
+-        </div>
+-      </div>
+-      <div id="admin-ban-result" style="margin-top:8px;font-size:12px;color:var(--t3)"></div>
+-    </div>
+-
+-    <!-- ══ MESSAGES ═══════════════════════════════════════════════════════ -->
+-    <div id="admin-pane-messages" class="sv-stg-pane">
+-      <div style="background:rgba(88,101,242,.07);border:1px solid rgba(88,101,242,.2);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:var(--t2)">
+-        💡 <strong>How to get IDs:</strong> Type a Channel ID below and click 👁 View. Each message shows its ID — click to copy. Channel IDs also appear in the 🌐 Servers list.
+-      </div>
+-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+-        <div style="display:flex;flex-direction:column;gap:8px">
+-          <!-- View / export -->
+-          <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
+-            <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">VIEW CHANNEL</div>
+-            <input class="m-inp" id="admin-view-ch-id" placeholder="Channel ID…" style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+-            <div style="display:flex;gap:4px">
+-              <button class="btn-p" style="font-size:11px;flex:1" onclick="adminViewChannel()">👁 View</button>
+-              <button class="btn-g" style="font-size:11px;flex:1" onclick="adminExportChannel()">⬇️ Export JSON</button>
+-            </div>
+-          </div>
+-          <!-- Channel controls -->
+-          <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
+-            <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">CHANNEL CONTROLS <span style="font-weight:400">(all use Channel ID)</span></div>
+-            <input class="m-inp" id="admin-wipe-ch-id" placeholder="Channel ID…" style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+-            <button class="btn-g" style="font-size:11px;color:var(--red);width:100%;margin-bottom:6px" onclick="adminWipeChannel()">🗑 Wipe All History</button>
+-            <input class="m-inp" id="admin-lock-ch-id" placeholder="Channel ID…" style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+-            <div style="display:flex;gap:4px;margin-bottom:6px">
+-              <button class="btn-g" style="font-size:11px;color:#f87171;flex:1" onclick="adminLockChannel(true)">🔒 Lock</button>
+-              <button class="btn-g" style="font-size:11px;flex:1" onclick="adminLockChannel(false)">🔓 Unlock</button>
+-            </div>
+-            <div style="display:flex;gap:4px">
+-              <input class="m-inp" id="admin-slow-ch-id" placeholder="Channel ID…" style="flex:1;font-family:'DM Mono',monospace;font-size:11px">
+-              <input class="m-inp" id="admin-slow-secs" placeholder="Secs (0=off)" type="number" min="0" max="3600" style="width:80px;flex-shrink:0">
+-              <button class="btn-g" style="font-size:11px;flex-shrink:0" onclick="adminSetSlowmode()">🐌</button>
+-            </div>
+-          </div>
+-        </div>
+-        <div style="display:flex;flex-direction:column;gap:8px">
+-          <!-- Delete/edit message — shared fields -->
+-          <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
+-            <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">DELETE / EDIT MESSAGE</div>
+-            <input class="m-inp" id="admin-del-msg-ch" placeholder="Channel ID…" style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+-            <input class="m-inp" id="admin-del-msg-id" placeholder="Message ID (from 👁 View above)…" style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+-            <button class="btn-g" style="font-size:11px;color:var(--red);width:100%;margin-bottom:5px" onclick="adminDeleteMessage()">🗑 Delete This Message</button>
+-            <textarea class="m-inp" id="admin-edit-msg-text" placeholder="Or replace its text with this… (uses same IDs above)" rows="2" style="resize:vertical;margin-bottom:4px"></textarea>
+-            <button class="btn-g" style="font-size:11px;width:100%" onclick="adminEditMsgFromFields()">✏️ Edit This Message</button>
+-          </div>
+-          <!-- Purge / DM wipe -->
+-          <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:9px">
+-            <div style="font-size:10px;font-weight:700;color:var(--t3);margin-bottom:5px">PURGE / WIPE</div>
+-            <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Delete all messages by one user in a server:</div>
+-            <input class="m-inp" id="admin-purge-user" placeholder="Username…" maxlength="24" style="margin-bottom:3px">
+-            <input class="m-inp" id="admin-purge-sv" placeholder="Server ID…" style="margin-bottom:4px;font-family:'DM Mono',monospace;font-size:11px">
+-            <button class="btn-g" style="font-size:11px;color:var(--red);width:100%;margin-bottom:7px" onclick="adminPurgeUserMessages()">🧹 Purge All Their Messages</button>
+-            <div style="font-size:10px;color:var(--t3);margin-bottom:3px">Delete DM thread between two users:</div>
+-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px">
+-              <input class="m-inp" id="admin-dmdel-a" placeholder="User A…" maxlength="24">
+-              <input class="m-inp" id="admin-dmdel-b" placeholder="User B…" maxlength="24">
+-            </div>
+-            <button class="btn-g" style="font-size:11px;color:var(--red);width:100%" onclick="adminDeleteDmHistory()">🗑 Delete DM Thread</button>
+-          </div>
+-        </div>
+-      </div>
+-      <div id="admin-ch-view-result" style="max-height:240px;overflow-y:auto;margin-top:10px;display:none;background:var(--s3);border-radius:8px;padding:8px;border:1px solid var(--border)"></div>
+-      <div id="admin-msgs-result" style="margin-top:7px;font-size:12px;color:var(--t3)"></div>
+-    </div>
+-
+-    <!-- ══ DMs ═════════════════════════════════════════════════════════════ -->
+-    <div id="admin-pane-dms" class="sv-stg-pane">
+-      <div style="font-size:12px;color:var(--t3);margin-bottom:10px">View any user's DM history for moderation. Also reachable from 👥 Accounts → 💬 DMs button.</div>
+-      <div style="display:flex;gap:6px;margin-bottom:10px">
+-        <input class="m-inp" id="admin-dm-user" placeholder="Username to inspect…" maxlength="24" style="flex:1">
+-        <button class="btn-p" style="flex-shrink:0" onclick="adminViewDMs()">🔍 View DMs</button>
+-      </div>
+-      <div id="admin-dm-result" style="font-size:12px;color:var(--t3);max-height:460px;overflow-y:auto"></div>
+-    </div>
+-
+-    <!-- ══ ONLINE ══════════════════════════════════════════════════════════ -->
+-    <div id="admin-pane-online" class="sv-stg-pane">
+-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+-        <div style="font-size:12px;color:var(--t3)">All connected users right now.</div>
+-        <button class="btn-g" style="font-size:11px;padding:5px 10px" onclick="adminLoadOnline()">↻ Refresh</button>
+-      </div>
+-      <!-- Active voice calls -->
+-      <div style="margin-bottom:12px">
+-        <div style="font-size:11px;font-weight:700;color:#c084fc;margin-bottom:6px">👻 Active Voice Calls</div>
+-        <div id="admin-calls-list" style="display:flex;flex-direction:column;gap:6px"><div style="font-size:12px;color:var(--t3)">Click Refresh.</div></div>
+-      </div>
+-      <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:6px">🟢 Connected Users</div>
+-      <div id="admin-online-list" style="display:flex;flex-direction:column;gap:5px;max-height:400px;overflow-y:auto"><div style="font-size:12px;color:var(--t3)">Click Refresh.</div></div>
+-    </div>
+-
+-    <!-- ══ AUDIT ═══════════════════════════════════════════════════════════ -->
+-    <div id="admin-pane-audit" class="sv-stg-pane">
+-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+-        <div style="font-size:12px;color:var(--t3)">All admin actions, newest first.</div>
+-        <div style="display:flex;gap:5px">
+-          <button class="btn-g" style="font-size:11px;padding:5px 10px" onclick="adminLoadAuditLog()">↻ Refresh</button>
+-          <button class="btn-g" style="font-size:11px;padding:5px 10px;color:var(--red)" onclick="adminClearAuditLog()">🗑 Clear Log</button>
+-        </div>
+-      </div>
+-      <div id="admin-audit-list" style="display:flex;flex-direction:column;gap:4px;max-height:500px;overflow-y:auto"><div style="font-size:12px;color:var(--t3)">Click Refresh.</div></div>
+-    </div>
+-
+-    <!-- ══ STATS ═══════════════════════════════════════════════════════════ -->
+-    <div id="admin-pane-stats" class="sv-stg-pane">
+-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+-        <div style="font-size:12px;color:var(--t3)">Live platform stats.</div>
+-        <button class="btn-g" style="font-size:11px;padding:5px 10px" onclick="adminLoadStats()">↻ Refresh</button>
+-      </div>
+-      <div id="admin-stats-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"><div style="font-size:12px;color:var(--t3)">Click Refresh.</div></div>
+-      <div style="margin-top:10px;font-size:10px;color:var(--t3);font-family:'DM Mono',monospace" id="admin-stats-meta"></div>
+-    </div>
+-
+-    <!-- ══ ALERT ═══════════════════════════════════════════════════════════ -->
+-    <div id="admin-pane-alert" class="sv-stg-pane">
+-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+-        <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px">
+-          <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:3px">📢 Platform Alert <span style="font-weight:400;font-size:10px;color:var(--t3)">banner to everyone online</span></div>
+-          <input class="m-inp" id="admin-alert-title" placeholder="Title…" maxlength="80" style="margin-bottom:4px">
+-          <textarea class="m-inp" id="admin-alert-body" placeholder="Body…" maxlength="500" rows="3" style="resize:vertical;margin-bottom:5px"></textarea>
+-          <button class="btn-p" style="width:100%;background:rgba(168,85,247,.8);border-color:rgba(168,85,247,.4)" onclick="adminSendAlert()">Send Alert</button>
+-          <div id="admin-alert-result" style="margin-top:4px;font-size:11px;color:var(--t3)"></div>
+-        </div>
+-        <div style="display:flex;flex-direction:column;gap:8px">
+-          <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px">
+-            <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:3px">📣 Announcement <span style="font-weight:400;font-size:10px;color:var(--t3)">centered popup</span></div>
+-            <textarea class="m-inp" id="admin-announce-text" placeholder="Text…" maxlength="500" rows="2" style="resize:vertical;margin-bottom:5px"></textarea>
+-            <button class="btn-p" style="width:100%" onclick="adminSendAnnouncement()">Send to All</button>
+-          </div>
+-          <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px">
+-            <div style="font-size:11px;font-weight:700;color:#f87171;margin-bottom:3px">📨 Mass DM <span style="font-weight:400;font-size:10px;color:var(--t3)">DMs every registered user</span></div>
+-            <textarea class="m-inp" id="admin-massdm-text" placeholder="Message…" maxlength="2000" rows="2" style="resize:vertical;margin-bottom:5px"></textarea>
+-            <button class="btn-g" style="width:100%;color:#f87171" onclick="adminMassDm()">Send Mass DM</button>
+-          </div>
+-        </div>
+-      </div>
+-      <div style="background:var(--s3);border:1px solid var(--border);border-radius:8px;padding:10px">
+-        <div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:3px">📌 MOTD <span style="font-weight:400;font-size:10px;color:var(--t3)">— shown as popup to every user on login. Clear to remove.</span></div>
+-        <textarea class="m-inp" id="admin-motd-text" placeholder="Message of the day…" maxlength="500" rows="2" style="resize:vertical;margin-bottom:5px"></textarea>
+-        <div style="display:flex;gap:6px">
+-          <button class="btn-p" style="flex:1" onclick="adminSetMotd()">💾 Save MOTD</button>
+-          <button class="btn-g" onclick="adminClearMotd()">✕ Clear</button>
+-        </div>
+-        <div id="admin-motd-result" style="margin-top:4px;font-size:11px;color:var(--t3)"></div>
+-      </div>
+-    </div>
+-
+-    <!-- ══ DANGER ══════════════════════════════════════════════════════════ -->
+-    <div id="admin-pane-danger" class="sv-stg-pane">
+-      <div style="background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.22);border-radius:9px;padding:9px 12px;margin-bottom:12px;font-size:12px;color:#f87171">⚠️ <strong>Danger Zone.</strong> These actions are permanent or affect all users.</div>
+-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+-        <div style="background:var(--s3);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:11px">
+-          <div style="font-size:12px;font-weight:700;color:#f87171;margin-bottom:6px">💥 Nuke Account</div>
+-          <div style="font-size:11px;color:var(--t3);margin-bottom:8px">Permanently deletes an account + all their messages, DMs, sessions, memberships. Type DELETE to confirm.</div>
+-          <input class="m-inp" id="admin-nuke-user" placeholder="Username to nuke…" maxlength="24" style="margin-bottom:6px">
+-          <button class="btn-g" style="font-size:12px;color:#f87171;width:100%" onclick="adminNukeAccount()">💥 Nuke Account</button>
+-        </div>
+-        <div style="background:var(--s3);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:11px">
+-          <div style="font-size:12px;font-weight:700;color:#f87171;margin-bottom:6px">🔧 Maintenance Mode</div>
+-          <div style="font-size:11px;color:var(--t3);margin-bottom:8px">Kicks all non-admin users and blocks reconnection. Only you can use Nexus during maintenance.</div>
+-          <div style="display:flex;gap:6px">
+-            <button class="btn-g" style="font-size:12px;flex:1;color:#f87171" onclick="adminSetMaintenance(true)">🔧 Enable</button>
+-            <button class="btn-g" style="font-size:12px;flex:1" onclick="adminSetMaintenance(false)">✅ Disable</button>
+-          </div>
+-        </div>
+-      </div>
+-    </div>
+-
+-    </div><!-- /scrollable pane area -->
+-  </div>
+-</div>
+ <!-- ── AUTO-UPDATE SERVICE WORKER ── -->
+ <!-- scripts run last, so every element they touch at boot already exists -->
+ <!-- GROUP CHAT / INVITE-TO-CALL PICKER -->
+@@ -1174,6 +812,7 @@
+ <!-- CALL DOCK: lives on <body> so no view can cover it -->
+ <div id="call-dock" style="display:none"></div>
+ <div id="toasts"></div>
++<script src="js/assume.js"></script>
  <script src="js/state.js"></script>
  <script src="js/auth.js"></script>
  <script src="js/app.js"></script>
-+<script src="js/profile-style.js"></script>
- <script src="js/profile-edit.js"></script>
- <script src="js/websocket.js"></script>
- <script src="js/ws-handler.js"></script>
-diff --git a/client/js/admin.js b/client/js/admin.js
-index c338ab7..18558e8 100644
---- a/client/js/admin.js
-+++ b/client/js/admin.js
-@@ -150,12 +150,10 @@ function getMemberRole(sv, memberName) {
- }
- 
- function roleLabel(sv, memberName) {
--  const r = getMemberRole(sv, memberName);
--  if (r === 'owner') return '<span class="role-badge owner">👑 Owner</span>';
--  if (r === 'mod')   return '<span class="role-badge mod">🛡 Mod</span>';
--  const custom = (sv.roles || []).find(x => x.id === r);
--  if (custom) return `<span class="role-badge" style="background:${custom.color}22;color:${custom.color};border:1px solid ${custom.color}44">● ${esc(custom.name)}</span>`;
--  return '';
-+  const id = getMemberRole(sv, memberName); if (id === 'member') return '';
-+  const r = getEffectiveRole(sv, id); if (!r) return '';
-+  const c = pfHex(r.color, '#9090a8'), ic = r.icon ? esc(r.icon) : (id === 'owner' ? '👑' : id === 'mod' ? '🛡' : '●');
-+  return `<span class="role-badge" style="background:${c}22;color:${c};border:1px solid ${c}44">${ic} ${esc(r.name)}</span>`;
- }
- 
- // ── Server header dropdown ──
-@@ -295,63 +293,92 @@ function saveSvOverview() {
- }
- 
- // ── ROLES PANE ──
-+const RE = { color: '#9090a8', color2: '#9090a8', fx: 'none', icon: '', hoist: false, owner: false };
-+const ROLE_PRESETS = [
-+  { n: 'Staff',   color: '#f59e0b', color2: '#f59e0b', fx: 'glow',     icon: '🛡', hoist: true },
-+  { n: 'VIP',     color: '#fbbf24', color2: '#f472b6', fx: 'gradient', icon: '✨', hoist: true },
-+  { n: 'Legend',  color: '#00f5a0', color2: '#00d9f5', fx: 'shimmer',  icon: '💎', hoist: true },
-+  { n: 'Rainbow', color: '#ff5f6d', color2: '#4facfe', fx: 'rainbow',  icon: '🌈', hoist: false },
-+  { n: 'Regular', color: '#c9cdd6', color2: '#c9cdd6', fx: 'none',     icon: '',   hoist: false },
-+  { n: 'Newbie',  color: '#8b8d94', color2: '#8b8d94', fx: 'none',     icon: '',   hoist: false },
-+];
- function buildRolesPane() {
-   const sv = S.curSv; if (!sv) return;
-   if (!sv.roles) sv.roles = [];
-   const list = document.getElementById('stg-roles-list');
--  const allRoles = [...DEFAULT_ROLES.map(r=>({...r,...((sv.roleOverrides||{})[r.id]||{})})), ...sv.roles];
--  list.innerHTML = allRoles.map(r => {
--    const count = r.id==='owner' ? 1 :
--      Object.values(sv.memberRoles||{}).filter(v=>v===r.id).length + (r.id==='member'? ((S.members[sv.id]||[]).length+1 - Object.keys(sv.memberRoles||{}).length) : 0);
--    // Owner role can't be edited; mod/member can be edited but not deleted; custom can be edited+deleted
--    const canEdit = r.id !== 'owner';
--    const canDelete = !r.builtin; // can delete custom roles; mod/member are protected from deletion
--    const actions = canEdit ? `
--      <div class="role-row-acts">
--        <div class="role-act-btn" onclick="editRole('${r.id}')" title="Edit">✏️</div>
--        ${canDelete ? `<div class="role-act-btn del" onclick="deleteRole('${r.id}')" title="Delete">🗑</div>` : ''}
--      </div>` : '<span style="font-size:10px;color:var(--t3);font-weight:600;padding:2px 7px;background:var(--s4);border-radius:4px">Protected</span>';
-+  const ids = ['owner', 'mod', ...sv.roles.map(r => r.id), 'member']; // top to bottom = highest to lowest
-+  list.innerHTML = ids.map(id => {
-+    const r = getEffectiveRole(sv, id); if (!r) return '';
-+    const at = roleFxAttrs(r), builtin = DEFAULT_ROLES.some(d => d.id === id), ci = sv.roles.findIndex(x => x.id === id), eid = esc(id);
-+    const count = id === 'owner' ? 1 :
-+      Object.values(sv.memberRoles || {}).filter(v => v === id).length + (id === 'member' ? ((S.members[sv.id] || []).length + 1 - Object.keys(sv.memberRoles || {}).length) : 0);
-+    const mv = ci >= 0 ? `<div class="role-act-btn" onclick="moveRole('${eid}',-1)" title="Move up (higher in the list)">▲</div><div class="role-act-btn" onclick="moveRole('${eid}',1)" title="Move down">▼</div>` : '';
-+    const del = !builtin ? `<div class="role-act-btn del" onclick="deleteRole('${eid}')" title="Delete">🗑</div>` : '';
-     return `<div class="role-row">
--      <div class="role-dot" style="background:${r.color}"></div>
--      <div class="role-row-name">${esc(r.name)}</div>
--      <div class="role-row-count">${count} member${count!==1?'s':''}</div>
--      ${actions}
-+      <div class="role-dot" style="background:${pfHex(r.color, '#9090a8')}"></div>
-+      <div class="role-row-name"><span class="${at.cls}" style="${at.style}">${r.icon ? esc(r.icon) + ' ' : ''}${esc(r.name)}</span>${r.hoist ? '<span class="role-tag">own group</span>' : ''}</div>
-+      <div class="role-row-count">${count} member${count !== 1 ? 's' : ''}</div>
-+      <div class="role-row-acts">${mv}<div class="role-act-btn" onclick="editRole('${eid}')" title="Edit">✏️</div>${del}</div>
-     </div>`;
-   }).join('');
-   document.getElementById('role-editor').style.display = 'none';
-   editingRoleId = null;
- }
- 
--function openCreateRole() {
--  editingRoleId = '__new__';
--  editingRoleColor = COLORS[0];
--  document.getElementById('role-name-in').value = '';
--  buildRoleColorGrid();
--  buildPermList(null);
-+function moveRole(id, dir) {
-+  const sv = S.curSv; if (!sv || !sv.roles) return;
-+  const i = sv.roles.findIndex(r => r.id === id), j = i + dir; if (i < 0 || j < 0 || j >= sv.roles.length) return;
-+  [sv.roles[i], sv.roles[j]] = [sv.roles[j], sv.roles[i]];
-+  wsSend({ type: 'roles_update', serverId: sv.id, roles: sv.roles });
-+  try { persist(); buildRolesPane(); renderMbs(); } catch (e) { console.error(e); }
-+}
-+
-+function reLoad(r, isOwner) {
-+  RE.color = pfHex(r.color, '#9090a8'); RE.color2 = pfHex(r.color2, RE.color); RE.fx = ROLE_FX.some(f => f.id === r.fx) ? r.fx : 'none';
-+  RE.icon = r.icon || ''; RE.hoist = r.hoist === true; RE.owner = !!isOwner;
-+  editingRoleColor = RE.color;
-+  document.getElementById('role-name-in').value = r.name || '';
-+  document.getElementById('re-icon').value = RE.icon;
-+  document.getElementById('re-hoist').classList.toggle('on', RE.hoist);
-+  document.getElementById('re-perms').style.display = isOwner ? 'none' : '';
-+  document.getElementById('re-presets').innerHTML = ROLE_PRESETS.map((p, i) => `<button type="button" class="re-chip" onclick="rePreset(${i})">${p.icon ? p.icon + ' ' : ''}${p.n}</button>`).join('');
-+  buildRoleColorGrid(RE.color); buildPermList(isOwner ? null : r.perms); reUpdate();
-   document.getElementById('role-editor').style.display = 'block';
- }
--
-+function openCreateRole() { editingRoleId = '__new__'; reLoad({ name: '', color: COLORS[0], color2: COLORS[0], fx: 'none', icon: '', hoist: false, perms: [] }, false); }
- function editRole(id) {
-   const sv = S.curSv; if (!sv) return;
--  // Check custom roles first, then fall back to DEFAULT_ROLES
--  let role = sv.roles?.find(r=>r.id===id) || DEFAULT_ROLES.find(r=>r.id===id);
--  if (!role || id==='owner') return;
--  editingRoleId = id;
--  editingRoleColor = role.color;
--  document.getElementById('role-name-in').value = role.name;
--  buildRoleColorGrid(role.color);
--  buildPermList(role.perms);
--  document.getElementById('role-editor').style.display = 'block';
-+  const role = getEffectiveRole(sv, id); if (!role) return;
-+  editingRoleId = id; reLoad(role, id === 'owner');
-+}
-+function cancelRoleEdit() { document.getElementById('role-editor').style.display = 'none'; editingRoleId = null; }
-+
-+function reUpdate() { // read the text inputs, redraw the live preview + effect chips
-+  RE.icon = (document.getElementById('re-icon').value || '').trim().slice(0, 4);
-+  RE.hoist = document.getElementById('re-hoist').classList.contains('on');
-+  document.getElementById('re-fx').innerHTML = ROLE_FX.map(f => `<button type="button" class="re-chip${RE.fx === f.id ? ' on' : ''}" onclick="reFx('${f.id}')">${f.n}</button>`).join('');
-+  document.getElementById('re-c1').value = RE.color; document.getElementById('re-c2').value = RE.color2;
-+  document.getElementById('re-c2-wrap').style.display = (RE.fx === 'gradient' || RE.fx === 'shimmer') ? '' : 'none';
-+  const nm = (document.getElementById('role-name-in').value.trim() || 'Role name'), at = roleFxAttrs(RE), c = RE.color;
-+  document.getElementById('re-preview').innerHTML = `<span class="role-badge" style="background:${c}22;color:${c};border:1px solid ${c}44">${RE.icon ? esc(RE.icon) : '●'} ${esc(nm)}</span>
-+    <span class="m-auth ${at.cls}" style="${at.style}">${esc(S.user?.name || 'You')}</span><span class="re-sample">Hey, this is how the name looks in chat</span>`;
-+}
-+function reColor(which, v) { v = pfHex(v, RE.color); if (which === 1) { RE.color = v; editingRoleColor = v; document.querySelectorAll('#role-color-grid .av-opt').forEach(x => x.classList.toggle('sel', x.dataset.c === v)); } else RE.color2 = v; reUpdate(); }
-+function reFx(id) { RE.fx = id; reUpdate(); }
-+function rePreset(i) {
-+  const p = ROLE_PRESETS[i]; if (!p) return;
-+  RE.color = p.color; RE.color2 = p.color2; RE.fx = p.fx; RE.icon = p.icon; RE.hoist = p.hoist; editingRoleColor = p.color;
-+  document.getElementById('re-icon').value = p.icon; document.getElementById('re-hoist').classList.toggle('on', p.hoist);
-+  const nin = document.getElementById('role-name-in'); if (!nin.value.trim() && editingRoleId === '__new__') nin.value = p.n;
-+  buildRoleColorGrid(p.color); reUpdate();
- }
- 
--function cancelRoleEdit() { document.getElementById('role-editor').style.display='none'; editingRoleId=null; }
--
- function buildRoleColorGrid(selected) {
-   const g = document.getElementById('role-color-grid'); g.innerHTML = '';
-   COLORS.forEach(c => {
--    const d=document.createElement('div'); d.className='av-opt'+(c===(selected||editingRoleColor)?' sel':'');
--    d.style.background=c; d.dataset.c=c; d.textContent='●';
--    d.onclick=()=>{ document.querySelectorAll('#role-color-grid .av-opt').forEach(x=>x.classList.remove('sel')); d.classList.add('sel'); editingRoleColor=c; };
-+    const d = document.createElement('div'); d.className = 'av-opt' + (c === (selected || editingRoleColor) ? ' sel' : '');
-+    d.style.background = c; d.dataset.c = c; d.textContent = '●';
-+    d.onclick = () => { document.querySelectorAll('#role-color-grid .av-opt').forEach(x => x.classList.remove('sel')); d.classList.add('sel'); RE.color = c; editingRoleColor = c; if (RE.color2 === RE.color || RE.fx === 'none') RE.color2 = c; reUpdate(); };
-     g.appendChild(d);
-   });
- }
-@@ -362,46 +389,39 @@ function buildPermList(activePerms) {
-     const on = activePerms ? activePerms.includes(p.id) : false;
-     pl.innerHTML += `<div class="perm-row">
-       <div><div class="perm-label">${p.label}</div><div class="perm-sub">${p.sub}</div></div>
--      <div class="toggle-switch${on?' on':''}" data-perm="${p.id}" onclick="togglePerm(this)"></div>
-+      <div class="toggle-switch${on ? ' on' : ''}" data-perm="${p.id}" onclick="togglePerm(this)"></div>
-     </div>`;
-   });
- }
--
- function togglePerm(el) { el.classList.toggle('on'); }
- 
- function saveRole() {
-   const sv = S.curSv; if (!sv) return;
-   const name = document.getElementById('role-name-in').value.trim();
-   if (!name) { toast('Role needs a name'); return; }
--  const selPerms = [...document.querySelectorAll('#perm-list .toggle-switch.on')].map(el=>el.dataset.perm);
--  const isBuiltin = DEFAULT_ROLES.some(r => r.id === editingRoleId);
-+  reUpdate();
-+  const perms = RE.owner ? ['*'] : [...document.querySelectorAll('#perm-list .toggle-switch.on')].map(el => el.dataset.perm);
-+  const look = { name, color: RE.color, color2: RE.color2, fx: RE.fx, icon: RE.icon, hoist: RE.hoist, perms };
-   if (!sv.roles) sv.roles = [];
--  if (isBuiltin) {
--    // Override the built-in role's properties on this server
-+  if (DEFAULT_ROLES.some(r => r.id === editingRoleId)) { // built-in: only this server's overrides change
-     if (!sv.roleOverrides) sv.roleOverrides = {};
--    sv.roleOverrides[editingRoleId] = { name, color: editingRoleColor, perms: selPerms };
--    // Also update the in-memory DEFAULT_ROLES for this session? No, do it per-server lookup
--    toast('✅ Role "'+name+'" updated');
--    persist(); buildRolesPane();
--    wsSend({ type:'roles_update', serverId:sv.id, overrides: sv.roleOverrides });
--    return;
--  }
--  if (editingRoleId === '__new__') {
--    sv.roles.push({ id: uid(), name, color: editingRoleColor, perms: selPerms });
-+    sv.roleOverrides[editingRoleId] = look;
-+    wsSend({ type: 'roles_update', serverId: sv.id, overrides: sv.roleOverrides });
-   } else {
--    const r = sv.roles.find(x=>x.id===editingRoleId);
--    if (r) { r.name=name; r.color=editingRoleColor; r.perms=selPerms; }
-+    if (editingRoleId === '__new__') sv.roles.push({ id: uid(), ...look });
-+    else { const i = sv.roles.findIndex(x => x.id === editingRoleId); if (i >= 0) sv.roles[i] = { id: editingRoleId, ...look }; }
-+    wsSend({ type: 'roles_update', serverId: sv.id, roles: sv.roles });
-   }
--  persist(); buildRolesPane(); renderMbs(); toast('✅ Role saved');
--  wsSend({type:'roles_update', serverId:sv.id, roles:sv.roles});
-+  try { persist(); buildRolesPane(); renderMbs(); if (S.curCh) renderMsgs(S.curCh.id); } catch (e) { console.error(e); }
-+  toast('✅ Role "' + name + '" saved');
- }
- 
- function deleteRole(id) {
-   const sv = S.curSv; if (!sv) return;
-   if (!confirm('Delete this role?')) return;
--  sv.roles = (sv.roles||[]).filter(r=>r.id!==id);
--  // demote members who had this role
--  Object.keys(sv.memberRoles||{}).forEach(m=>{ if(sv.memberRoles[m]===id) delete sv.memberRoles[m]; });
-+  sv.roles = (sv.roles || []).filter(r => r.id !== id);
-+  Object.keys(sv.memberRoles || {}).forEach(m => { if (sv.memberRoles[m] === id) delete sv.memberRoles[m]; });
-+  wsSend({ type: 'roles_update', serverId: sv.id, roles: sv.roles });
-   persist(); buildRolesPane(); renderMbs();
- }
- 
-diff --git a/client/js/auth.js b/client/js/auth.js
-index 6241d52..743c86c 100644
---- a/client/js/auth.js
-+++ b/client/js/auth.js
-@@ -150,20 +150,7 @@ let _pfpCropTarget = 'profile'; // 'profile' | 'signup' | 'admin_target'
- let _adminPfpTarget = null; // username when admin is setting someone else's pfp
- 
- function onSuPfp(e) {
--  const f = e.target.files[0]; if (!f) return;
--  e.target.value = '';
--  const reader = new FileReader();
--  reader.onload = ev => {
--    _pfpCropTarget = 'signup';
--    pfpCropState = { x:0, y:0, zoom:1, src:ev.target.result, dragging:false };
--    const img = document.getElementById('pfp-crop-img');
--    img.src = ev.target.result;
--    document.getElementById('pfp-crop-zoom').value = 1;
--    img.onload = () => { pfpCropApply(); };
--    openM('pfp-crop-modal');
--    setTimeout(initCropEvents, 50);
--  };
--  reader.readAsDataURL(f);
-+  const f = e.target.files[0]; e.target.value = ''; if (f) pfpOpenFile(f, 'signup');
- }
- 
- async function onSvIcon(e) {
-diff --git a/client/js/dms.js b/client/js/dms.js
-index 16fbb65..42d5a75 100644
---- a/client/js/dms.js
-+++ b/client/js/dms.js
-@@ -614,17 +614,8 @@ function dmPickGroupPfp() {
- async function dmGroupPfpChosen(e) {
-   const f = e.target.files && e.target.files[0], d = dmEntry(curDM); if (!f || !d || d.kind !== 'group') return;
-   if (!/^image\//.test(f.type)) { toast('That is not an image', 'err'); return; }
--  try {
--    const url = URL.createObjectURL(f);
--    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
--    URL.revokeObjectURL(url);
--    const size = 96, c = document.createElement('canvas'); c.width = c.height = size;
--    const s = Math.min(img.width, img.height); c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
--    let q = 0.82, data = c.toDataURL('image/jpeg', q);
--    while (data.length > 22000 && q > 0.3) { q -= 0.1; data = c.toDataURL('image/jpeg', q); }
--    if (data.length > 22000) { toast('That picture is too detailed — try another one', 'err'); return; }
--    wsSend({ type: 'group_set_pfp', gid: d.key.slice(2), pfp: data });
--  } catch (err) { toast('Could not read that image', 'err'); }
-+  const gid = d.key.slice(2);
-+  openCropper(f, { target: 'group', kind: 'pfp', title: 'Group picture', outW: 128, outH: 128, maxChars: 22000, stageW: 260, alpha: false, onApply: data => wsSend({ type: 'group_set_pfp', gid, pfp: data }) });
- }
- function dmClearGroupPfp() { const d = dmEntry(curDM); if (d && d.kind === 'group') wsSend({ type: 'group_set_pfp', gid: d.key.slice(2), pfp: null }); }
- function dmRenameGroup() {
-diff --git a/client/js/members.js b/client/js/members.js
-index 8f12c83..7184d59 100644
---- a/client/js/members.js
-+++ b/client/js/members.js
-@@ -63,9 +63,10 @@ function renderMbs() {
-       const canCtx=(myRole==='owner'||myRole==='mod')&&_nk(m.name)!==meKey;
-       const statusBg=isOffline?'var(--t3)':(m.status==='idle'?'var(--yellow)':m.status==='dnd'?'var(--red)':m.status==='invisible'?'var(--t3)':'var(--green)');
-       const offlineStyle=isOffline?'opacity:0.5;':'';
-+      const rn=roleNameAttrs(sv,m.name);
-       html+=`<div class="mb-it" style="${offlineStyle}" onclick="openProfilePage('${esc(m.name)}')" oncontextmenu="${canCtx?`openMemberCtx('${esc(m.name)}',event)`:''}" onmouseenter="showUserHover('${esc(m.name)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" title="Click for profile${canCtx?' · Right-click for options':''}">
--        <div class="mb-av" style="background:${avBg}">${avContent}<div class="mb-st" style="background:${statusBg}"></div></div>
--        <div style="flex:1;min-width:0"><div class="mb-nm">${esc(m.name)}</div></div>
-+        <div class="mb-av" data-name="${esc(m.name)}" style="background:${avBg}">${avContent}<div class="mb-st" style="background:${statusBg}"></div></div>
-+        <div style="flex:1;min-width:0"><div class="mb-nm ${rn.cls}" data-name="${esc(m.name)}" style="${rn.style}">${esc(m.name)}</div></div>
-         <div class="mb-role">${badge}</div>
-       </div>`;
-     });
-@@ -74,11 +75,15 @@ function renderMbs() {
-   // Only an explicit online:true counts as online (a missing flag used to mean "online")
-   const online=all.filter(m=>m.online===true);
-   const offline=all.filter(m=>m.online!==true);
--  const byRole=(arr)=>{
--    const r=m=>getMemberRole(sv,m.name);
--    return arr.filter(m=>r(m)==='owner').concat(arr.filter(m=>r(m)==='mod'),arr.filter(m=>r(m)!=='owner'&&r(m)!=='mod'));
--  };
--  if(online.length) renderGroup('Online',byRole(online));
-+  // highest role first: owner, mod, then custom roles in the order the owner arranged them, then plain members
-+  const rank=m=>{ const r=getMemberRole(sv,m.name); if(r==='owner')return 0; if(r==='mod')return 1; const i=(sv.roles||[]).findIndex(x=>x.id===r); return i>=0?2+i:1000; };
-+  const byRole=(arr)=>arr.slice().sort((a,b)=>rank(a)-rank(b));
-+  // roles set to "show members separately" get their own group above Online
-+  const order=['owner','mod',...(sv.roles||[]).map(r=>r.id)].map(id=>getEffectiveRole(sv,id)).filter(r=>r&&r.hoist===true);
-+  const hoisted=new Set(order.map(r=>r.id));
-+  order.forEach(r=>{ const g=online.filter(m=>getMemberRole(sv,m.name)===r.id); if(g.length) renderGroup(esc(r.icon?r.icon+' '+r.name:r.name),g); });
-+  const plainOnline=online.filter(m=>!hoisted.has(getMemberRole(sv,m.name)));
-+  if(plainOnline.length) renderGroup('Online',byRole(plainOnline));
-   if(offline.length) renderGroup('Offline',byRole(offline),true);
-   el.innerHTML=html;
- }
-diff --git a/client/js/messages.js b/client/js/messages.js
-index 4eb9e48..ba1b54d 100644
---- a/client/js/messages.js
-+++ b/client/js/messages.js
-@@ -65,20 +65,21 @@ function buildMsg(m,grp) {
-   });
-   let reacts='';
-   if((m.reactions||[]).length){ reacts='<div class="m-reacts">'+m.reactions.map(r=>`<div class="react${r.users?.includes(S.user?.name)?' me':''}" onclick="toggleReact('${m.id}','${r.emoji}')">${r.emoji}<span>${r.count}</span></div>`).join('')+'</div>'; }
-+  const rn = (!curDM && S.curSv) ? roleNameAttrs(S.curSv, m.author) : { cls: '', style: '' };
-   const lead = grp
-     ? `<div class="m-gutter"><span class="m-gtime">${fmtClock(m.ts)}</span></div>`
-     : `<div class="m-av" data-author="${esc(m.author)}" style="background:${livePfp?'transparent':ac}" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${avInner}</div>`;
-   return `<div class="msg${grp?' grouped':''}" data-id="${m.id}">
-     ${lead}
-     <div class="m-body">
--      ${!grp?`<div class="m-head"><span class="m-auth" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${esc(m.author)}</span><span class="m-time">${fmtStamp(m.ts)}</span></div>`:''}
-+      ${!grp?`<div class="m-head"><span class="m-auth ${rn.cls}" data-author="${esc(m.author)}" style="${rn.style}" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${esc(m.author)}</span><span class="m-time">${fmtStamp(m.ts)}</span></div>`:''}
-       ${m.voiceMsg ? buildVoiceMsg(m) : `<div class="m-txt">${fmtTxt(m.text)}${m.edited?'<span class="m-edited">(edited)</span>':''}</div>`}${atts?`<div class="m-atts">${atts}</div>`:''}${reacts}
-     </div>
-     <div class="m-acts">
-       <div class="ma" title="Add Reaction" onclick="openReactPicker('${m.id}',event)">${MI.react}</div>
-       <div class="ma" title="Reply" onclick="replyTo('${esc(m.author)}')">${MI.reply}</div>
-       ${!curDM?`<div class="ma" title="Pin Message" onclick="pinMsg('${m.id}')">${MI.pin}</div>`:''}
--      ${(isMe||isPlatformPower())?`<div class="ma" title="Edit" onclick="startEditMsg('${m.id}')">${MI.edit}</div>`:''}
-+      ${(isMe||(!curDM&&isPlatformPower()))?`<div class="ma" title="Edit" onclick="startEditMsg('${m.id}')">${MI.edit}</div>`:''}
-       ${(isMe||isPlatformPower())?`<div class="ma danger" title="Delete" onclick="delMsg('${m.id}')">${MI.del}</div>`:''}
-     </div>
-   </div>`;
-@@ -173,6 +174,7 @@ function commitEdit(text) {
-     // DM / group edit path: tell the server first, then update the screen
-     const key = curDM, msgs = S.dmMessages[key]; if (!msgs) return;
-     const m = msgs.find(x => x.id === editingMsgId); if (!m) return;
-+    if ((m.author || m.from) && (m.author || m.from) !== S.user?.name) { toast('You can only edit your own messages here'); editingMsgId = null; const i0 = document.getElementById('edit-indicator'); if (i0) i0.remove(); return; } // admins can't edit other people's DMs, so never mark them (edited)
-     const eid = editingMsgId;
-     wsSend(dmActionMsg('dm_edit', { messageId: eid, text }));
-     try {
-diff --git a/client/js/profile-edit.js b/client/js/profile-edit.js
-index 58f827c..0f8e8a7 100644
---- a/client/js/profile-edit.js
-+++ b/client/js/profile-edit.js
-@@ -1,167 +1,309 @@
--// ── PROFILE EDIT ──
--function buildProfileModal() {
--  // no-op — profile modal is opened on demand via openProfileEdit()
--}
-+// ══════════════════════════════════════════════════════════════════
-+// PICTURE CROPPER + PROFILE EDITOR
-+// The cropper is one canvas engine used for profile pictures, banners and group pictures: the preview and the saved
-+// picture are produced by the exact same crDraw(), so what you see is what you get. Geometry is stored as fractions of
-+// the frame, so it is resolution independent (preview 300px, output 256px, ...).
-+// ══════════════════════════════════════════════════════════════════
-+const CR_MIN = 0.25, CR_MAX = 6;
-+const CR = { img: null, w: 0, h: 0, rot: 0, flip: false, zoom: 1, ox: 0, oy: 0, bg: 'blur', bgColor: '#1e1f22', cfg: null, cw: 300, ch: 300, ptrs: new Map(), pinch: 0, raf: 0, bound: false };
-+const peEl = id => document.getElementById(id);
- 
--function openProfileEdit() {
--  const av = document.getElementById('profile-modal-av');
--  av.style.background = S.user.color;
--  if (S.user.pfp) av.innerHTML = `<img src="${S.user.pfp}" alt="pfp"><div class="av-overlay">Change</div>`;
--  else { av.innerHTML = `${S.user.name[0].toUpperCase()}<div class="av-overlay">Change</div>`; }
--  // All users can change their PFP
--  av.style.cursor = 'pointer';
--  av.onclick = () => document.getElementById('pfp-file-in').click();
--  const lockNotice = document.getElementById('pfp-lock-notice');
--  if (lockNotice) lockNotice.style.display = 'none';
--  document.getElementById('profile-modal-name').textContent = S.user.name;
--  document.getElementById('profile-modal-tag').textContent = '#' + S.user.tag;
--  if (document.getElementById('profile-bio-in')) document.getElementById('profile-bio-in').value = S.user.bio||'';
--  if (document.getElementById('profile-website-in')) document.getElementById('profile-website-in').value = S.user.socials?.website||'';
--  if (document.getElementById('profile-twitter-in')) document.getElementById('profile-twitter-in').value = S.user.socials?.twitter||'';
--  const grid = document.getElementById('profile-av-grid'); grid.innerHTML = '';
--  COLORS.forEach(col => {
--    const d = document.createElement('div');
--    d.className = 'av-opt' + (col === S.user.color ? ' sel' : '');
--    d.style.background = col; d.dataset.c = col;
--    d.textContent = S.user.name[0].toUpperCase();
--    d.onclick = () => { document.querySelectorAll('#profile-av-grid .av-opt').forEach(x => x.classList.remove('sel')); d.classList.add('sel'); };
--    grid.appendChild(d);
--  });
--  openM('profile-edit-modal');
-+// ---- pure geometry (unit-tested) ----
-+function crDims(st) { const q = ((st.rot % 360) + 360) % 180 !== 0; return { sw: q ? st.h : st.w, sh: q ? st.w : st.h }; }
-+function crCover(st, W, H) { const d = crDims(st); return Math.max(W / d.sw, H / d.sh); }
-+function crContainZoom(st, W, H) { const d = crDims(st), a = W / d.sw, b = H / d.sh; return Math.min(a, b) / Math.max(a, b); }
-+function crClamp(st, W, H) {
-+  const d = crDims(st), s = crCover(st, W, H) * st.zoom, dw = d.sw * s, dh = d.sh * s;
-+  const lx = dw >= W ? (dw - W) / 2 : W / 2, ly = dh >= H ? (dh - H) / 2 : H / 2; // zoomed in: never expose an edge; zoomed out: stay in the frame
-+  st.ox = Math.max(-lx / W, Math.min(lx / W, st.ox)); st.oy = Math.max(-ly / H, Math.min(ly / H, st.oy));
-+}
-+function crDrawOriented(c, img, st, scale, cx, cy) {
-+  c.save(); c.translate(cx, cy); c.rotate(st.rot * Math.PI / 180); if (st.flip) c.scale(-1, 1);
-+  c.drawImage(img, -st.w * scale / 2, -st.h * scale / 2, st.w * scale, st.h * scale); c.restore();
- }
-+function crDraw(ctx, img, st, W, H) {
-+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-+  ctx.clearRect(0, 0, W, H);
-+  if (st.bg === 'color') { ctx.fillStyle = st.bgColor; ctx.fillRect(0, 0, W, H); }
-+  else if (st.bg === 'blur') { // cheap blur that works everywhere (no ctx.filter): draw tiny, scale up smoothly
-+    const tw = 24, th = Math.max(6, Math.round(24 * H / W)), t = document.createElement('canvas'); t.width = tw; t.height = th;
-+    const tc = t.getContext('2d');
-+    if (tc) { crDrawOriented(tc, img, st, crCover(st, tw, th), tw / 2, th / 2); ctx.drawImage(t, 0, 0, W, H); ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(0, 0, W, H); }
-+  }
-+  crDrawOriented(ctx, img, st, crCover(st, W, H) * st.zoom, W / 2 + st.ox * W, H / 2 + st.oy * H);
-+}
-+function crFr() { return { W: CR.cfg ? CR.cfg.aspect : 1, H: 1 }; }
- 
--let pfpCropState = { x:0, y:0, zoom:1, src:null, dragging:false, startX:0, startY:0, startImgX:0, startImgY:0 };
-+// ---- state changes ----
-+function crSchedule() { if (!CR.raf) CR.raf = requestAnimationFrame(crRender); }
-+function crPanBy(dx, dy) { const f = crFr(); CR.ox += dx; CR.oy += dy; crClamp(CR, f.W, f.H); crSchedule(); }
-+function crSetZoom(z, ax, ay) { // anchor (ax,ay) = a point in frame fractions from the centre that stays put (cursor / pinch centre)
-+  ax = ax || 0; ay = ay || 0; const f = crFr(), nz = Math.max(CR_MIN, Math.min(CR_MAX, z)), r = nz / CR.zoom;
-+  CR.ox = ax - (ax - CR.ox) * r; CR.oy = ay - (ay - CR.oy) * r; CR.zoom = nz; crClamp(CR, f.W, f.H); crSchedule();
-+}
-+function crSliderIn(v) { crSetZoom(CR_MIN * Math.pow(CR_MAX / CR_MIN, Number(v) / 1000)); }
-+function crNudgeZoom(dir) { crSetZoom(CR.zoom * (dir > 0 ? 1.15 : 1 / 1.15)); }
-+function crRotate(d) { CR.rot = (CR.rot + d + 360) % 360; const f = crFr(); crClamp(CR, f.W, f.H); crSchedule(); }
-+function crFlip() { CR.flip = !CR.flip; crSchedule(); }
-+function crFit() { const f = crFr(); CR.zoom = Math.max(CR_MIN, crContainZoom(CR, f.W, f.H)); CR.ox = CR.oy = 0; crSchedule(); }
-+function crFill() { CR.zoom = 1; CR.ox = CR.oy = 0; crSchedule(); }
-+function crReset() { CR.rot = 0; CR.flip = false; crFill(); }
-+function crSetBg(b) { CR.bg = b; crSchedule(); }
-+function crSetBgColor(v) { CR.bgColor = v; CR.bg = 'color'; crSchedule(); }
- 
--function onPfpChange(e) {
--  const f = e.target.files[0]; if (!f) return;
--  e.target.value = '';
--  const reader = new FileReader();
--  reader.onload = ev => {
--    _pfpCropTarget = 'profile';
--    pfpCropState = { x:0, y:0, zoom:1, src:ev.target.result, dragging:false };
--    const img = document.getElementById('pfp-crop-img');
--    img.src = ev.target.result;
--    document.getElementById('pfp-crop-zoom').value = 1;
--    img.onload = () => { pfpCropApply(); };
--    openM('pfp-crop-modal');
--    setTimeout(initCropEvents, 50);
--  };
--  reader.readAsDataURL(f);
-+function crRender() {
-+  CR.raf = 0; const cv = peEl('cr-canvas'); if (!cv || !CR.img) return;
-+  const c = cv.getContext && cv.getContext('2d'); if (!c) return;
-+  crDraw(c, CR.img, CR, cv.width, cv.height);
-+  document.querySelectorAll('#cr-pv canvas').forEach(p => { const x = p.getContext('2d'); if (x) { x.clearRect(0, 0, p.width, p.height); x.drawImage(cv, 0, 0, p.width, p.height); } });
-+  const lbl = peEl('cr-zoom-lbl'); if (lbl) lbl.textContent = Math.round(CR.zoom * 100) + '%';
-+  const z = peEl('cr-zoom'); if (z) z.value = Math.round(1000 * Math.log(CR.zoom / CR_MIN) / Math.log(CR_MAX / CR_MIN));
-+  document.querySelectorAll('#cr-bg button').forEach(b => b.classList.toggle('on', b.dataset.bg === CR.bg));
-+}
-+function crLayout() {
-+  const cfg = CR.cfg, stage = peEl('cr-stage'), cv = peEl('cr-canvas'); if (!cfg || !stage || !cv) return;
-+  const modal = stage.parentElement, avail = Math.max(160, (modal.clientWidth || 480) - 48), w = Math.min(cfg.stageW, avail), h = Math.round(w / cfg.aspect), dpr = Math.min(2, window.devicePixelRatio || 1);
-+  stage.style.width = w + 'px'; stage.style.height = h + 'px'; cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); CR.cw = w; CR.ch = h; crSchedule();
-+}
-+function crBind() {
-+  if (CR.bound) return; CR.bound = true; const st = peEl('cr-stage');
-+  st.addEventListener('pointerdown', e => { try { st.setPointerCapture(e.pointerId); } catch (_) {} CR.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); CR.pinch = 0; st.classList.add('drag'); st.focus({ preventScroll: true }); });
-+  st.addEventListener('pointermove', e => {
-+    const p = CR.ptrs.get(e.pointerId); if (!p) return; const r = st.getBoundingClientRect();
-+    if (CR.ptrs.size === 1) { crPanBy((e.clientX - p.x) / r.width, (e.clientY - p.y) / r.height); }
-+    else if (CR.ptrs.size === 2) {
-+      CR.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); const [a, b] = [...CR.ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
-+      if (CR.pinch) crSetZoom(CR.zoom * d / CR.pinch, ((a.x + b.x) / 2 - r.left) / r.width - 0.5, ((a.y + b.y) / 2 - r.top) / r.height - 0.5);
-+      CR.pinch = d; return;
-+    }
-+    CR.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-+  });
-+  const up = e => { CR.ptrs.delete(e.pointerId); CR.pinch = 0; if (!CR.ptrs.size) st.classList.remove('drag'); };
-+  st.addEventListener('pointerup', up); st.addEventListener('pointercancel', up);
-+  st.addEventListener('wheel', e => { e.preventDefault(); const r = st.getBoundingClientRect(); crSetZoom(CR.zoom * Math.exp(-e.deltaY * 0.0015), (e.clientX - r.left) / r.width - 0.5, (e.clientY - r.top) / r.height - 0.5); }, { passive: false });
-+  st.addEventListener('keydown', e => {
-+    const k = e.key, m = { ArrowLeft: [-.02, 0], ArrowRight: [.02, 0], ArrowUp: [0, -.02], ArrowDown: [0, .02] }[k];
-+    if (m) { e.preventDefault(); crPanBy(m[0], m[1]); }
-+    else if (k === '+' || k === '=') { e.preventDefault(); crNudgeZoom(1); } else if (k === '-') { e.preventDefault(); crNudgeZoom(-1); }
-+    else if (k === '0') crReset(); else if (k === 'r' || k === 'R') crRotate(90);
-+  });
-+  window.addEventListener('resize', () => { if (peEl('pfp-crop-modal').classList.contains('open')) crLayout(); });
- }
- 
--function pfpCropApply() {
--  const wrap = document.getElementById('pfp-crop-wrap');
--  const img = document.getElementById('pfp-crop-img');
--  const z = pfpCropState.zoom;
--  const ww = wrap.offsetWidth, wh = wrap.offsetHeight;
--  const iw = img.naturalWidth * z, ih = img.naturalHeight * z;
--  // Clamp position
--  pfpCropState.x = Math.min(0, Math.max(ww - iw, pfpCropState.x));
--  pfpCropState.y = Math.min(0, Math.max(wh - ih, pfpCropState.y));
--  img.style.width = iw + 'px'; img.style.height = ih + 'px';
--  img.style.left = pfpCropState.x + 'px'; img.style.top = pfpCropState.y + 'px';
--  img.style.transform = '';
-+// ---- open / apply ----
-+function openCropper(source, cfg) {
-+  cfg = Object.assign({ kind: 'pfp', aspect: 1, outW: 256, outH: 256, maxChars: 44000, stageW: 300, shape: 'circle', title: 'Profile picture', alpha: true, onApply: null, target: 'profile' }, cfg || {});
-+  const isFile = typeof source !== 'string';
-+  if (isFile && !/^image\//.test(source.type || '')) { toast('⚠️ That file is not an image'); return; }
-+  const url = isFile ? URL.createObjectURL(source) : source, img = new Image();
-+  img.onload = () => { if (isFile) URL.revokeObjectURL(url); crStart(img, cfg); };
-+  img.onerror = () => { if (isFile) URL.revokeObjectURL(url); toast('⚠️ Could not read that image. Try a JPEG, PNG or WebP.'); };
-+  img.src = url;
-+}
-+function crStart(img, cfg) {
-+  CR.img = img; CR.w = img.naturalWidth || img.width; CR.h = img.naturalHeight || img.height; CR.cfg = cfg;
-+  CR.rot = 0; CR.flip = false; CR.zoom = 1; CR.ox = CR.oy = 0; CR.bg = 'blur'; CR.ptrs.clear();
-+  peEl('cr-title').textContent = cfg.title;
-+  peEl('cr-mask').className = 'cr-mask ' + cfg.shape;
-+  const pv = peEl('cr-pv'); pv.className = 'cr-pv ' + cfg.shape;
-+  pv.innerHTML = cfg.kind === 'banner' ? '<canvas width="180" height="60"></canvas>' : [64, 40, 24].map(s => `<div style="text-align:center"><canvas width="${s}" height="${s}"></canvas><div>${s}px</div></div>`).join('');
-+  document.querySelectorAll('#cr-bg button[data-bg="clear"]').forEach(b => { b.style.display = cfg.alpha ? '' : 'none'; });
-+  crBind(); openM('pfp-crop-modal'); crLayout();
-+}
-+async function crEncode() {
-+  const cfg = CR.cfg, mimes = CR.bg === 'clear' ? ['image/webp', 'image/png'] : ['image/webp', 'image/jpeg'];
-+  for (const k of [1, .875, .75, .625, .5]) {
-+    const W = Math.round(cfg.outW * k), H = Math.round(cfg.outH * k), c = document.createElement('canvas'); c.width = W; c.height = H;
-+    const x = c.getContext('2d'); if (!x) throw new Error('no_canvas');
-+    crDraw(x, CR.img, CR, W, H);
-+    for (const m of mimes) for (const q of (m === 'image/png' ? [1] : [.92, .82, .72, .6, .48, .36])) {
-+      const d = c.toDataURL(m, q); if (d.indexOf('data:' + m) !== 0) break; // this browser cannot encode that format
-+      if (d.length <= cfg.maxChars) return d;
-+    }
-+  }
-+  throw new Error('too_large');
-+}
-+async function commitPfpCrop() { // name kept: the Apply button, and old tests, call this
-+  const btn = peEl('cr-apply'); if (btn.disabled) return; btn.disabled = true;
-+  try {
-+    const data = await crEncode(), cfg = CR.cfg;
-+    if (typeof cfg.onApply === 'function') cfg.onApply(data);
-+    else if (cfg.target === 'signup') { suPfpData = data; const pv = peEl('su-pfp-preview'); if (pv) pv.innerHTML = `<img src="${data}" alt="pfp">`; }
-+    else if (cfg.target === 'admin_target' && _adminPfpTarget) {
-+      wsSend({ type: 'admin_set_pfp', target: _adminPfpTarget, pfp: data });
-+      const r = peEl('admin-users-result'); if (r) r.textContent = `✅ PFP updated for ${_adminPfpTarget}`; _adminPfpTarget = null;
-+    }
-+    else peSetPfp(data);
-+    closeM('pfp-crop-modal');
-+  } catch (err) { toast(err.message === 'too_large' ? '⚠️ Still too large. Try zooming out, or turn off Transparent.' : '⚠️ Could not process the image'); }
-+  finally { btn.disabled = false; }
- }
-+function pfpOpenFile(file, target) { window._pfpCropTarget = target; openCropper(file, { target, kind: 'pfp', title: 'Profile picture' }); }
-+function peOpenAvatarCropper(src) { openCropper(src, { target: 'profile', kind: 'pfp', title: 'Profile picture' }); }
-+function peOpenBannerCropper(src) { openCropper(src, { target: 'banner', kind: 'banner', aspect: 3, outW: 480, outH: 160, maxChars: 46000, stageW: 440, shape: 'rect', alpha: false, title: 'Banner image', onApply: peSetBanner }); }
-+function onPfpChange(e) { const f = e.target.files[0]; e.target.value = ''; if (f) peOpenAvatarCropper(f); }
-+function onBannerChange(e) { const f = e.target.files[0]; e.target.value = ''; if (f) peOpenBannerCropper(f); }
- 
--function pfpCropZoom(val) {
--  pfpCropState.zoom = parseFloat(val);
--  pfpCropApply();
-+// ══════════════════════════════════════════════════════════════════
-+// PROFILE EDITOR
-+// ══════════════════════════════════════════════════════════════════
-+const PE = { d: null, o: null, tab: 'look', bound: false };
-+let peMyBanner = null; // my own banner image (kept out of S.user so it never lands in the saved session)
-+function peApplyOwnExt(msg) { // server → me, right after login
-+  if (!S.user) return; S.user.ext = pfNormExt(msg.ext); peMyBanner = pfSafeImg(msg.banner) || null;
-+  try { lsSet('nx-session', { token: S.token, user: S.user }); } catch (_) {}
- }
-+function buildProfileModal() {} // markup now lives in index.html; kept so old callers still work
-+function peClone(x) { return JSON.parse(JSON.stringify(x)); }
-+function peHandle(v) { v = (v || '').trim(); const m = v.match(/^https?:\/\/[^/]+\/(?:@|profile\/|user\/)?([^/?#]+)/i); return (m ? m[1] : v).replace(/^@/, ''); }
- 
--// Drag to reposition — initialized once when first needed
--let _cropEventsInit = false;
--function initCropEvents() {
--  if (_cropEventsInit) return;
--  _cropEventsInit = true;
--  let drag = false, sx = 0, sy = 0, ox = 0, oy = 0;
--  function start(ex, ey) { drag = true; sx = ex; sy = ey; ox = pfpCropState.x; oy = pfpCropState.y; }
--  function move(ex, ey) {
--    if (!drag) return;
--    pfpCropState.x = ox + (ex - sx); pfpCropState.y = oy + (ey - sy);
--    pfpCropApply();
--  }
--  function end() { drag = false; }
--  const w = document.getElementById('pfp-crop-wrap');
--  w.addEventListener('mousedown', e => { e.preventDefault(); start(e.clientX, e.clientY); });
--  window.addEventListener('mousemove', e => move(e.clientX, e.clientY));
--  window.addEventListener('mouseup', end);
--  w.addEventListener('touchstart', e => { e.preventDefault(); start(e.touches[0].clientX, e.touches[0].clientY); }, {passive:false});
--  window.addEventListener('touchmove', e => { if(drag) { e.preventDefault(); move(e.touches[0].clientX, e.touches[0].clientY); }}, {passive:false});
--  window.addEventListener('touchend', end);
--  w.addEventListener('wheel', e => {
--    e.preventDefault();
--    const slider = document.getElementById('pfp-crop-zoom');
--    const newVal = Math.min(4, Math.max(1, pfpCropState.zoom - e.deltaY * 0.002));
--    pfpCropState.zoom = newVal; slider.value = newVal; pfpCropApply();
--  }, {passive:false});
-+function peBuildOnce() {
-+  if (PE.bound) return; PE.bound = true;
-+  peEl('pe-links').innerHTML = PF_SOCIALS.map(s => `<div class="pe-inp-row"><span title="${s.label}">${s.icon}</span><input class="m-inp" id="profile-${s.k}-in" placeholder="${s.label}: ${s.ph}" maxlength="100" oninput="peIn()"></div>`).join('');
-+  peEl('pe-tints').innerHTML = '<div class="pe-sw none" onclick="peTint(null)" title="No tint">✕</div>' + PF_TINTS.map(c => `<div class="pe-sw" style="background:${c}" data-c="${c}" onclick="peTint('${c}')"></div>`).join('') + '<input type="color" class="pe-color" id="pe-tint-custom" oninput="peTint(this.value)" title="Any colour">';
-+  document.addEventListener('paste', e => {
-+    const crop = peEl('pfp-crop-modal').classList.contains('open'), ed = peEl('profile-edit-modal').classList.contains('open'); if (!crop && !ed) return;
-+    const f = [...((e.clipboardData && e.clipboardData.files) || [])].find(x => /^image\//.test(x.type)); if (!f) return; e.preventDefault();
-+    if (crop) openCropper(f, CR.cfg); else peOpenAvatarCropper(f);
-+  });
-+  const m = peEl('profile-edit-modal'), clr = () => m.querySelectorAll('.pe-drop').forEach(x => x.classList.remove('pe-drop')), has = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
-+  ['dragenter', 'dragover'].forEach(t => m.addEventListener(t, e => { if (!has(e)) return; e.preventDefault(); clr(); const z = e.target.closest('[data-drop]'); (z || m.firstElementChild).classList.add('pe-drop'); }));
-+  m.addEventListener('dragleave', e => { if (e.target === m) clr(); });
-+  m.addEventListener('drop', e => { clr(); const f = [...((e.dataTransfer && e.dataTransfer.files) || [])].find(x => /^image\//.test(x.type)); if (!f) return; e.preventDefault(); const z = e.target.closest('[data-drop]'); if (z && z.dataset.drop === 'banner') peOpenBannerCropper(f); else peOpenAvatarCropper(f); });
- }
- 
--async function commitPfpCrop() {
--  const canvas = document.createElement('canvas');
--  const size = 256; canvas.width = size; canvas.height = size;
--  const ctx = canvas.getContext('2d');
--  const img = document.getElementById('pfp-crop-img');
--  const wrap = document.getElementById('pfp-crop-wrap');
--  const ww = wrap.offsetWidth, wh = wrap.offsetHeight;
--  const z = pfpCropState.zoom;
--  // Correct: pixels in natural image covered by the 300px circle at this zoom
--  const natW = img.naturalWidth, natH = img.naturalHeight;
--  const clipX = Math.max(0, -pfpCropState.x / z);
--  const clipY = Math.max(0, -pfpCropState.y / z);
--  const clipW = Math.min(natW - clipX, ww / z);
--  const clipH = Math.min(natH - clipY, wh / z);
--  ctx.drawImage(img, clipX, clipY, clipW, clipH, 0, 0, size, size);
--  // Re-encode at pfp quality limit (0.80) — the raw 256px canvas at 0.88 can still
--  // be ~120–180 KB from a high-detail source image. compressImage also enforces the
--  // 150 KB hard cap with a retry at half-quality.
--  let data;
--  try {
--    data = await compressImage(canvas.toDataURL('image/jpeg', 1.0), IMG_LIMITS.pfp);
--  } catch(err) {
--    toast('⚠️ PFP image is too complex to compress within limits. Try a simpler image.');
--    return;
--  }
-+function openProfileEdit() {
-+  const u = S.user; peBuildOnce();
-+  PE.o = { color: u.color, pfp: u.pfp || null, banner: peMyBanner, ext: pfNormExt(u.ext), bio: u.bio || '', socials: Object.assign({}, u.socials || {}) };
-+  PE.d = peClone(PE.o);
-+  const av = peEl('profile-modal-av'); av._pendingPfp = null; av._removed = false; av.onclick = peAvatarUpload;
-+  peEl('profile-modal-name').textContent = '· ' + u.name; peEl('profile-modal-tag').textContent = ' #' + (u.tag || '0000');
-+  peEl('profile-bio-in').value = PE.d.bio; peEl('pe-pron-in').value = PE.d.ext.pronouns; peEl('pe-loc-in').value = PE.d.ext.location;
-+  PF_SOCIALS.forEach(s => { const i = peEl('profile-' + s.k + '-in'); if (i) i.value = PE.d.socials[s.k] || ''; });
-+  const grid = peEl('profile-av-grid'); grid.innerHTML = '';
-+  const addSw = (c, sel, id) => { const d = document.createElement('div'); d.className = 'av-opt' + (sel ? ' sel' : ''); d.style.background = c; d.dataset.c = c; if (id) d.id = id; d.onclick = () => peColorPick(c); grid.appendChild(d); };
-+  COLORS.forEach(c => addSw(c, c === u.color)); if (!COLORS.includes(u.color)) addSw(u.color, true, 'pe-custom-sw');
-+  peEl('pe-color-custom').value = pfHex(u.color, '#5865f2');
-+  peTab('look'); peSync(); openM('profile-edit-modal');
-+}
-+function peColorPick(c) { PE.d.color = c; document.querySelectorAll('#profile-av-grid .av-opt').forEach(x => x.classList.toggle('sel', x.dataset.c === c)); peEl('pe-color-custom').value = pfHex(c, '#5865f2'); peRender(); }
-+function peColorCustom(v) {
-+  let sw = peEl('pe-custom-sw'); if (!sw) { sw = document.createElement('div'); sw.className = 'av-opt'; sw.id = 'pe-custom-sw'; sw.onclick = () => peColorPick(sw.dataset.c); peEl('profile-av-grid').appendChild(sw); }
-+  sw.dataset.c = v; sw.style.background = v; peColorPick(v);
-+}
-+function peTab(t) {
-+  PE.tab = t; document.querySelectorAll('#pe-tabs .pe-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-+  ['look', 'style', 'about', 'links'].forEach(k => { const p = peEl('pe-p-' + k); if (p) p.style.display = k === t ? '' : 'none'; });
-+}
-+function peReadDom() { // inputs → draft
-+  const d = PE.d, e = d.ext, v = id => { const x = peEl(id); return x ? x.value : ''; };
-+  d.bio = v('profile-bio-in').slice(0, 160); e.pronouns = v('pe-pron-in').slice(0, 24); e.location = v('pe-loc-in').slice(0, 30);
-+  if (e.banner.kind === 'color') e.banner.c1 = v('pe-b-c1') || e.banner.c1;
-+  else if (e.banner.kind === 'gradient') { e.banner.c1 = v('pe-b-g1') || e.banner.c1; e.banner.c2 = v('pe-b-g2') || e.banner.c2; e.banner.angle = Number(v('pe-b-ang')) || 0; }
-+  if (e.frame.kind !== 'none') { e.frame.c1 = v('pe-fr-c1') || e.frame.c1; e.frame.c2 = v('pe-fr-c2') || e.frame.c2; }
-+  if (e.nameFx.kind !== 'none') { e.nameFx.c1 = v('pe-nf-c1') || e.nameFx.c1; e.nameFx.c2 = v('pe-nf-c2') || e.nameFx.c2; }
-+  PF_SOCIALS.forEach(s => { const i = peEl('profile-' + s.k + '-in'); if (i) d.socials[s.k] = i.value.trim(); });
-+}
-+function peIn() { peReadDom(); peRender(); }
-+function peSync() { // draft → controls (chips, colour inputs, which sub-panels show)
-+  const e = PE.d.ext, b = e.banner, set = (id, v) => { const x = peEl(id); if (x) x.value = v; };
-+  const chips = (id, list, cur, fn) => { peEl(id).innerHTML = list.map(o => `<button class="pe-chip${o[0] === cur ? ' on' : ''}" onclick="${fn}('${o[0]}')">${o[1]}</button>`).join(''); };
-+  chips('pe-banner-kinds', [['default', 'Default'], ['color', 'Colour'], ['gradient', 'Gradient'], ['image', 'Image']], b.kind, 'peBannerKind');
-+  chips('pe-frames', PF_FRAMES.map(f => [f.id, f.n]), e.frame.kind, 'peFrameKind'); chips('pe-names', PF_NAMEFX.map(f => [f.id, f.n]), e.nameFx.kind, 'peNameKind');
-+  peEl('pe-banner-presets').innerHTML = PF_BANNERS.map(p => `<button class="pe-preset${p.c1 === b.c1 && p.c2 === b.c2 ? ' on' : ''}" style="background:linear-gradient(135deg,${p.c1},${p.c2})" onclick="peBannerPreset('${p.id}')">${p.n}</button>`).join('');
-+  set('pe-b-c1', b.c1); set('pe-b-g1', b.c1); set('pe-b-g2', b.c2); set('pe-b-ang', b.angle);
-+  set('pe-fr-c1', e.frame.c1); set('pe-fr-c2', e.frame.c2); set('pe-nf-c1', e.nameFx.c1); set('pe-nf-c2', e.nameFx.c2);
-+  const show = (id, on) => { const x = peEl(id); if (x) x.style.display = on ? '' : 'none'; };
-+  show('pe-b-color', b.kind === 'color'); show('pe-b-grad', b.kind === 'gradient'); show('pe-b-img', b.kind === 'image');
-+  show('pe-frame-cols', e.frame.kind !== 'none'); show('pe-name-cols', e.nameFx.kind !== 'none');
-+  const two = (list, id, k) => { const f = list.find(x => x.id === k); const c2 = peEl(id); if (c2) c2.style.display = f && f.two ? '' : 'none'; };
-+  two(PF_FRAMES, 'pe-fr-c2', e.frame.kind); two(PF_NAMEFX, 'pe-nf-c2', e.nameFx.kind);
-+  show('pe-b-edit', !!PE.d.banner); show('pe-b-rm', !!PE.d.banner); show('pe-av-edit', !!PE.d.pfp); show('pe-av-rm', !!PE.d.pfp);
-+  document.querySelectorAll('#pe-tints .pe-sw[data-c]').forEach(x => x.classList.toggle('on', x.dataset.c === e.cardTint));
-+  const tc = peEl('pe-tint-custom'); if (tc && e.cardTint) tc.value = e.cardTint;
-+  peRender();
-+}
-+function peRender() { // avatar, counters, interests, live preview, dirty flag
-+  const d = PE.d, e = d.ext, u = S.user, av = peEl('profile-modal-av');
-+  if (av) { av.style.background = d.pfp ? 'transparent' : pfHex(d.color, '#5865f2'); av.innerHTML = (d.pfp ? `<img src="${safeUrl(d.pfp)}" alt="">` : esc((u.name || '?')[0].toUpperCase())) + '<div class="av-overlay">Change</div>'; }
-+  const bc = peEl('pe-bio-count'); if (bc) bc.textContent = (d.bio || '').length + ' / 160';
-+  const ic = peEl('pe-int-count'); if (ic) ic.textContent = e.interests.length + ' / 8';
-+  peEl('pe-int-tags').innerHTML = e.interests.map((t, i) => `<span class="pe-tag">${esc(t)}<button onclick="peIntDel(${i})" aria-label="Remove">✕</button></span>`).join('');
-+  peEl('pe-int-sugg').innerHTML = e.interests.length >= 8 ? '' : PF_INTERESTS.filter(t => !e.interests.some(x => x.toLowerCase() === t.toLowerCase())).map(t => `<button class="pe-chip" onclick="peIntAdd('${t}')">+ ${t}</button>`).join('');
-+  const can = pfCanStyle(u), fr = pfFrameAttrs(e, d.color, can), nf = pfNameAttrs(e, can), links = pfSocialLinks(d.socials);
-+  peEl('pe-preview').innerHTML = `<div class="pv-card" style="${pfCardCss(e)}"><div class="pv-banner" style="${pfBannerCss(e, d.color, d.banner)}"></div>
-+    <div class="pv-av ${fr.cls}" style="${fr.style}background:${d.pfp ? 'transparent' : pfHex(d.color, '#5865f2')}">${d.pfp ? `<img src="${safeUrl(d.pfp)}" alt="">` : esc((u.name || '?')[0].toUpperCase())}</div>
-+    <div class="pv-body"><div class="pv-name ${nf.cls}" style="${nf.style}">${esc(u.name)}</div><div class="pv-tag">#${esc(u.tag || '0000')}${e.pronouns ? ' · ' + esc(e.pronouns) : ''}</div>
-+    ${e.location ? `<div class="pv-meta">📍 ${esc(e.location)}</div>` : ''}
-+    ${d.bio ? `<div class="pv-sec"><div class="pv-sec-t">About me</div><div class="pv-bio">${esc(d.bio)}</div></div>` : ''}
-+    ${e.interests.length ? `<div class="pv-sec"><div class="pv-sec-t">Interests</div><div class="pp-chips">${e.interests.map(t => `<span class="pp-chip">${esc(t)}</span>`).join('')}</div></div>` : ''}
-+    ${links.length ? `<div class="pv-sec"><div class="pv-sec-t">Links</div>${links.map(l => `<span class="pv-link">${l.icon} ${esc(l.text)}</span>`).join('')}</div>` : ''}</div></div>`;
-+  ['pe-sec-frame', 'pe-sec-name'].forEach(id => { const x = peEl(id); if (x) x.style.display = can ? '' : 'none'; });
-+  const dirty = peEl('pe-dirty'); if (dirty) dirty.classList.toggle('on', peIsDirty());
-+}
-+function peIsDirty() { return !!PE.d && JSON.stringify(PE.d) !== JSON.stringify(PE.o); }
-+function peClose() { if (peIsDirty() && !confirm('Discard your changes?')) return; closeM('profile-edit-modal'); }
- 
--  if (_pfpCropTarget === 'signup') {
--    suPfpData = data;
--    const p = document.getElementById('su-pfp-preview');
--    p.innerHTML = `<img src="${suPfpData}" alt="pfp">`;
--  } else if (_pfpCropTarget === 'admin_target' && _adminPfpTarget) {
--    wsSend({ type: 'admin_set_pfp', target: _adminPfpTarget, pfp: data });
--    document.getElementById('admin-users-result').textContent = `✅ PFP updated for ${_adminPfpTarget}`;
--    _adminPfpTarget = null;
--  } else {
--    // 'profile' — set pending pfp on edit modal
--    const av = document.getElementById('profile-modal-av');
--    av.innerHTML = `<img src="${data}" alt="pfp"><div class="av-overlay">Change</div>`;
--    av._pendingPfp = data;
--  }
--  closeM('pfp-crop-modal');
-+// avatar
-+function peAvatarUpload() { peEl('pfp-file-in').click(); }
-+function peAvatarEdit() { if (PE.d.pfp) peOpenAvatarCropper(PE.d.pfp); else peAvatarUpload(); }
-+function peAvatarRemove() { const av = peEl('profile-modal-av'); PE.d.pfp = null; av._pendingPfp = null; av._removed = true; peSync(); }
-+function peSetPfp(data) { const av = peEl('profile-modal-av'); PE.d.pfp = data; av._pendingPfp = data; av._removed = false; peSync(); }
-+// banner
-+function peBannerKind(k) { peReadDom(); PE.d.ext.banner.kind = k; peSync(); }
-+function peBannerPreset(id) { const p = PF_BANNERS.find(x => x.id === id); if (!p) return; const b = PE.d.ext.banner; b.kind = 'gradient'; b.c1 = p.c1; b.c2 = p.c2; peSync(); }
-+function peBannerUpload() { peEl('pe-banner-file').click(); }
-+function peBannerEdit() { if (PE.d.banner) peOpenBannerCropper(PE.d.banner); else peBannerUpload(); }
-+function peSetBanner(data) { PE.d.banner = data; PE.d.ext.banner.kind = 'image'; peSync(); }
-+function peBannerRemove() { PE.d.banner = null; if (PE.d.ext.banner.kind === 'image') PE.d.ext.banner.kind = 'default'; peSync(); }
-+// style
-+function peFrameKind(k) { peReadDom(); PE.d.ext.frame.kind = k; peSync(); }
-+function peNameKind(k) { peReadDom(); PE.d.ext.nameFx.kind = k; peSync(); }
-+function peTint(c) { PE.d.ext.cardTint = c; peSync(); }
-+function peResetStyle() { const e = PE.d.ext, d = pfExtDefaults(); e.banner = d.banner; e.frame = d.frame; e.nameFx = d.nameFx; e.cardTint = null; if (PE.d.banner) PE.d.banner = null; peSync(); }
-+function peRandom() {
-+  const pick = a => a[Math.floor(Math.random() * a.length)], e = PE.d.ext, p = pick(PF_BANNERS), c = () => pick(PF_TINTS);
-+  e.banner = { kind: 'gradient', c1: p.c1, c2: p.c2, angle: Math.floor(Math.random() * 361) };
-+  if (pfCanStyle(S.user)) { e.frame = { kind: pick(PF_FRAMES.filter(f => f.id !== 'none')).id, c1: c(), c2: c() }; e.nameFx = { kind: pick(PF_NAMEFX.filter(f => f.id !== 'none')).id, c1: c(), c2: c() }; }
-+  e.cardTint = Math.random() < .7 ? c() : null; peSync();
-+}
-+// interests
-+function peIntAdd(t) { t = (t || '').replace(/[<>]/g, '').trim().slice(0, 20); const a = PE.d.ext.interests; if (!t || a.length >= 8 || a.some(x => x.toLowerCase() === t.toLowerCase())) return; a.push(t); peEl('pe-int-in').value = ''; peRender(); }
-+function peIntDel(i) { PE.d.ext.interests.splice(i, 1); peRender(); }
-+function peIntCommit() { const i = peEl('pe-int-in'); if (i && i.value.trim()) peIntAdd(i.value); }
-+function peIntKey(e) {
-+  if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); peIntCommit(); }
-+  else if (e.key === 'Backspace' && !e.target.value && PE.d.ext.interests.length) { PE.d.ext.interests.pop(); peRender(); }
- }
- 
- function saveProfile() {
--  const selColor = document.querySelector('#profile-av-grid .av-opt.sel')?.dataset.c || S.user.color;
--  const av = document.getElementById('profile-modal-av');
--  // Any user can update their own PFP
--  const newPfp = av._pendingPfp ? av._pendingPfp : S.user.pfp;
--  const bio = (document.getElementById('profile-bio-in')?.value||'').slice(0,160);
--  const website = document.getElementById('profile-website-in')?.value.trim()||'';
--  const twitter = document.getElementById('profile-twitter-in')?.value.trim().replace('@','')||'';
--  const _color = selColor, _pfp = newPfp || null;
--  // Send to the server FIRST. This used to be the very last line, after several redraws, so if any of
--  // them threw, the new picture was never sent: it looked saved, then was gone after a refresh.
--  wsSend({type:'profile_update', user:S.user.name, color:_color, pfp:_pfp, bio, socials:{website,twitter}});
-+  const sel = document.querySelector('#profile-av-grid .av-opt.sel'), _color = (sel && sel.dataset.c) || S.user.color;
-+  const av = peEl('profile-modal-av');
-+  let _pfp = S.user.pfp; if (av._pendingPfp) _pfp = av._pendingPfp; else if (av._removed) _pfp = null;
-+  if (PE.d) peReadDom();
-+  const val = id => { const x = peEl(id); return x ? x.value.trim() : ''; };
-+  const socials = {};
-+  PF_SOCIALS.forEach(s => {
-+    let v = val('profile-' + s.k + '-in');
-+    if (s.k === 'website') { if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v; } else v = peHandle(v);
-+    socials[s.k] = v;
-+  });
-+  const payload = { type: 'profile_update', user: S.user.name, color: _color, pfp: _pfp, bio: val('profile-bio-in').slice(0, 160), socials };
-+  let ext = null;
-+  if (PE.d) {
-+    ext = pfNormExt(PE.d.ext); if (ext.banner.kind === 'image' && !PE.d.banner) ext.banner.kind = 'default';
-+    payload.ext = ext; if (PE.d.banner !== PE.o.banner) payload.bannerImg = PE.d.banner;
-+  }
-+  wsSend(payload);
-+  if (PE.d) PE.o = peClone(PE.d);
-   try {
--    S.user.color = selColor; S.user.pfp = newPfp||null;
--    S.user.bio = bio; S.user.socials = {website, twitter};
--    lsSet('nx-session', {token:S.token, user:S.user}); persist();
-+    S.user.color = _color; S.user.pfp = _pfp || null; S.user.bio = payload.bio; S.user.socials = socials;
-+    if (ext) { S.user.ext = ext; peMyBanner = PE.d.banner; }
-+    if (typeof profileCache !== 'undefined' && profileCache[S.user.name]) Object.assign(profileCache[S.user.name], { color: _color, pfp: _pfp || null, bio: payload.bio, socials, ext: ext || profileCache[S.user.name].ext, bannerImg: peMyBanner });
-+    lsSet('nx-session', { token: S.token, user: S.user }); persist();
-     updateUser(); closeM('profile-edit-modal'); toast('✅ Profile updated');
--    Object.values(S.messages).forEach(arr => {
--      arr.forEach(m => { if(m.author===S.user.name){m.authorColor=S.user.color;m.authorPfp=S.user.pfp||null;} });
--    });
--    Object.values(S.dmMessages).forEach(arr => {
--      arr.forEach(m => { if(m.author===S.user.name){m.authorColor=S.user.color;m.authorPfp=S.user.pfp||null;} });
--    });
-+    Object.values(S.messages).forEach(arr => { arr.forEach(m => { if (m.author === S.user.name) { m.authorColor = S.user.color; m.authorPfp = S.user.pfp || null; } }); });
-+    Object.values(S.dmMessages).forEach(arr => { arr.forEach(m => { if (m.author === S.user.name) { m.authorColor = S.user.color; m.authorPfp = S.user.pfp || null; } }); });
-     refreshAvatars(S.user.name);
-     if (curDM) renderDMMessages(curDM);
-   } catch (e) { console.error('[nexus] saveProfile UI error', e); toast('⚠️ Saved, but the screen failed to update: ' + e.message); }
-diff --git a/client/js/profile-page.js b/client/js/profile-page.js
-index 7f7b714..9c91d2c 100644
---- a/client/js/profile-page.js
-+++ b/client/js/profile-page.js
-@@ -18,7 +18,7 @@ function openProfilePage(username) {
- // ── public profiles on demand ──
- // People whose avatar/profile we don't have (authors of old messages, people who left the server, ...) are
- // requested once, in batches, so an avatar no longer depends on which server's member list is loaded.
--const _profileAsked = new Set(), _profilePending = new Set();
-+const _profileAsked = new Set(), _profilePending = new Set(), _profileFull = new Set(); // _profileFull: names whose banner image is wanted too
- let _profileTimer = null;
- function _needProfile(name) {
-   if (!name || _profileAsked.has(name) || name === S.user?.name) return;
-@@ -29,15 +29,19 @@ function flushProfileRequests() {
-   if (!_profilePending.size || S.ws?.readyState !== 1) return; // retried when the connection (re)identifies
-   const names = [..._profilePending].slice(0, 60);
-   names.forEach(n => { _profilePending.delete(n); _profileAsked.add(n); });
--  wsSend({ type: 'get_profiles', names });
-+  const full = names.filter(n => _profileFull.has(n)), rest = names.filter(n => !_profileFull.has(n));
-+  full.forEach(n => _profileFull.delete(n));
-+  if (rest.length) wsSend({ type: 'get_profiles', names: rest });
-+  for (let i = 0; i < full.length; i += 3) wsSend({ type: 'get_profiles', names: full.slice(i, i + 3), full: true });
-   if (_profilePending.size) { clearTimeout(_profileTimer); _profileTimer = setTimeout(flushProfileRequests, 150); }
- }
--function requestProfileNow(name) { _profileAsked.delete(name); _profilePending.add(name); flushProfileRequests(); }
-+function requestProfileNow(name) { _profileAsked.delete(name); _profileFull.add(name); _profilePending.add(name); flushProfileRequests(); }
- function applyProfiles(list) {
-   let changed = false;
-   (list || []).forEach(p => {
-     if (!p?.name) return;
-     profileCache[p.name] = { ...(profileCache[p.name] || {}), ...p };
-+    if (p.name === S.user?.name) { if (p.ext) S.user.ext = p.ext; if (p.bannerImg !== undefined && typeof peMyBanner !== 'undefined') peMyBanner = p.bannerImg; }
-     Object.values(S.members || {}).forEach(arr => {
-       const m = arr.find(x => x.name === p.name);
-       if (m) Object.assign(m, { pfp: p.pfp, color: p.color, bio: p.bio, socials: p.socials, createdAt: p.createdAt });
-@@ -47,6 +51,7 @@ function applyProfiles(list) {
-   });
-   if (!changed) return;
-   refreshAvatars();
-+  try { pfDecorate(); } catch (_) {}
-   if (S.curSv) renderMbs();
-   dmProfilesUpdated();
-   // an open profile page for one of them now gets the fresh data
-@@ -68,7 +73,7 @@ function refreshAvatars(onlyName) {
- function buildLocalProfile(username) {
-   // Build from local state: server members, DM contacts, etc.
-   const isSelf = username === S.user?.name;
--  if (isSelf) return { name: S.user.name, tag: S.user.tag, color: S.user.color, pfp: S.user.pfp, bio: S.user.bio||'', socials: S.user.socials||{}, systemRole: S.user.systemRole, coAdmin: S.user.coAdmin, createdAt: S.user.createdAt };
-+  if (isSelf) return { name: S.user.name, tag: S.user.tag, color: S.user.color, pfp: S.user.pfp, bio: S.user.bio||'', socials: S.user.socials||{}, ext: S.user.ext, bannerImg: (typeof peMyBanner !== 'undefined' ? peMyBanner : null), systemRole: S.user.systemRole, coAdmin: S.user.coAdmin, createdAt: S.user.createdAt };
-   // Check members list
-   for (const svId in S.members) {
-     const m = (S.members[svId]||[]).find(x=>x.name===username);
-@@ -84,13 +89,16 @@ function renderProfilePage(u) {
-   const isSelf = u.name === S.user?.name;
-   const isPuck = S.user?.systemRole === 'admin';
-   // Banner gradient from user color
--  const bannerGrad = document.getElementById('pp-banner-grad');
--  bannerGrad.style.background = `linear-gradient(160deg, ${u.color||'#5865f2'}cc 0%, ${u.color||'#5865f2'}22 100%)`;
--  document.getElementById('pp-banner').style.background = `${u.color||'#5865f2'}33`;
-+  const ext = pfNormExt(u.ext), bannerGrad = document.getElementById('pp-banner-grad');
-+  bannerGrad.style.background = '';
-+  document.getElementById('pp-banner').style.cssText = pfBannerCss(ext, u.color, u.bannerImg);
-+  const card = document.querySelector('#profile-page .profile-page-card'); if (card) card.style.cssText = pfCardCss(ext);
-   // Avatar
-   const avEl = document.getElementById('pp-av');
-   avEl.style.background = safeUrl(u.pfp) ? 'transparent' : (u.color||COLORS[0]);
-   avEl.innerHTML = safeUrl(u.pfp) ? `<img src="${safeUrl(u.pfp)}" style="width:100%;height:100%;object-fit:cover">` : esc(u.name[0]?.toUpperCase()||'?');
-+  const fr = pfFrameAttrs(ext, u.color || COLORS[0], pfCanStyle(u));
-+  avEl.className = ('pp-av ' + fr.cls).trim(); avEl.style.cssText += ';' + fr.style;
-   // Edit/admin button area
-   const editBtn = document.getElementById('pp-edit-btn');
-   if (isSelf) {
-@@ -106,8 +114,13 @@ function renderProfilePage(u) {
-     editBtn.innerHTML = '';
-   }
-   // Name / tag
--  document.getElementById('pp-name').textContent = u.name;
-+  const nameEl = document.getElementById('pp-name'), nf = pfNameAttrs(ext, pfCanStyle(u));
-+  nameEl.textContent = u.name; nameEl.className = ('pp-name ' + nf.cls).trim(); nameEl.style.cssText = nf.style;
-   document.getElementById('pp-tag').textContent = '#' + (u.tag||'????');
-+  const meta = document.getElementById('pp-meta');
-+  if (meta) { meta.innerHTML = (ext.pronouns ? `<span>${esc(ext.pronouns)}</span>` : '') + (ext.location ? `<span>📍 ${esc(ext.location)}</span>` : ''); }
-+  const intSec = document.getElementById('pp-interests-section');
-+  if (intSec) { document.getElementById('pp-interests').innerHTML = ext.interests.map(t => `<span class="pp-chip">${esc(t)}</span>`).join(''); intSec.style.display = ext.interests.length ? '' : 'none'; }
-   // Badges
-   let badgeHtml = '';
-   if (u.systemRole==='admin') badgeHtml += `<span class="pp-badge" style="background:rgba(88,101,242,.2);color:var(--accent);border:1px solid rgba(88,101,242,.3)">⚡ Admin</span>`;
-@@ -120,9 +133,7 @@ function renderProfilePage(u) {
-   else bioSection.style.display = 'none';
-   // Socials section
-   const socSection = document.getElementById('pp-socials-section');
--  let soc = '';
--  if (u.socials?.website) soc += `<a class="pp-social" href="${esc(u.socials.website)}" target="_blank" rel="noopener">🌐 ${esc(u.socials.website.replace(/^https?:\/\//,''))}</a>`;
--  if (u.socials?.twitter) soc += `<a class="pp-social" href="https://twitter.com/${esc(u.socials.twitter)}" target="_blank" rel="noopener">𝕏 @${esc(u.socials.twitter)}</a>`;
-+  const soc = pfSocialLinks(u.socials).map(l => `<a class="pp-social" href="${esc(l.href)}" target="_blank" rel="noopener noreferrer">${l.icon} ${esc(l.text)}</a>`).join('');
-   if (soc) { document.getElementById('pp-socials').innerHTML = soc; socSection.style.display = ''; }
-   else socSection.style.display = 'none';
-   // Member since
-@@ -167,19 +178,7 @@ function puckEditPfp(targetName) {
- }
- 
- function onAdminPfpChange(e) {
--  const f = e.target.files[0]; if (!f) return;
--  e.target.value = '';
--  const reader = new FileReader();
--  reader.onload = ev => {
--    pfpCropState = { x:0, y:0, zoom:1, src:ev.target.result, dragging:false };
--    const img = document.getElementById('pfp-crop-img');
--    img.src = ev.target.result;
--    document.getElementById('pfp-crop-zoom').value = 1;
--    img.onload = () => { pfpCropApply(); };
--    openM('pfp-crop-modal');
--    setTimeout(initCropEvents, 50);
--  };
--  reader.readAsDataURL(f);
-+  const f = e.target.files[0]; e.target.value = ''; if (f) pfpOpenFile(f, 'admin_target');
- }
- 
- // Admin panel: rename via input field
-@@ -217,20 +216,23 @@ function showUserHover(username, anchorEl) {
-     const color = u.color || COLORS[hash(username)%COLORS.length];
-     const avContent = u.pfp ? `<img src="${u.pfp}">` : esc((username[0]||'?').toUpperCase());
-     const avBg = u.pfp ? 'transparent' : color;
-+    const hx = pfNormExt(u.ext), hfr = pfFrameAttrs(hx, color, pfCanStyle(u)), hnf = pfNameAttrs(hx, pfCanStyle(u));
-+    if (!u.ext && !_profileAsked.has(username)) { _profileAsked.add(username); _profilePending.add(username); flushProfileRequests(); } // their style arrives for next time
-     let badgesHtml = '';
-     if (u.systemRole==='admin') badgesHtml += `<span class="pp-badge" style="font-size:9px;background:rgba(88,101,242,.2);color:var(--accent);border:1px solid rgba(88,101,242,.3)">⚡ Admin</span>`;
-     if (u.coAdmin) badgesHtml += `<span class="pp-badge" style="font-size:9px;background:rgba(168,85,247,.2);color:#c084fc;border:1px solid rgba(168,85,247,.3)">⭐ Co-Admin</span>`;
-     popup.innerHTML = `
--      <div class="uhp-banner" style="background:linear-gradient(135deg,${color}cc,${color}33)">
--        <div class="uhp-av" style="background:${avBg}">${avContent}</div>
-+      <div class="uhp-banner" style="${u.ext ? pfBannerCss(hx, color, null) : `background:linear-gradient(135deg,${color}cc,${color}33)`}">
-+        <div class="uhp-av ${hfr.cls}" style="background:${avBg};${hfr.style}">${avContent}</div>
-       </div>
-       <div class="uhp-body">
--        <div class="uhp-name">${esc(username)}</div>
--        <div class="uhp-tag">#${esc(u.tag||'????')}</div>
-+        <div class="uhp-name ${hnf.cls}" style="${hnf.style}">${esc(username)}</div>
-+        <div class="uhp-tag">#${esc(u.tag||'????')}${hx.pronouns ? ' · ' + esc(hx.pronouns) : ''}</div>
-         ${badgesHtml ? `<div class="uhp-badges">${badgesHtml}</div>` : ''}
-         ${u.bio ? `<div class="uhp-bio">${esc(u.bio)}</div>` : ''}
-         <button class="uhp-view-btn" onclick="hideUserHover();openProfilePage('${esc(username)}')">View Profile →</button>
-       </div>`;
-+    if (hx.cardTint) popup.style.cssText += ';' + pfCardCss(hx);
-     document.body.appendChild(popup);
-     _hoverPopup = popup;
-     // Position near anchor
-diff --git a/b/client/js/profile-style.js b/client/js/profile-style.js
+@@ -1203,6 +842,7 @@
+ <script src="js/voice-channels.js"></script>
+ <script src="js/profile-page.js"></script>
+ <script src="js/admin-tabs.js"></script>
++<script src="js/admin-ui.js"></script>
+ <script src="js/voice-calls.js"></script>
+ <script src="js/sounds.js"></script>
+ <script src="js/tooltips.js"></script>
+diff --git a/b/client/js/admin-ui.js b/b/client/js/admin-ui.js
 new file mode 100644
-index 0000000..cc85293
+index 0000000..a3c5a27
 --- /dev/null
-+++ b/client/js/profile-style.js
-@@ -0,0 +1,155 @@
-+// ══════════════════════════════════════════════════════════════════
-+// PROFILE STYLE — banner / avatar frame / name effect / card tint helpers.
-+// Shared by the profile page, the hover card and the editor's live preview, so all three always look the same.
-+// Everything here is pure (strings in, strings out) and only ever lets validated hex colours into CSS.
-+// ══════════════════════════════════════════════════════════════════
-+const PF_HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
-+function pfHex(c, fb) {
-+  if (typeof c !== 'string' || !PF_HEX.test(c)) return fb;
-+  const h = c.toLowerCase();
-+  return h.length === 4 ? '#' + h[1] + h[1] + h[2] + h[2] + h[3] + h[3] : h;
++++ b/b/client/js/admin-ui.js
+@@ -0,0 +1,345 @@
++// ══════════════════════════════════════════════
++// ADMIN PANEL v2 — click-driven (no IDs to paste, no typing usernames)
++// Loaded AFTER admin.js / admin-tabs.js: it replaces their panel + renderers, the server messages are unchanged.
++// ══════════════════════════════════════════════
++const AD = { sec: 'people', user: null, svId: null, chId: null, chName: '', pendingRename: null };
++const $a = id => document.getElementById(id);
++const admAcct = n => (typeof _adminAccounts !== 'undefined' ? _adminAccounts : []).find(a => a.name.toLowerCase() === String(n).toLowerCase());
++const admSv = id => (typeof _adminServers !== 'undefined' ? _adminServers : []).find(s => s.id === id);
++const admDate = t => t ? new Date(t).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' }) : '?';
++function admCanAssume(a) {
++  if (!a || a.name.toLowerCase() === (S.user?.name || '').toLowerCase()) return false;
++  if (isSystemAdmin()) return true;
++  return isCoAdmin() && a.systemRole !== 'admin' && !a.coAdmin;
 +}
-+function pfSafeImg(u) { return typeof u === 'string' && u.length < 200000 && /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(u) ? u : ''; }
++function admStatus(t, bad) { const el = $a('adm-status'); if (el) { el.textContent = t || ''; el.style.color = bad ? 'var(--red)' : 'var(--t2)'; } }
++function _adminResult(t, c) { admStatus(t, c && /red/.test(c)); }
++function _adminMsgResult(t, c) { admStatus(t, c && /red/.test(c)); }
++function _adminSvResult(t, c) { admStatus(t, c && /red/.test(c)); }
++const admAv = a => a.pfp ? `<img src="${a.pfp}">` : `<span>${esc((a.name[0] || '?').toUpperCase())}</span>`;
++const admBadges = a => (a.systemRole === 'admin' ? '<i class="adm-b adm-b1">⚡ Admin</i>' : a.coAdmin ? '<i class="adm-b adm-b2">★ Co-Admin</i>' : '') + (a.frozen ? '<i class="adm-b adm-b3">🧊 Frozen</i>' : '');
 +
-+const PF_BANNERS = [
-+  { id: 'aurora', n: 'Aurora',   c1: '#00c9a7', c2: '#845ec2' },
-+  { id: 'sunset', n: 'Sunset',   c1: '#ff9a44', c2: '#fc6076' },
-+  { id: 'ocean',  n: 'Ocean',    c1: '#2193b0', c2: '#6dd5ed' },
-+  { id: 'candy',  n: 'Candy',    c1: '#f472b6', c2: '#818cf8' },
-+  { id: 'forest', n: 'Forest',   c1: '#134e5e', c2: '#71b280' },
-+  { id: 'ember',  n: 'Ember',    c1: '#f12711', c2: '#f5af19' },
-+  { id: 'night',  n: 'Midnight', c1: '#0f2027', c2: '#4b6cb7' },
-+  { id: 'mint',   n: 'Mint',     c1: '#a8ff78', c2: '#38ef7d' },
-+  { id: 'grape',  n: 'Grape',    c1: '#4776e6', c2: '#8e54e9' },
-+  { id: 'rose',   n: 'Rosé',     c1: '#ee9ca7', c2: '#ffdde1' },
-+  { id: 'lava',   n: 'Lava',     c1: '#232526', c2: '#e52d27' },
-+  { id: 'neon',   n: 'Neon',     c1: '#00f5a0', c2: '#00d9f5' },
-+];
-+const PF_FRAMES = [
-+  { id: 'none', n: 'None', two: false }, { id: 'ring', n: 'Ring', two: false }, { id: 'gradient', n: 'Gradient', two: true },
-+  { id: 'glow', n: 'Glow', two: false }, { id: 'neon', n: 'Neon', two: true }, { id: 'dashed', n: 'Dashed', two: false },
-+];
-+const PF_NAMEFX = [
-+  { id: 'none', n: 'Plain', two: false }, { id: 'gradient', n: 'Gradient', two: true },
-+  { id: 'glow', n: 'Glow', two: false }, { id: 'shimmer', n: 'Shimmer', two: true },
-+];
-+const PF_TINTS = ['#5865f2', '#eb459e', '#f59e0b', '#10b981', '#06b6d4', '#ef4444', '#a855f7', '#64748b'];
-+const PF_INTERESTS = ['Gaming', 'Music', 'Coding', 'Art', 'Anime', 'Movies', 'Reading', 'Fitness', 'Travel', 'Cooking'];
-+// handle-style links. `url` builds the address from the (encoded) handle; website is stored as typed.
-+const PF_SOCIALS = [
-+  { k: 'website',   label: 'Website',     ph: 'https://yoursite.com', icon: '🌐' },
-+  { k: 'twitter',   label: 'X / Twitter', ph: '@handle',    icon: '𝕏',  url: h => 'https://twitter.com/' + h },
-+  { k: 'github',    label: 'GitHub',      ph: 'username',   icon: '🐙', url: h => 'https://github.com/' + h },
-+  { k: 'youtube',   label: 'YouTube',     ph: '@channel',   icon: '▶️', url: h => 'https://youtube.com/@' + h },
-+  { k: 'twitch',    label: 'Twitch',      ph: 'username',   icon: '🎮', url: h => 'https://twitch.tv/' + h },
-+  { k: 'instagram', label: 'Instagram',   ph: 'username',   icon: '📸', url: h => 'https://instagram.com/' + h },
-+  { k: 'bluesky',   label: 'Bluesky',     ph: 'name.bsky.social', icon: '🦋', url: h => 'https://bsky.app/profile/' + h },
-+];
-+
-+function pfExtDefaults() {
-+  return {
-+    pronouns: '', location: '', interests: [],
-+    banner: { kind: 'default', c1: '#5865f2', c2: '#eb459e', angle: 135 },
-+    frame:  { kind: 'none', c1: '#5865f2', c2: '#eb459e' },
-+    nameFx: { kind: 'none', c1: '#5865f2', c2: '#eb459e' },
-+    cardTint: null,
-+  };
-+}
-+// Fills in defaults and validates everything; always returns a fresh object (safe to mutate).
-+function pfNormExt(e) {
-+  const d = pfExtDefaults(); e = e && typeof e === 'object' ? e : {};
-+  const sub = (x, dd, kinds) => { x = x && typeof x === 'object' ? x : {}; return { kind: kinds.includes(x.kind) ? x.kind : dd.kind, c1: pfHex(x.c1, dd.c1), c2: pfHex(x.c2, dd.c2) }; };
-+  const txt = (v, n) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, n) : '');
-+  const b = sub(e.banner, d.banner, ['default', 'color', 'gradient', 'image']);
-+  const ang = Math.round(Number(e.banner && e.banner.angle));
-+  b.angle = Number.isFinite(ang) ? Math.max(0, Math.min(360, ang)) : 135;
-+  const seen = new Set(), interests = [];
-+  (Array.isArray(e.interests) ? e.interests : []).forEach(x => { const t = txt(x, 20); if (t && !seen.has(t.toLowerCase()) && interests.length < 8) { seen.add(t.toLowerCase()); interests.push(t); } });
-+  return {
-+    pronouns: txt(e.pronouns, 24), location: txt(e.location, 30), interests, banner: b,
-+    frame: sub(e.frame, d.frame, PF_FRAMES.map(f => f.id)), nameFx: sub(e.nameFx, d.nameFx, PF_NAMEFX.map(f => f.id)),
-+    cardTint: pfHex(e.cardTint, null),
-+  };
-+}
-+
-+// CSS `background` for a banner element. `color` is the person's avatar colour (used for the default look).
-+function pfBannerCss(ext, color, bannerImg) {
-+  const e = pfNormExt(ext), c = pfHex(color, '#5865f2'), b = e.banner;
-+  if (b.kind === 'color') return `background:${b.c1}`;
-+  if (b.kind === 'gradient') return `background:linear-gradient(${b.angle}deg,${b.c1},${b.c2})`;
-+  const img = pfSafeImg(bannerImg);
-+  if (b.kind === 'image' && img) return `background:url('${img}') center/cover no-repeat`;
-+  return `background:linear-gradient(160deg,${c}cc 0%,${c}22 100%),${c}33`;
-+}
-+// class + inline custom properties for an avatar element (profile.css draws the frame from them)
-+function pfFrameAttrs(ext, innerColor, allowed) {
-+  const f = pfNormExt(ext).frame;
-+  if (allowed === false || f.kind === 'none') return { cls: '', style: '' };
-+  return { cls: 'fr-' + f.kind, style: `--fr1:${f.c1};--fr2:${f.c2};--av-in:${pfHex(innerColor, '#1e1f22')};` };
-+}
-+function pfNameAttrs(ext, allowed) {
-+  const n = pfNormExt(ext).nameFx;
-+  if (allowed === false || n.kind === 'none') return { cls: '', style: '' };
-+  return { cls: 'nf-' + n.kind, style: `--nf1:${n.c1};--nf2:${n.c2};` };
-+}
-+// background for the whole card (a soft wash of the chosen tint over the normal surface)
-+function pfCardCss(ext) {
-+  const t = pfNormExt(ext).cardTint;
-+  return t ? `background:linear-gradient(180deg,${t}38 0,${t}12 220px),var(--bg-user-panel)` : '';
-+}
-+// the links a profile shows, as ready-to-render entries (hrefs are built from encoded handles)
-+function pfSocialLinks(socials) {
-+  const s = socials && typeof socials === 'object' ? socials : {}, out = [];
-+  PF_SOCIALS.forEach(def => {
-+    let v = typeof s[def.k] === 'string' ? s[def.k].trim() : '';
-+    if (!v) return;
-+    if (def.k === 'website') {
-+      // older profiles may hold "mysite.io" without a scheme; anything else (odd schemes, junk) is not shown as a link
-+      if (!/^https?:\/\//i.test(v)) { if (/^[\w-]+(\.[\w-]+)+([\/?#]\S*)?$/.test(v)) v = 'https://' + v; else return; }
-+      out.push({ k: def.k, icon: def.icon, text: v.replace(/^https?:\/\//i, ''), href: v });
-+    } else {
-+      v = v.replace(/^@/, '');
-+      if (!v) return;
-+      out.push({ k: def.k, icon: def.icon, text: (def.k === 'twitter' || def.k === 'youtube' ? '@' : '') + v, href: def.url(encodeURIComponent(v)) });
-+    }
-+  });
-+  return out;
-+}
-+
-+
-+// ── Frames + name effects are an admin / co-admin perk: nobody else gets them, whatever is stored. ──
-+function pfCanStyle(p) { return !!p && (p.systemRole === 'admin' || p.coAdmin === true); }
-+function pfStyleFor(name) { // who is this, may they have a frame / name effect, and what is it
-+  if (!name) return { ok: false };
-+  const me = (typeof S !== 'undefined') ? S.user : null, isMe = !!me && name === me.name;
-+  const p = isMe ? me : (typeof profileCache !== 'undefined' ? profileCache[name] : null);
-+  if (!isMe && (!p || p.ext === undefined) && typeof _needProfile === 'function') _needProfile(name); // arrives via applyProfiles
-+  return p ? { ok: pfCanStyle(p), ext: p.ext, color: p.color } : { ok: false };
-+}
-+function pfSetVars(el, css) { String(css || '').split(';').forEach(kv => { const i = kv.indexOf(':'); if (i > 0) el.style.setProperty(kv.slice(0, i).trim(), kv.slice(i + 1).trim()); }); }
-+// Puts the frame on every avatar and the name effect on every name that is on screen (chat, member list).
-+// Idempotent, so it is simply re-run whenever those lists change (see the observer below) or profiles arrive.
-+function pfDecorate() {
-+  document.querySelectorAll('.m-av[data-author], .mb-av[data-name]').forEach(el => {
-+    const s = pfStyleFor(el.dataset.author || el.dataset.name);
-+    [...el.classList].filter(c => c.indexOf('fr-') === 0).forEach(c => el.classList.remove(c));
-+    ['--fr1', '--fr2', '--av-in'].forEach(v => el.style.removeProperty(v));
-+    if (!s.ok) return;
-+    const a = pfFrameAttrs(s.ext, s.color, true); if (!a.cls) return;
-+    el.classList.add(a.cls); pfSetVars(el, a.style);
-+  });
-+  document.querySelectorAll('.m-auth[data-author], .mb-nm[data-name]').forEach(el => {
-+    const s = pfStyleFor(el.dataset.author || el.dataset.name);
-+    [...el.classList].filter(c => c.indexOf('nf-') === 0).forEach(c => el.classList.remove(c));
-+    ['--nf1', '--nf2'].forEach(v => el.style.removeProperty(v));
-+    if (!s.ok) return;
-+    const a = pfNameAttrs(s.ext, true); if (!a.cls) return; // no personal effect: the role's own look (if any) stays
-+    el.classList.add(a.cls); pfSetVars(el, a.style);
-+  });
-+}
++// ── styles ───────────────────────────────────
 +(function () {
-+  let t = 0; const run = () => { t = 0; try { pfDecorate(); } catch (e) { console.error(e); } };
-+  const arm = () => { if (typeof MutationObserver === 'undefined') return; const mo = new MutationObserver(() => { if (!t) t = (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : setTimeout)(run); });
-+    ['msgs', 'members'].forEach(id => { const el = document.getElementById(id); if (el) mo.observe(el, { childList: true, subtree: true }); }); };
-+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
++  const st = document.createElement('style');
++  st.textContent = `
++.adm-box{width:min(940px,96vw)!important;height:min(86vh,740px);max-height:none!important;display:flex;flex-direction:column;padding:0!important;overflow:hidden}
++.adm-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
++.adm-logo{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#5865f2,#c084fc);display:flex;align-items:center;justify-content:center;font-size:16px}
++.adm-body{display:flex;flex:1;min-height:0}
++.adm-nav{width:150px;flex-shrink:0;border-right:1px solid var(--border);padding:10px 8px;display:flex;flex-direction:column;gap:3px}
++.adm-nav div{padding:8px 10px;border-radius:8px;font-size:13px;font-weight:600;color:var(--t2);cursor:pointer;transition:background .15s,color .15s}
++.adm-nav div:hover{background:var(--s3);color:var(--t1)}.adm-nav div.on{background:rgba(88,101,242,.18);color:var(--accent)}
++.adm-main{flex:1;min-width:0;overflow-y:auto;padding:14px 16px}
++.adm-foot{padding:7px 16px;border-top:1px solid var(--border);font-size:12px;min-height:30px;flex-shrink:0;color:var(--t3)}
++.adm-bar{display:flex;gap:6px;margin-bottom:10px}.adm-bar .m-inp{flex:1}
++.adm-list{display:flex;flex-direction:column;gap:5px}
++.adm-row{display:flex;align-items:center;gap:10px;background:var(--s3);border:1px solid var(--border);border-radius:9px;padding:8px 10px;cursor:pointer;transition:border-color .15s,transform .15s}
++.adm-row:hover{border-color:var(--accent)}
++.adm-av{width:36px;height:36px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
++.adm-av img{width:100%;height:100%;object-fit:cover}
++.adm-nm{font-size:13px;font-weight:700;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
++.adm-sub{font-size:11px;color:var(--t3);margin-top:1px}
++.adm-dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
++.adm-b{font-style:normal;font-size:9px;font-weight:700;border-radius:99px;padding:1px 6px;border:1px solid}
++.adm-b1{background:rgba(88,101,242,.2);color:var(--accent);border-color:rgba(88,101,242,.3)}
++.adm-b2{background:rgba(52,211,153,.15);color:var(--green);border-color:rgba(52,211,153,.3)}
++.adm-b3{background:rgba(96,165,250,.12);color:#60a5fa;border-color:rgba(96,165,250,.3)}
++.adm-sec{background:var(--s3);border:1px solid var(--border);border-radius:10px;margin-bottom:8px}
++.adm-sec>summary{padding:10px 12px;font-size:13px;font-weight:700;cursor:pointer;list-style:none;display:flex;justify-content:space-between}
++.adm-sec>summary::after{content:'▾';color:var(--t3);transition:transform .2s}.adm-sec[open]>summary::after{transform:rotate(180deg)}
++.adm-sec>div{padding:0 12px 12px;display:flex;flex-direction:column;gap:7px}
++.adm-sec.danger{border-color:rgba(248,113,113,.35)}.adm-sec.danger>summary{color:#f87171}
++.adm-btns{display:flex;gap:5px;flex-wrap:wrap}.adm-btns .btn-g,.adm-btns .btn-p{font-size:12px}
++.adm-line{display:flex;gap:5px;flex-wrap:wrap}.adm-line .m-inp{flex:1;min-width:110px}
++.adm-red{color:#f87171!important}
++.adm-hero{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
++.adm-hero .adm-av{width:54px;height:54px;font-size:22px}
++.adm-be{background:linear-gradient(135deg,#5865f2,#c084fc)!important;border:none!important;color:#fff!important;font-weight:700}
++.adm-back{margin-bottom:10px}
++.adm-h{font-size:11px;font-weight:700;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin:12px 0 6px}
++.adm-card{background:var(--s3);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:12px}
++.adm-msg{display:flex;gap:6px;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px}
++.adm-msg .t{flex:1;min-width:0;word-break:break-word}
++.adm-note{background:rgba(251,146,60,.07);border:1px solid rgba(251,146,60,.2);border-radius:7px;padding:6px 9px;font-size:11px}
++@media(max-width:640px){.adm-body{flex-direction:column}.adm-nav{width:auto;flex-direction:row;border-right:0;border-bottom:1px solid var(--border);overflow-x:auto}.adm-nav div{white-space:nowrap}}
++`;
++  document.head.appendChild(st);
 +})();
-diff --git a/client/js/roles.js b/client/js/roles.js
-index c43463f..66612ac 100644
---- a/client/js/roles.js
-+++ b/client/js/roles.js
-@@ -52,3 +52,22 @@ function hasPerm(sv, perm) {
-   const r = allRoles.find(x => x.id === role);
-   return r ? (r.perms.includes('*') || r.perms.includes(perm)) : false;
- }
 +
++// ── shell ────────────────────────────────────
++const ADM_NAV = [['people', '👥 People'], ['servers', '🌐 Servers'], ['live', '📡 Live'], ['log', '🔨 Bans & Log'], ['send', '📢 Broadcast']];
++function admBuild() {
++  const ov = $a('admin-panel-modal');
++  if (!ov || ov.dataset.v2) return;
++  ov.dataset.v2 = '1';
++  ov.innerHTML = `<div class="modal adm-box">
++    <div class="adm-head"><div class="adm-logo">⚡</div>
++      <div style="flex:1"><div style="font-size:15px;font-weight:800">Admin Panel</div>
++      <div id="admin-maint-badge" style="display:none;font-size:10px;background:rgba(248,113,113,.2);color:#f87171;border:1px solid rgba(248,113,113,.3);border-radius:99px;padding:1px 8px;width:max-content">🔧 MAINTENANCE MODE</div></div>
++      <button class="btn-g" style="padding:5px 11px" onclick="closeM('admin-panel-modal')">✕</button></div>
++    <div class="adm-body"><div class="adm-nav">${ADM_NAV.map(([k, l]) => `<div data-k="${k}" onclick="admGo('${k}')">${l}</div>`).join('')}</div>
++      <div class="adm-main" id="adm-main"></div></div>
++    <div class="adm-foot" id="adm-status">Tip: click a person or a server to manage it.</div>
++    <input type="file" id="admin-pfp-file" accept="image/*" style="display:none" onchange="onAdminPfpChange(event)">
++    <input type="color" id="adm-color" style="display:none" onchange="admColorPicked(this.value)"></div>`;
++}
++function openAdminPanel() {
++  if (!isPlatformPower()) { toast('No access'); return; }
++  admBuild(); admGo(AD.sec || 'people'); openM('admin-panel-modal');
++}
++function adminTab(t) { admGo({ servers: 'servers', online: 'live', stats: 'live', bans: 'log', audit: 'log', alert: 'send', danger: 'send' }[t] || 'people'); }
++function admGo(sec) {
++  AD.user = null; AD.svId = null;
++  AD.sec = sec;
++  document.querySelectorAll('.adm-nav div').forEach(d => d.classList.toggle('on', d.dataset.k === sec));
++  const m = $a('adm-main'); if (!m) return;
++  if (sec === 'people') { admPeopleShell(); adminLoadAccounts(); }
++  else if (sec === 'servers') { admServersShell(); wsSend({ type: 'admin_list_servers' }); }
++  else if (sec === 'live') { admLiveShell(); admLiveLoad(); }
++  else if (sec === 'log') { admLogShell(); adminLoadBans(); adminLoadFrozen(); adminLoadAuditLog(); }
++  else if (sec === 'send') admSendShell();
++}
++const admLoading = '<div class="adm-sub" style="padding:8px 0">Loading…</div>';
 +
-+// ── Role appearance: colour, optional second colour, name effect, badge icon, own group in the member list ──
-+const ROLE_FX = [{ id: 'none', n: 'Plain' }, { id: 'gradient', n: 'Gradient' }, { id: 'glow', n: 'Glow' }, { id: 'shimmer', n: 'Shimmer' }, { id: 'rainbow', n: 'Rainbow' }];
-+function roleFxAttrs(r) { // { cls, style } for a name written in this role's look
-+  const c1 = pfHex(r && r.color, '#9090a8'), c2 = pfHex(r && r.color2, c1), fx = r && ROLE_FX.some(f => f.id === r.fx) ? r.fx : 'none';
-+  return { cls: fx !== 'none' ? 'rfx rfx-' + fx : '', style: `color:${c1};--rf1:${c1};--rf2:${c2};` };
++function adminLoadAccounts() { const b = $a('admin-acct-list'); if (b) b.innerHTML = admLoading; wsSend({ type: 'admin_list_accounts' }); }
++// ══ PEOPLE ═══════════════════════════════════
++function admPeopleShell() {
++  if (AD.user) { admUserView(); return; }
++  $a('adm-main').innerHTML = `<div class="adm-bar"><input id="admin-acct-search" class="m-inp" placeholder="🔍 Search people…" oninput="adminFilterAccounts()"><button class="btn-g" onclick="adminLoadAccounts()">↻</button></div><div id="admin-acct-list" class="adm-list">${admLoading}</div>`;
++  if (typeof _adminAccounts !== 'undefined' && _adminAccounts.length) renderAdminAccounts(_adminAccounts);
 +}
-+function getEffectiveRole(sv, id) { // built-ins merged with this server's overrides, or the custom role itself
-+  if (!sv || !id) return null;
-+  const base = DEFAULT_ROLES.find(r => r.id === id);
-+  if (base) return { ...base, ...((sv.roleOverrides || {})[id] || {}) };
-+  return (sv.roles || []).find(r => r.id === id) || null;
++function adminFilterAccounts() {
++  const q = ($a('admin-acct-search')?.value || '').toLowerCase();
++  renderAdminAccounts(q ? _adminAccounts.filter(a => a.name.toLowerCase().includes(q)) : _adminAccounts);
 +}
-+function roleNameAttrs(sv, name) { // the look of a member's name in chat / member list; low roles are grey by default
-+  if (!sv) return { cls: '', style: '' };
-+  const r = getEffectiveRole(sv, getMemberRole(sv, name));
-+  return r ? roleFxAttrs(r) : { cls: '', style: '' };
++function renderAdminAccounts(accounts) {
++  if (AD.pendingRename && !admAcct(AD.user) && admAcct(AD.pendingRename)) AD.user = AD.pendingRename;
++  if (AD.user) { if ($a('adm-main') && AD.sec === 'people') admUserHead(); return; }
++  const box = $a('admin-acct-list'); if (!box) return;
++  if (!accounts.length) { box.innerHTML = '<div class="adm-sub">No one found.</div>'; return; }
++  const sorted = [...accounts].sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name));
++  box.innerHTML = sorted.map(a => `<div class="adm-row" data-n="${esc(a.name)}" onclick="admOpenUser(this.dataset.n)">
++    <div class="adm-av" style="background:${esc(a.color || '#5865f2')}">${admAv(a)}</div>
++    <div style="flex:1;min-width:0"><div class="adm-nm">${a.online ? '<span class="adm-dot"></span>' : ''}${esc(a.name)}<span class="adm-sub" style="font-family:'DM Mono',monospace">#${a.tag || '0000'}</span>${admBadges(a)}</div>
++    <div class="adm-sub">Joined ${admDate(a.createdAt)}</div></div>
++    ${admCanAssume(a) ? `<button class="btn-g adm-be" data-n="${esc(a.name)}" onclick="event.stopPropagation();admBe(this.dataset.n)">🎭 Be</button>` : ''}</div>`).join('');
 +}
-diff --git a/client/js/state.js b/client/js/state.js
-index 2f62f29..6034210 100644
---- a/client/js/state.js
-+++ b/client/js/state.js
-@@ -13,7 +13,7 @@ const WS_URL = (() => {
- })();
- // The newest server this client is written for. If the server is older (not redeployed yet), saves for newer
- // features are silently ignored and "disappear" on refresh, so the client warns loudly instead.
--const REQUIRED_SERVER_PROTOCOL = 6;
-+const REQUIRED_SERVER_PROTOCOL = 8; // 8: admin-only frames/name effects, richer roles (effects, icon, hoist, overrides persisted) ; // 7: profile personalisation (banner, frame, name effect, pronouns, interests, more links)
- 
- // ── STATE ──
- const S = {
-diff --git a/client/js/ws-handler.js b/client/js/ws-handler.js
-index a924888..e33557b 100644
---- a/client/js/ws-handler.js
-+++ b/client/js/ws-handler.js
-@@ -2,7 +2,7 @@ function handleIn(msg) {
-   // BUG 2 FIX: Guard entire handler against unidentified state.
-   // WS messages can arrive before identify completes (e.g. server broadcasts during auth).
-   // Whitelisted types that are safe before S.user is populated:
--  const PRE_AUTH_SAFE = new Set(['auth_ok','auth_error','auth_required','maintenance','identified','user_pfp','pong','motd_update']);
-+  const PRE_AUTH_SAFE = new Set(['auth_ok','auth_error','auth_required','maintenance','identified','user_pfp','user_ext','pong','motd_update']);
-   if (!S.user && !PRE_AUTH_SAFE.has(msg.type)) return;
-   switch(msg.type) {
-     case 'message':
-@@ -21,6 +21,16 @@ function handleIn(msg) {
-     case 'typing':
-       if(msg.author!==S.user.name) showTyping(msg.author, msg.channelId);
++function admOpenUser(name) {
++  AD.user = name; AD.sec = 'people';
++  wsSend({ type: 'admin_list_servers' });
++  admUserView();
++  wsSend({ type: 'admin_get_notes', target: name });
++  wsSend({ type: 'admin_list_user_servers', target: name });
++}
++function adminViewDMsFor(name) { admBuild(); openM('admin-panel-modal'); AD.sec = 'people'; document.querySelectorAll('.adm-nav div').forEach(d => d.classList.toggle('on', d.dataset.k === 'people')); admOpenUser(name); setTimeout(admDMs, 150); }
++function admUserHead() {
++  const a = admAcct(AD.user), h = $a('adm-uhead'); if (!h) return;
++  if (!a) { h.innerHTML = `<div class="adm-nm" style="font-size:18px">${esc(AD.user)}</div>`; return; }
++  h.innerHTML = `<div class="adm-av" style="background:${esc(a.color || '#5865f2')}">${admAv(a)}</div>
++    <div style="flex:1;min-width:0"><div class="adm-nm" style="font-size:17px">${a.online ? '<span class="adm-dot"></span>' : ''}${esc(a.name)}<span class="adm-sub">#${a.tag || '0000'}</span>${admBadges(a)}</div>
++    <div class="adm-sub">Joined ${admDate(a.createdAt)} · ${a.online ? 'online now' : 'offline'}${a.bio ? ' · “' + esc(a.bio.slice(0, 60)) + '”' : ''}</div></div>
++    ${admCanAssume(a) ? `<button class="btn-p adm-be" onclick="admBe(AD.user)">🎭 Be ${esc(a.name)}</button>` : ''}`;
++}
++function admUserView() {
++  const a = admAcct(AD.user) || {};
++  const isTop = isSystemAdmin();
++  $a('adm-main').innerHTML = `<button class="btn-g adm-back" onclick="AD.user=null;admPeopleShell();adminLoadAccounts()">← All people</button>
++  <div class="adm-hero" id="adm-uhead"></div>
++  <details class="adm-sec" open><summary>🔨 Moderation</summary><div>
++    <div class="adm-line"><select id="adm-ban-dur" class="m-inp" style="max-width:120px"><option>30m</option><option>2h</option><option selected>1d</option><option>7d</option><option>30d</option><option>permanent</option></select><input id="adm-ban-reason" class="m-inp" placeholder="Reason (shown to them)" maxlength="120"><button class="btn-g adm-red" onclick="admBan()">🔨 Ban</button><button class="btn-g" onclick="wsSend({type:'admin_unban',target:AD.user})">✅ Unban</button></div>
++    <div class="adm-btns"><button class="btn-g" onclick="admFreeze()">🧊 Freeze (can't post)</button><button class="btn-g" onclick="wsSend({type:'admin_unfreeze_user',target:AD.user})">🔥 Unfreeze</button><button class="btn-g adm-red" onclick="admLogout()">🚪 Force logout</button></div></div></details>
++  <details class="adm-sec"><summary>🖼 Profile</summary><div class="adm-btns">
++    <button class="btn-g" onclick="admRename()">✏️ Rename</button><button class="btn-g" onclick="admTag()">🏷 Tag</button><button class="btn-g" onclick="$a('adm-color').click()">🎨 Colour</button><button class="btn-g" onclick="admBio()">📝 Bio</button><button class="btn-g" onclick="admPfp()">🖼 Change picture</button><button class="btn-g" onclick="wsSend({type:'admin_wipe_user_pfp',target:AD.user})">🚫 Remove picture</button>
++    <button class="btn-g" onclick="openProfilePage(AD.user)">👤 Open profile</button></div></details>
++  <details class="adm-sec"><summary>🌐 Servers</summary><div>
++    <div id="adm-usv">${admLoading}</div>
++    <div class="adm-line"><select id="adm-addsv" class="m-inp"><option value="">Add to server…</option></select><button class="btn-g" onclick="admAddTo()">➕ Add</button></div></div></details>
++  <details class="adm-sec"><summary>💬 Messages</summary><div>
++    <textarea id="adm-sysdm" class="m-inp" rows="2" maxlength="2000" placeholder="Write a message…" style="resize:vertical"></textarea>
++    <div class="adm-btns"><button class="btn-p" onclick="admSysDm()">📨 Send as System DM</button></div>
++    <div class="adm-line"><select id="adm-pa-sv" class="m-inp" onchange="admFillCh('adm-pa-sv','adm-pa-ch')"><option value="">Server…</option></select><select id="adm-pa-ch" class="m-inp"><option value="">Channel…</option></select><button class="btn-g" style="color:#c084fc" onclick="admPostAs()">🎭 Post as them</button></div>
++    <div class="adm-line"><select id="adm-purge-sv" class="m-inp"><option value="">Server…</option></select><button class="btn-g adm-red" onclick="admPurge()">🧹 Delete all their messages there</button></div></div></details>
++  <details class="adm-sec"><summary>🔍 Their DMs</summary><div><div class="adm-btns"><button class="btn-g" onclick="admDMs()">Load DM history</button></div><div id="admin-dm-result" style="max-height:340px;overflow-y:auto"></div></div></details>
++  <details class="adm-sec"><summary>📌 Private notes</summary><div><textarea id="adm-note" class="m-inp" rows="2" maxlength="1000" placeholder="Only admins see this…" style="resize:vertical"></textarea><div class="adm-btns"><button class="btn-g" onclick="admNote()">Save note</button></div><div id="adm-notes" style="display:flex;flex-direction:column;gap:4px"></div></div></details>
++  <details class="adm-sec danger"><summary>☢️ Account</summary><div class="adm-btns">
++    <button class="btn-g" onclick="admPw()">🔑 Reset password</button>
++    ${isTop ? `<button class="btn-g" onclick="wsSend({type:'appoint_coadmin',target:AD.user,appoint:true})">⭐ Make Co-Admin</button><button class="btn-g" onclick="wsSend({type:'appoint_coadmin',target:AD.user,appoint:false})">✕ Remove Co-Admin</button>` : ''}
++    <button class="btn-g adm-red" onclick="admNuke()">💥 Delete account forever</button></div></details>`;
++  admUserHead(); admFillSvSelects();
++}
++function admFillSvSelects() {
++  const svs = typeof _adminServers !== 'undefined' ? _adminServers : [];
++  const opts = '<option value="">Server…</option>' + svs.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
++  ['adm-pa-sv', 'adm-purge-sv'].forEach(id => { const e = $a(id); if (e) { const v = e.value; e.innerHTML = opts; e.value = v; } });
++  const e = $a('adm-addsv'); if (e) e.innerHTML = '<option value="">Add to server…</option>' + svs.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('');
++}
++function admFillCh(svSel, chSel) {
++  const s = admSv($a(svSel).value), c = $a(chSel);
++  c.innerHTML = '<option value="">Channel…</option>' + (s?.channels || []).filter(x => x.type !== 'voice').map(x => `<option value="${esc(x.id)}"># ${esc(x.name)}</option>`).join('');
++}
++function admBe(name) {
++  const a = admAcct(name);
++  if (!a || !admCanAssume(a)) { toast('You can’t be that user'); return; }
++  if (!confirm(`Become ${name}? You'll see exactly what they see and everything you do happens as them. Use “Exit” at the top to come back.`)) return;
++  admStatus('Switching to ' + name + '…');
++  wsSend({ type: 'admin_assume', target: name });
++}
++function admAssumeStart(msg) {
++  try {
++    const real = JSON.stringify({ token: S.token, user: S.user });
++    sessionStorage.setItem('nx-assume', JSON.stringify({ name: msg.user.name, real }));
++    sessionStorage.setItem('nx-session', JSON.stringify({ token: msg.token, user: msg.user }));
++  } catch (e) { toast('Could not switch: ' + e.message); return; }
++  location.reload();
++}
++function admBan() {
++  const dur = $a('adm-ban-dur').value, reason = $a('adm-ban-reason').value.trim();
++  if (!confirm(`Ban ${AD.user} for ${dur}?`)) return;
++  wsSend({ type: 'admin_ban', target: AD.user, duration: dur, reason });
++}
++function admFreeze() { const r = prompt('Reason (shown to them)?', ''); if (r === null) return; wsSend({ type: 'admin_freeze_user', target: AD.user, reason: r.trim() || 'No reason given' }); }
++function admLogout() { if (confirm(`Log ${AD.user} out everywhere?`)) wsSend({ type: 'admin_force_logout', target: AD.user }); }
++function admRename() {
++  const n = prompt(`New username for ${AD.user}:`); if (!n || n === AD.user) return;
++  if (!/^[a-zA-Z0-9_.\-]{2,24}$/.test(n)) { admStatus('Invalid username (2–24 letters, numbers, _ . -)', true); return; }
++  AD.pendingRename = n; wsSend({ type: 'admin_rename_user', target: AD.user, newName: n }); setTimeout(adminLoadAccounts, 700);
++}
++function adminRenameUser() { admRename(); }
++function admTag() { const t = prompt('New tag for ' + AD.user + ' (e.g. 0042):'); if (t) wsSend({ type: 'admin_set_tag', target: AD.user, tag: t.trim() }); }
++function admColorPicked(hex) { wsSend({ type: 'admin_set_color', target: AD.user, color: hex }); setTimeout(adminLoadAccounts, 500); }
++function admBio() { const b = prompt('New bio for ' + AD.user + ':', admAcct(AD.user)?.bio || ''); if (b !== null) wsSend({ type: 'admin_set_bio', target: AD.user, bio: b.trim() }); }
++function admPfp() { _pfpCropTarget = 'admin_target'; _adminPfpTarget = AD.user; $a('admin-pfp-file').click(); }
++function adminSetPfp() { admPfp(); }
++function admPw() { const p = prompt('New password for ' + AD.user + ' (min 4 characters):'); if (p && p.length >= 4) wsSend({ type: 'admin_reset_password', target: AD.user, newPassword: p }); else if (p) admStatus('Password too short', true); }
++function admNuke() {
++  if (prompt(`This permanently deletes ${AD.user} and their data.\nType their name to confirm:`) !== AD.user) { admStatus('Cancelled — name did not match.'); return; }
++  wsSend({ type: 'admin_nuke_account', target: AD.user });
++  setTimeout(() => { AD.user = null; admPeopleShell(); adminLoadAccounts(); }, 900);
++}
++function admAddTo() { const id = $a('adm-addsv').value; if (!id) { admStatus('Pick a server first', true); return; } wsSend({ type: 'admin_add_member', target: AD.user, serverId: id }); setTimeout(() => wsSend({ type: 'admin_list_user_servers', target: AD.user }), 500); }
++function admKickFrom(id) { if (!confirm(`Remove ${AD.user} from that server?`)) return; wsSend({ type: 'admin_kick_from_server', target: AD.user, serverId: id }); setTimeout(() => wsSend({ type: 'admin_list_user_servers', target: AD.user }), 500); }
++function admSysDm() { const t = $a('adm-sysdm').value.trim(); if (!t) { admStatus('Write something first', true); return; } wsSend({ type: 'admin_broadcast_dm', target: AD.user, text: t }); $a('adm-sysdm').value = ''; }
++function admPostAs() {
++  const ch = $a('adm-pa-ch').value, t = $a('adm-sysdm').value.trim();
++  if (!ch) { admStatus('Pick a server and channel', true); return; }
++  if (!t) { admStatus('Write the message above first', true); return; }
++  wsSend({ type: 'admin_impersonate_send', asUser: AD.user, channelId: ch, text: t }); $a('adm-sysdm').value = '';
++}
++function admPurge() { const sv = $a('adm-purge-sv').value; if (!sv) { admStatus('Pick a server', true); return; } if (confirm(`Delete ALL of ${AD.user}'s messages in that server?`)) wsSend({ type: 'admin_purge_user_messages', target: AD.user, serverId: sv }); }
++function admDMs() { const el = $a('admin-dm-result'); if (el) el.innerHTML = admLoading; wsSend({ type: 'admin_view_dms', target: AD.user }); }
++function admNote() { const t = $a('adm-note').value.trim(); if (!t) return; wsSend({ type: 'admin_add_note', target: AD.user, note: t }); $a('adm-note').value = ''; setTimeout(() => wsSend({ type: 'admin_get_notes', target: AD.user }), 400); }
++function renderAdminNotes(target, notes) {
++  const box = $a('adm-notes'); if (!box) return;
++  box.innerHTML = notes.length ? notes.map((n, i) => `<div class="adm-note"><div style="display:flex;justify-content:space-between;color:var(--t3);font-size:10px;margin-bottom:2px"><span>${esc(n.by || '?')} · ${n.at ? new Date(n.at).toLocaleString('en', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span><span style="cursor:pointer;color:var(--red)" onclick="adminDeleteNote(AD.user,${i})">✕</span></div>${esc(n.text || '')}</div>`).join('') : '<div class="adm-sub">No notes yet.</div>';
++}
++function renderAdminUserServers(target, servers) {
++  const box = $a('adm-usv'); if (!box) return;
++  box.innerHTML = servers.length ? servers.map(s => `<div class="adm-card" style="display:flex;align-items:center;gap:8px"><b style="flex:1">${esc(s.name)}</b><span class="adm-sub">owner: ${esc(s.ownerId || '?')}</span><button class="btn-g adm-red" style="font-size:11px" data-id="${esc(s.id)}" onclick="admKickFrom(this.dataset.id)">Remove</button></div>`).join('') : `<div class="adm-sub">${esc(target)} isn't in any servers.</div>`;
++}
++function admShowDMs(msg) {
++  const el = $a('admin-dm-result'); if (!el) return;
++  const dms = msg.dms || [];
++  el.innerHTML = dms.length ? dms.map(d => `<div class="adm-card" style="margin-bottom:8px"><div style="display:flex;align-items:center;margin-bottom:5px"><b style="flex:1">💬 with ${esc(d.name)}</b><button class="btn-g adm-red" style="font-size:10px" data-b="${esc(d.name)}" onclick="admDelDm(this)">🗑 Delete thread</button></div>
++    ${(d.messages || []).slice(-20).map(m => `<div class="adm-msg"><b style="min-width:70px;color:var(--t2)">${esc(m.author || '?')}</b><span class="t">${esc(m.text || '[attachment]')}</span></div>`).join('') || '<div class="adm-sub">No messages</div>'}</div>`).join('') : '<div class="adm-sub">No DM conversations.</div>';
++}
++function admDelDm(btn) { const b = btn.dataset.b; if (!confirm(`Delete the whole DM thread between ${AD.user} and ${b}?`)) return; wsSend({ type: 'admin_delete_dm_history', userA: AD.user, userB: b }); btn.closest('.adm-card').remove(); }
++
++// ══ SERVERS ══════════════════════════════════
++function admServersShell() {
++  if (AD.svId) { admSvView(); return; }
++  $a('adm-main').innerHTML = `<div class="adm-bar"><input id="admin-sv-search" class="m-inp" placeholder="🔍 Search by name or owner…" oninput="adminFilterServers()"><button class="btn-g" onclick="wsSend({type:'admin_list_servers'})">↻</button></div><div id="admin-sv-list" class="adm-list">${admLoading}</div>`;
++  if (typeof _adminServers !== 'undefined' && _adminServers.length) renderAdminServers(_adminServers);
++}
++function adminLoadServers() { wsSend({ type: 'admin_list_servers' }); }
++function adminFilterServers() {
++  const q = ($a('admin-sv-search')?.value || '').toLowerCase();
++  renderAdminServers(q ? _adminServers.filter(s => (s.name || '').toLowerCase().includes(q) || (s.ownerId || '').toLowerCase().includes(q)) : _adminServers);
++}
++function renderAdminServers(servers) {
++  if (AD.sec !== 'servers') { if (AD.user) admFillSvSelects(); return; }
++  if (AD.svId) { admSvView(); return; }
++  const box = $a('admin-sv-list'); if (!box) return;
++  box.innerHTML = servers.length ? servers.map(s => `<div class="adm-row" data-id="${esc(s.id)}" onclick="admOpenSv(this.dataset.id)">
++    <div class="adm-av" style="background:var(--accent)">${esc((s.name || '?')[0].toUpperCase())}</div>
++    <div style="flex:1;min-width:0"><div class="adm-nm">${esc(s.name)}${s.isPublic === false ? '<i class="adm-b adm-b3">🔒 private</i>' : ''}</div>
++    <div class="adm-sub">Owner ${esc(s.ownerId || '?')} · ${s.memberCount || 0} members · ${s.channelCount || 0} channels · ${admDate(s.createdAt)}</div></div></div>`).join('') : '<div class="adm-sub">No servers found.</div>';
++}
++function admOpenSv(id) { AD.svId = id; admSvView(); }
++function admSvView() {
++  const s = admSv(AD.svId);
++  if (!s) { AD.svId = null; admServersShell(); return; }
++  const chs = s.channels || [];
++  $a('adm-main').innerHTML = `<button class="btn-g adm-back" onclick="AD.svId=null;AD.chId=null;admServersShell()">← All servers</button>
++  <div class="adm-hero"><div class="adm-av" style="background:var(--accent)">${esc((s.name || '?')[0].toUpperCase())}</div><div style="flex:1"><div class="adm-nm" style="font-size:17px">${esc(s.name)}</div><div class="adm-sub">Owner ${esc(s.ownerId || '?')} · ${s.memberCount || 0} members · ${s.isPublic === false ? 'private' : 'public'}${s.desc ? ' · ' + esc(s.desc.slice(0, 60)) : ''}</div></div></div>
++  <div class="adm-btns" style="margin-bottom:6px"><button class="btn-g" onclick="admSvRename()">✏️ Rename</button><button class="btn-g" onclick="admSvDesc()">📝 Description</button><button class="btn-g" onclick="admSvPublic(${s.isPublic === false})">${s.isPublic === false ? '🌐 Make public' : '🔒 Make private'}</button><button class="btn-g" onclick="adminTransferOwnership(AD.svId);admSvRefresh()">↗ Transfer</button><button class="btn-g" onclick="admSvClone()">🧬 Clone</button><button class="btn-g adm-red" onclick="admSvDelete()">🗑 Delete</button></div>
++  <div class="adm-h">Channels</div><div class="adm-list">${chs.map(c => `<div class="adm-card" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap" data-c="${esc(c.id)}" data-n="${esc(c.name)}"><b style="flex:1;min-width:90px">${c.type === 'voice' ? '🔊' : '#'} ${esc(c.name)}</b>
++    <button class="btn-g" style="font-size:11px" onclick="admChView(this.parentNode)">👁 View</button><button class="btn-g" style="font-size:11px" title="Lock" onclick="admChLock(this.parentNode,true)">🔒</button><button class="btn-g" style="font-size:11px" title="Unlock" onclick="admChLock(this.parentNode,false)">🔓</button><button class="btn-g" style="font-size:11px" title="Slowmode" onclick="admChSlow(this.parentNode)">🐌</button><button class="btn-g" style="font-size:11px" title="Export JSON" onclick="admChExport(this.parentNode)">⬇️</button><button class="btn-g adm-red" style="font-size:11px" title="Wipe history" onclick="admChWipe(this.parentNode)">🧹</button><button class="btn-g adm-red" style="font-size:11px" title="Delete channel" onclick="admChDel(this.parentNode)">✕</button></div>`).join('') || '<div class="adm-sub">No channels.</div>'}</div>
++  <div class="adm-line" style="margin-top:6px"><input id="adm-newch" class="m-inp" placeholder="new-channel-name"><select id="adm-newch-t" class="m-inp" style="max-width:90px;flex:0"><option value="text">text</option><option value="voice">voice</option></select><button class="btn-p" onclick="admChAdd()">➕ Add channel</button></div>
++  <div class="adm-h">Members</div><div class="adm-line"><select id="adm-mem" class="m-inp">${(_adminAccounts || []).map(a => `<option>${esc(a.name)}</option>`).join('')}</select><button class="btn-g" onclick="admMem('admin_add_member')">➕ Add</button><button class="btn-g adm-red" onclick="admMem('admin_kick_from_server')">👢 Kick</button></div>
++  <div id="admin-ch-view-result" style="display:none;margin-top:12px"></div>`;
++  if (!(_adminAccounts || []).length) wsSend({ type: 'admin_list_accounts' });
++}
++function admSvRefresh() { setTimeout(() => wsSend({ type: 'admin_list_servers' }), 600); }
++function admSvRename() { const n = prompt('New server name:', admSv(AD.svId)?.name || ''); if (n && n.trim()) { wsSend({ type: 'admin_rename_server', serverId: AD.svId, name: n.trim() }); admSvRefresh(); } }
++function admSvDesc() { const d = prompt('Server description:', admSv(AD.svId)?.desc || ''); if (d !== null) { wsSend({ type: 'admin_set_server_desc', serverId: AD.svId, desc: d.trim() }); admSvRefresh(); } }
++function admSvPublic(v) { wsSend({ type: 'admin_set_server_public', serverId: AD.svId, isPublic: v }); admSvRefresh(); }
++function admSvClone() { const n = prompt('Name for the clone:', (admSv(AD.svId)?.name || '') + ' (copy)'); if (n && n.trim()) { wsSend({ type: 'admin_clone_server', serverId: AD.svId, name: n.trim() }); admSvRefresh(); } }
++function admSvDelete() { adminForceDeleteServer(AD.svId); AD.svId = null; admServersShell(); admSvRefresh(); }
++function admChAdd() { const n = $a('adm-newch').value.trim().toLowerCase().replace(/\s+/g, '-'); if (!n) { admStatus('Give the channel a name', true); return; } wsSend({ type: 'admin_add_channel', serverId: AD.svId, name: n, chType: $a('adm-newch-t').value }); admSvRefresh(); }
++function admMem(type) { wsSend({ type, target: $a('adm-mem').value, serverId: AD.svId }); admSvRefresh(); }
++function admChView(el) { AD.chId = el.dataset.c; AD.chName = el.dataset.n; const b = $a('admin-ch-view-result'); b.style.display = 'block'; b.innerHTML = admLoading; wsSend({ type: 'admin_view_channel', channelId: AD.chId }); }
++function admChLock(el, locked) { wsSend({ type: 'admin_lock_channel', channelId: el.dataset.c, locked }); }
++function admChSlow(el) { const s = prompt('Slowmode seconds (0 = off):', '0'); if (s !== null) wsSend({ type: 'admin_set_slowmode', channelId: el.dataset.c, seconds: Math.max(0, Math.min(3600, parseInt(s) || 0)) }); }
++function admChExport(el) { wsSend({ type: 'admin_export_channel', channelId: el.dataset.c }); }
++function admChWipe(el) { if (confirm(`Wipe ALL history in #${el.dataset.n}?`)) wsSend({ type: 'admin_wipe_channel', channelId: el.dataset.c }); }
++function admChDel(el) { if (confirm(`Delete channel #${el.dataset.n}?`)) { wsSend({ type: 'admin_delete_channel', serverId: AD.svId, channelId: el.dataset.c }); admSvRefresh(); } }
++function admShowChannel(msg) {
++  const box = $a('admin-ch-view-result'); if (!box) return;
++  AD.chId = msg.channelId || AD.chId;
++  const ms = (msg.messages || []).slice(-80);
++  box.style.display = 'block';
++  box.innerHTML = `<div class="adm-h" style="margin-top:0">#${esc(AD.chName || 'channel')} — last ${ms.length} message(s)</div><div class="adm-card" style="max-height:300px;overflow-y:auto">` + (ms.length ? ms.map(m => `<div class="adm-msg" data-m="${esc(m.id || '')}">
++    <b style="color:${esc(m.authorColor || 'var(--accent)')}">${esc(m.author || '?')}</b><span class="adm-sub">${m.ts ? new Date(m.ts).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
++    <span class="t">${esc((m.text || '').slice(0, 300))}${(m.attachments || []).length ? ' <i class="adm-sub">[attachment]</i>' : ''}</span>
++    ${m.id ? `<span style="cursor:pointer" title="Edit" onclick="admMsgEdit(this.parentNode)">✎</span><span style="cursor:pointer;color:var(--red)" title="Delete" onclick="admMsgDel(this.parentNode)">🗑</span>` : ''}</div>`).join('') : '<div class="adm-sub">No messages.</div>') + '</div>';
++}
++function admMsgDel(el) { if (!confirm('Delete this message?')) return; wsSend({ type: 'admin_delete_message', channelId: AD.chId, messageId: el.dataset.m }); el.remove(); }
++function admMsgEdit(el) { const t = prompt('Replace the text with:', el.querySelector('.t').textContent.trim()); if (t === null) return; wsSend({ type: 'admin_edit_message', channelId: AD.chId, messageId: el.dataset.m, text: t }); setTimeout(() => wsSend({ type: 'admin_view_channel', channelId: AD.chId }), 500); }
++
++// ══ LIVE ═════════════════════════════════════
++function admLiveShell() {
++  $a('adm-main').innerHTML = `<div class="adm-bar" style="justify-content:space-between"><b>Right now</b><button class="btn-g" onclick="admLiveLoad()">↻ Refresh</button></div>
++  <div id="admin-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px">${admLoading}</div><div id="admin-stats-meta" class="adm-sub" style="margin-top:6px;font-family:'DM Mono',monospace"></div>
++  <div class="adm-h">Voice calls (join silently)</div><div id="admin-calls-list" class="adm-list">${admLoading}</div>
++  <div class="adm-h">Online users</div><div id="admin-online-list" class="adm-list">${admLoading}</div>`;
++}
++function admLiveLoad() { wsSend({ type: 'admin_get_stats' }); wsSend({ type: 'admin_list_online' }); wsSend({ type: 'admin_list_calls' }); if (!(_adminAccounts || []).length) wsSend({ type: 'admin_list_accounts' }); }
++function adminLoadOnline() { wsSend({ type: 'admin_list_online' }); wsSend({ type: 'admin_list_calls' }); }
++function renderAdminOnline(users) {
++  const box = $a('admin-online-list'); if (!box) return;
++  box.innerHTML = users.length ? users.map(u => { const a = admAcct(u.name) || u; return `<div class="adm-row" data-n="${esc(u.name)}" onclick="admOpenUserFrom(this.dataset.n)"><span class="adm-dot"></span><div style="flex:1" class="adm-nm">${esc(u.name || '?')}<span class="adm-sub">#${u.tag || '0000'}</span>${admBadges(u)}</div>${admCanAssume(a) ? `<button class="btn-g adm-be" data-n="${esc(u.name)}" onclick="event.stopPropagation();admBe(this.dataset.n)">🎭 Be</button>` : ''}</div>`; }).join('') : '<div class="adm-sub">Nobody online.</div>';
++}
++function admOpenUserFrom(n) { admGo('people'); admOpenUser(n); }
++
++// ══ BANS & LOG ═══════════════════════════════
++function admLogShell() {
++  $a('adm-main').innerHTML = `<div class="adm-h" style="margin-top:0">Ban someone</div><div class="adm-line"><input id="adm-lb-u" class="m-inp" placeholder="Username" maxlength="24"><select id="adm-lb-d" class="m-inp" style="max-width:110px;flex:0"><option>30m</option><option>2h</option><option selected>1d</option><option>7d</option><option>30d</option><option>permanent</option></select><input id="adm-lb-r" class="m-inp" placeholder="Reason" maxlength="120"><button class="btn-g adm-red" onclick="admQuickBan()">🔨 Ban</button></div>
++  <div class="adm-h">Active bans</div><div id="admin-bans-list" class="adm-list">${admLoading}</div>
++  <div class="adm-h">Frozen accounts</div><div id="admin-frozen-list" class="adm-list">${admLoading}</div>
++  <div class="adm-h" style="display:flex;justify-content:space-between;align-items:center">Audit log <span class="adm-btns"><button class="btn-g" style="font-size:10px" onclick="adminLoadAuditLog()">↻</button><button class="btn-g adm-red" style="font-size:10px" onclick="adminClearAuditLog()">Clear</button></span></div><div id="admin-audit-list" class="adm-list">${admLoading}</div>`;
++}
++function admQuickBan() {
++  const t = $a('adm-lb-u').value.trim(); if (!t) { admStatus('Enter a username', true); return; }
++  const d = $a('adm-lb-d').value; if (!confirm(`Ban ${t} for ${d}?`)) return;
++  wsSend({ type: 'admin_ban', target: t, duration: d, reason: $a('adm-lb-r').value.trim() }); setTimeout(adminLoadBans, 500);
++}
++
++// ══ BROADCAST ════════════════════════════════
++function admSendShell() {
++  $a('adm-main').innerHTML = `<details class="adm-sec" open><summary>📢 Popup alert to everyone</summary><div><input id="admin-alert-title" class="m-inp" placeholder="Title" maxlength="80"><textarea id="admin-alert-body" class="m-inp" rows="2" maxlength="500" placeholder="Message" style="resize:vertical"></textarea><div class="adm-btns"><button class="btn-p" onclick="adminSendAlert()">Send alert</button></div><div id="admin-alert-result" class="adm-sub"></div></div></details>
++  <details class="adm-sec"><summary>📣 Announcement (unread badge)</summary><div><textarea id="admin-announce-text" class="m-inp" rows="2" maxlength="500" placeholder="Text" style="resize:vertical"></textarea><div class="adm-btns"><button class="btn-p" onclick="adminSendAnnouncement()">Send to all</button></div></div></details>
++  <details class="adm-sec"><summary>✉️ Mass DM everyone</summary><div><textarea id="admin-massdm-text" class="m-inp" rows="2" maxlength="2000" placeholder="Message" style="resize:vertical"></textarea><div class="adm-btns"><button class="btn-g adm-red" onclick="adminMassDm()">Send mass DM</button></div></div></details>
++  <details class="adm-sec"><summary>🗒 Message of the day</summary><div><textarea id="admin-motd-text" class="m-inp" rows="2" maxlength="500" placeholder="Message of the day" style="resize:vertical"></textarea><div class="adm-btns"><button class="btn-p" onclick="adminSetMotd()">💾 Save</button><button class="btn-g" onclick="adminClearMotd()">✕ Clear</button></div><div id="admin-motd-result" class="adm-sub"></div></div></details>
++  <details class="adm-sec danger"><summary>🔧 Maintenance mode</summary><div><div class="adm-sub">Blocks everyone except admins.</div><div class="adm-btns"><button class="btn-g adm-red" onclick="adminSetMaintenance(true)">Enable</button><button class="btn-g" onclick="adminSetMaintenance(false)">Disable</button></div></div></details>`;
++}
+diff --git a/b/client/js/assume.js b/b/client/js/assume.js
+new file mode 100644
+index 0000000..456624f
+--- /dev/null
++++ b/b/client/js/assume.js
+@@ -0,0 +1,23 @@
++// "Be someone" support. MUST load first. When this tab was switched into another account (sessionStorage flag),
++// localStorage is redirected to a private prefix so the admin's own cached data is never touched.
++(function () {
++  let A = null; try { A = JSON.parse(sessionStorage.getItem('nx-assume') || 'null'); } catch (_) {}
++  window.NX_ASSUME = A;
++  if (!A) return;
++  const sp = Storage.prototype, g = sp.getItem, s = sp.setItem, r = sp.removeItem, L = window.localStorage, P = 'as:';
++  sp.getItem = function (k) { return g.call(this, this === L ? P + k : k); };
++  sp.setItem = function (k, v) { return s.call(this, this === L ? P + k : k, v); };
++  sp.removeItem = function (k) { return r.call(this, this === L ? P + k : k); };
++  window.nxAssumeExit = function () {
++    try { sessionStorage.setItem('nx-session', A.real); sessionStorage.removeItem('nx-assume'); } catch (_) {}
++    location.reload();
++  };
++  document.addEventListener('DOMContentLoaded', function () {
++    const b = document.createElement('div');
++    b.style.cssText = 'position:fixed;top:6px;left:50%;transform:translateX(-50%);z-index:2147483000;display:flex;align-items:center;gap:10px;padding:5px 6px 5px 14px;border-radius:99px;background:linear-gradient(135deg,#5865f2,#c084fc);color:#fff;font:600 12px system-ui,sans-serif;box-shadow:0 4px 18px rgba(0,0,0,.45);animation:nxa .3s ease';
++    b.innerHTML = '<style>@keyframes nxa{from{opacity:0;transform:translate(-50%,-14px)}}</style><span>🎭 You are <b></b> — everything you do is as them</span><button style="border:0;border-radius:99px;padding:4px 12px;font:700 12px system-ui;cursor:pointer;background:#fff;color:#4338ca">Exit</button>';
++    b.querySelector('b').textContent = A.name;
++    b.querySelector('button').onclick = window.nxAssumeExit;
++    document.body.appendChild(b);
++  });
++})();
+diff --git a/a/client/js/ws-handler.js b/b/client/js/ws-handler.js
+index e33557b..c136df6 100644
+--- a/a/client/js/ws-handler.js
++++ b/b/client/js/ws-handler.js
+@@ -233,6 +233,7 @@ function handleIn(msg) {
        break;
-+    case 'roles_update': { // someone with the right edited this server's roles: look + order + permissions
-+      const rsv = S.servers.find(x => x.id === msg.serverId);
-+      if (rsv) {
-+        if (Array.isArray(msg.roles)) rsv.roles = msg.roles;
-+        if (msg.overrides && typeof msg.overrides === 'object') rsv.roleOverrides = msg.overrides;
-+        if (S.curSv && S.curSv.id === rsv.id) { if (S.curSv !== rsv) { S.curSv.roles = rsv.roles; S.curSv.roleOverrides = rsv.roleOverrides; } renderMbs(); if (S.curCh) renderMsgs(S.curCh.id); }
-+        persist();
-+      }
-+      break;
-+    }
-     case 'role_assign': {
-       // Update local server's memberRoles
-       const sv = S.servers.find(s => s.id === msg.serverId);
-@@ -550,6 +560,7 @@ function handleIn(msg) {
+ 
+     case 'admin_channel_history': {
++      if (typeof admShowChannel === 'function') { admShowChannel(msg); break; }
+       const viewBox = document.getElementById('admin-ch-view-result');
+       if (!viewBox) break;
+       const chMsgs = msg.messages || [];
+@@ -1096,7 +1097,9 @@ function handleIn(msg) {
+       }
        break;
      }
-     case 'dm_stubs': break;   // protocol 5 and older; dm_contacts carries the list now
-+    case 'user_ext': peApplyOwnExt(msg); break;
-     case 'user_pfp':
-       if (S.user) {
-         // msg.pfp may be null — that means the server confirmed no pfp. Always apply.
-@@ -773,6 +784,7 @@ function handleIn(msg) {
-         // Restore roles and memberRoles from backend (always trust server even if empty)
-         if (si.roles !== undefined)        sv.roles       = si.roles;
-         if (si.memberRoles !== undefined)  sv.memberRoles = si.memberRoles;
-+        if (si.roleOverrides !== undefined) sv.roleOverrides = si.roleOverrides;
-         if (si.banner !== undefined)       sv.banner      = si.banner;
-         // shorts + pins are only sent to members: this is how a new member gets them on joining
-         if (si.shorts) mergeServerShorts(sv, si.shorts);
-@@ -938,6 +950,7 @@ function handleIn(msg) {
-       if (msg.pfp !== undefined) S.user.pfp = msg.pfp || null;
-       if (msg.bio !== undefined) S.user.bio = msg.bio;
-       if (msg.socials) S.user.socials = msg.socials;
-+      if (msg.ext) S.user.ext = msg.ext;
-       lsSet('nx-session', { token: S.token, user: S.user });
-       persist();
-       updateUser();
-@@ -950,6 +963,12 @@ function handleIn(msg) {
-       if (msg.color) profileCache[updUser].color = msg.color;
-       if (msg.pfp !== undefined) profileCache[updUser].pfp = msg.pfp;
-       if (msg.bio !== undefined) profileCache[updUser].bio = msg.bio;
-+      if (msg.socials) profileCache[updUser].socials = msg.socials;
-+      if (msg.ext) {
-+        profileCache[updUser].ext = msg.ext; delete profileCache[updUser].bannerImg; // a changed banner image is fetched again when the page opens
-+        if (updUser === S.user?.name) { S.user.ext = msg.ext; if (msg.ext.banner?.kind === 'image') requestProfileNow(updUser); else peMyBanner = null; }
-+        else if (document.getElementById('profile-page')?.classList.contains('open') && _openProfileName === updUser && msg.ext.banner?.kind === 'image') requestProfileNow(updUser);
-+      }
-       // Update member lists in all servers
-       if (S.members) {
-         Object.values(S.members).forEach(list => {
++    case 'admin_assume_ok': admAssumeStart(msg); break;
+     case 'admin_dm_data': {
++      if (typeof admShowDMs === 'function') { admShowDMs(msg); break; }
+       const el = document.getElementById('admin-dm-result');
+       if (el) {
+         const allDms = msg.dms || [];
+@@ -1183,7 +1186,7 @@ function handleIn(msg) {
+     }
+     case 'info':
+       toast('ℹ️ ' + (msg.message || ''));
+-      document.getElementById('admin-dm-result').textContent = msg.message || '';
++      { const _dr = document.getElementById('admin-dm-result'); if (_dr) _dr.textContent = msg.message || ''; }
+       break;
+     case 'vcall_invite':
+       recvVcallInvite(msg);
