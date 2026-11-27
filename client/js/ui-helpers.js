@@ -1,5 +1,12 @@
 // ── UI ──
 function hideAll(){
+  // Leaving a DM/group by any route (server, friends, home, discover...) must also leave it in the STATE, not just hide it.
+  // Otherwise curDM stays set and reply/edit/delete/react in a server act on the old DM.
+  if (typeof curDM !== 'undefined' && curDM) {
+    try { dmLeave(); } catch (_) {}
+    curDM = null; document.body.classList.remove('in-dm');
+    try { renderDMs(); renderSvs(); } catch (_) {}
+  }
   document.getElementById('welcome').style.display='none';
   document.getElementById('home-screen').style.display='none';
   document.getElementById('discover').classList.remove('show');
@@ -106,6 +113,7 @@ function _slimMsgs(map, level){
     out[k] = (arr || []).slice(-keep).map(m => {
       if (!m) return m;
       const bigAtt = (m.attachments || []).some(a => a && typeof a.url === 'string' && a.url.startsWith('data:'));
+      if (bigAtt && typeof nxfRemember === 'function') (m.attachments || []).forEach(a => nxfRemember(a, m.id));   // keep a copy in IndexedDB before the slim copy drops it
       if (!m.authorPfp && !bigAtt) return m;
       const c = { ...m }; delete c.authorPfp;
       if (c.attachments) c.attachments = c.attachments.map(a =>

@@ -5,7 +5,7 @@ function renderSvs() {
   const el=document.getElementById('sv-list'); el.innerHTML='';
   S.servers.forEach(sv=>{
     const d=document.createElement('div');
-    d.className='sv-ic'+(S.curSv?.id===sv.id?' act':'');
+    d.className='sv-ic'+(!curDM&&S.curSv?.id===sv.id?' act':'');
     d.title=sv.name;
     if(sv.icon){ d.innerHTML=`<div class="sv-pip"></div><img src="${sv.icon}" alt="">`; }
     else { d.innerHTML=`<div class="sv-pip"></div>${svInit(sv.name)}`; }
@@ -17,6 +17,7 @@ function renderSvs() {
 
 function selectSv(id) {
   S.curSv=S.servers.find(s=>s.id===id); if(!S.curSv) return;
+  document.getElementById('sidebar').style.display=''; if (S.mbOpen) document.getElementById('members').style.display='';   // a DM hides both
   document.getElementById('sv-nm').textContent=S.curSv.name;
   document.getElementById('rail-discover').classList.remove('act');
   renderSvs(); renderChs(); renderMbs();

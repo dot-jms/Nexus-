@@ -1,248 +1,587 @@
 diff --git a/a/client/index.html b/b/client/index.html
-index 0516efa..6c9a188 100644
+index 6c9a188..7c07eb4 100644
 --- a/a/client/index.html
 +++ b/b/client/index.html
-@@ -818,6 +818,7 @@
- <script src="js/app.js"></script>
- <script src="js/profile-style.js"></script>
- <script src="js/profile-edit.js"></script>
-+<script src="js/device.js"></script>
- <script src="js/websocket.js"></script>
- <script src="js/ws-handler.js"></script>
+@@ -824,6 +824,7 @@
  <script src="js/servers.js"></script>
-diff --git a/a/client/js/admin-ui.js b/b/client/js/admin-ui.js
-index a3c5a27..e2527a6 100644
---- a/a/client/js/admin-ui.js
-+++ b/b/client/js/admin-ui.js
-@@ -68,7 +68,7 @@ const admBadges = a => (a.systemRole === 'admin' ? '<i class="adm-b adm-b1">⚡
- })();
+ <script src="js/discover.js"></script>
+ <script src="js/channels.js"></script>
++<script src="js/p2p-files.js"></script>
+ <script src="js/messages.js"></script>
+ <script src="js/emoji-picker.js"></script>
+ <script src="js/composer.js"></script>
+diff --git a/a/client/js/composer.js b/b/client/js/composer.js
+index 1004430..1bacba1 100644
+--- a/a/client/js/composer.js
++++ b/b/client/js/composer.js
+@@ -75,7 +75,8 @@ async function onFiles(e) {
+     }
  
- // ── shell ────────────────────────────────────
--const ADM_NAV = [['people', '👥 People'], ['servers', '🌐 Servers'], ['live', '📡 Live'], ['log', '🔨 Bans & Log'], ['send', '📢 Broadcast']];
-+const ADM_NAV = [['people', '👥 People'], ['servers', '🌐 Servers'], ['alts', '🕵️ Alts'], ['live', '📡 Live'], ['log', '🔨 Bans & Log'], ['send', '📢 Broadcast']];
- function admBuild() {
-   const ov = $a('admin-panel-modal');
-   if (!ov || ov.dataset.v2) return;
-@@ -95,6 +95,7 @@ function admGo(sec) {
-   document.querySelectorAll('.adm-nav div').forEach(d => d.classList.toggle('on', d.dataset.k === sec));
-   const m = $a('adm-main'); if (!m) return;
-   if (sec === 'people') { admPeopleShell(); adminLoadAccounts(); }
-+  else if (sec === 'alts') { admAltsShell(); admAltAsk(); }
-   else if (sec === 'servers') { admServersShell(); wsSend({ type: 'admin_list_servers' }); }
-   else if (sec === 'live') { admLiveShell(); admLiveLoad(); }
-   else if (sec === 'log') { admLogShell(); adminLoadBans(); adminLoadFrozen(); adminLoadAuditLog(); }
-@@ -128,7 +129,7 @@ function renderAdminAccounts(accounts) {
- function admOpenUser(name) {
-   AD.user = name; AD.sec = 'people';
-   wsSend({ type: 'admin_list_servers' });
--  admUserView();
-+  admUserView(); admAltAsk();
-   wsSend({ type: 'admin_get_notes', target: name });
-   wsSend({ type: 'admin_list_user_servers', target: name });
+     loadEl.remove();
+-    S.files.push({ name: f.name, size: f.size, url, mt });
++    const _fo = { name: f.name, size: f.size, url, mt }; S.files.push(_fo);
++    nxfHash(url).then(h => { if (h) _fo.hash = h; });   // peers verify what they receive against this
+     renderPrev(); updSnd();
+   }
  }
-@@ -149,6 +150,7 @@ function admUserView() {
-   <details class="adm-sec" open><summary>🔨 Moderation</summary><div>
-     <div class="adm-line"><select id="adm-ban-dur" class="m-inp" style="max-width:120px"><option>30m</option><option>2h</option><option selected>1d</option><option>7d</option><option>30d</option><option>permanent</option></select><input id="adm-ban-reason" class="m-inp" placeholder="Reason (shown to them)" maxlength="120"><button class="btn-g adm-red" onclick="admBan()">🔨 Ban</button><button class="btn-g" onclick="wsSend({type:'admin_unban',target:AD.user})">✅ Unban</button></div>
-     <div class="adm-btns"><button class="btn-g" onclick="admFreeze()">🧊 Freeze (can't post)</button><button class="btn-g" onclick="wsSend({type:'admin_unfreeze_user',target:AD.user})">🔥 Unfreeze</button><button class="btn-g adm-red" onclick="admLogout()">🚪 Force logout</button></div></div></details>
-+  <details class="adm-sec" open><summary>🕵️ Alt check</summary><div id="adm-alt">${admLoading}</div></details>
-   <details class="adm-sec"><summary>🖼 Profile</summary><div class="adm-btns">
-     <button class="btn-g" onclick="admRename()">✏️ Rename</button><button class="btn-g" onclick="admTag()">🏷 Tag</button><button class="btn-g" onclick="$a('adm-color').click()">🎨 Colour</button><button class="btn-g" onclick="admBio()">📝 Bio</button><button class="btn-g" onclick="admPfp()">🖼 Change picture</button><button class="btn-g" onclick="wsSend({type:'admin_wipe_user_pfp',target:AD.user})">🚫 Remove picture</button>
-     <button class="btn-g" onclick="openProfilePage(AD.user)">👤 Open profile</button></div></details>
-@@ -343,3 +345,43 @@ function admSendShell() {
-   <details class="adm-sec"><summary>🗒 Message of the day</summary><div><textarea id="admin-motd-text" class="m-inp" rows="2" maxlength="500" placeholder="Message of the day" style="resize:vertical"></textarea><div class="adm-btns"><button class="btn-p" onclick="adminSetMotd()">💾 Save</button><button class="btn-g" onclick="adminClearMotd()">✕ Clear</button></div><div id="admin-motd-result" class="adm-sub"></div></div></details>
-   <details class="adm-sec danger"><summary>🔧 Maintenance mode</summary><div><div class="adm-sub">Blocks everyone except admins.</div><div class="adm-btns"><button class="btn-g adm-red" onclick="adminSetMaintenance(true)">Enable</button><button class="btn-g" onclick="adminSetMaintenance(false)">Disable</button></div></div></details>`;
+diff --git a/a/client/js/dms.js b/b/client/js/dms.js
+index 42d5a75..68fac44 100644
+--- a/a/client/js/dms.js
++++ b/b/client/js/dms.js
+@@ -34,7 +34,7 @@ function normDM(d) {
  }
-+
-+// ══ ALT / SAME-DEVICE DETECTION (VPN-proof: device id + hardware fingerprint, never the IP) ═══════════
-+// Server keeps re-scanning on every login, and this panel re-asks every 20 s while it is open, so accounts that were made
-+// before the feature existed show up as soon as they next connect.
-+AD.alt = null;
-+const ALT_LV = { certain: ['🔴 Same device', 'adm-b3'], likely: ['🟠 Very likely same device', 'adm-b2'], possible: ['🟡 Possible', 'adm-b1'] };
-+function admAltAsk() { wsSend({ type: 'admin_alt_report' }); }
-+function admAltData(msg) { AD.alt = msg; admAltRender(); }
-+function admAltAlert(m) { try { toast(`🕵️ ${m.name} looks like an alt of ${m.other}`); } catch (_) {} admAltAsk(); }
-+function admAltRender() {
-+  if (!$a('adm-main')) return;
-+  if (AD.sec === 'alts' && !AD.user) admAltsList();
-+  if (AD.user && $a('adm-alt')) admAltUser();
-+}
-+function admAltBadge(l) { const [t, c] = ALT_LV[l] || ALT_LV.possible; return `<i class="adm-b ${c}" style="font-size:10px">${t}</i>`; }
-+function admAltCover(r) {
-+  const n = (r.unscanned || []).length;
-+  return `<div class="adm-sub">Scanned ${r.scanned}/${r.total} accounts${n ? ` · ${n} not scanned yet (they get scanned the next time they log in)` : ' · everyone is scanned'}. Auto-refreshes every 20 s.</div>`;
-+}
-+function admAltUser() {
-+  const box = $a('adm-alt'), r = AD.alt; if (!box || !r) return;
-+  const me = String(AD.user).toLowerCase();
-+  const mine = (r.links || []).filter(l => l.a.toLowerCase() === me || l.b.toLowerCase() === me).sort((x, y) => (ALT_LV[x.level] ? 0 : 1) - (ALT_LV[y.level] ? 0 : 1) || (['certain', 'likely', 'possible'].indexOf(x.level) - ['certain', 'likely', 'possible'].indexOf(y.level)));
-+  const unscanned = (r.unscanned || []).some(n => n.toLowerCase() === me);
-+  let h = '';
-+  if (unscanned) h += `<div class="adm-sub" style="color:#fbbf24">⏳ Not scanned yet: this account hasn't logged in since the alt check shipped. It fills in automatically the next time they connect.</div>`;
-+  else if (!mine.length) h += `<div class="adm-sub">✅ No other account shares a device or fingerprint with them (as far as we can tell).</div>`;
-+  h += mine.map(l => { const o = l.a.toLowerCase() === me ? l.b : l.a;
-+    return `<div class="adm-row" data-n="${esc(o)}" onclick="admOpenUser(this.dataset.n)"><div style="flex:1;min-width:0"><div class="adm-nm">${esc(o)} ${admAltBadge(l.level)}</div><div class="adm-sub">${l.why.map(esc).join(' · ')}</div></div></div>`; }).join('');
-+  h += admAltCover(r) + `<div class="adm-sub">Can't be fooled by VPNs or proxies. It can be fooled by a different physical device; shared school computers can cause "possible" matches.</div>`;
-+  box.innerHTML = h;
-+}
-+function admAltsShell() { $a('adm-main').innerHTML = `<div class="adm-bar"><div style="flex:1;font-size:13px;font-weight:700">🕵️ Alt & same-device finder</div><button class="btn-g" onclick="admAltAsk()">↻ Re-scan</button></div><div id="adm-alts" class="adm-list">${admLoading}</div>`; if (AD.alt) admAltsList(); }
-+function admAltsList() {
-+  const box = $a('adm-alts'), r = AD.alt; if (!box || !r) return;
-+  const cl = r.clusters || [];
-+  box.innerHTML = (cl.length ? cl.map(c => `<div class="adm-sec" style="padding:10px 12px"><div class="adm-nm" style="margin-bottom:6px">${admAltBadge(c.level)} <span class="adm-sub">${c.members.length} accounts</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">${c.members.map(m => `<button class="btn-g" style="font-size:12px" data-n="${esc(m.name)}" onclick="admOpenUserFrom(this.dataset.n)">${esc(m.name)}</button>`).join('')}</div></div>`).join('') : '<div class="adm-sub">No linked accounts found right now.</div>') + admAltCover(r);
-+}
-+// keep checking while the panel is open (cheap: the server caches the report for 20 s)
-+setInterval(() => { try { const m = document.getElementById('admin-panel-modal'); if (m && m.classList.contains('open') && !document.hidden && (AD.sec === 'alts' || AD.user)) admAltAsk(); } catch (_) {} }, 20000);
-diff --git a/b/client/js/device.js b/b/client/js/device.js
+ // after loading cached data: old versions keyed things by display name
+ function dmNormalizeState() {
+-  S.dms = (S.dms || []).map(normDM);
++  S.dms = (S.dms || []).filter(d => !(d.kind === 'dm' && String(d.key || '').startsWith('g:'))).map(normDM);   // drop 1:1 ghosts named g:<id> cached by older builds
+   const msgs = {};
+   Object.entries(S.dmMessages || {}).forEach(([k, arr]) => { const nk = isGroupKey(k) ? k : dk(k); msgs[nk] = (msgs[nk] || []).concat(arr || []); });
+   S.dmMessages = msgs;
+@@ -46,6 +46,7 @@ function dmReset() {
+ function dmWire(key) { return isGroupKey(key) ? { gid: key.slice(2) } : { to: dmEntry(key)?.name || key }; }
+ function dmEnsure(name, pfp, color) {
+   const key = dk(name); let d = dmEntry(key);
++  if (!d && isGroupKey(key)) { d = normDM({ kind: 'group', key, gid: key.slice(2), name: 'Group chat' }); S.dms.push(d); return d; }
+   if (!d) { d = normDM({ kind: 'dm', key, name, pfp: pfp || null, color: color || null }); S.dms.push(d); }
+   else { if (pfp) d.pfp = pfp; if (color) d.color = color; if (name && name !== d.name) d.name = name; }
+   return d;
+@@ -58,7 +59,11 @@ function dmShortTime(ts) {
+   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+ }
+ const dmClock = ts => ts ? new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+-function dmDot(d) { return d.online ? (d.status || 'online') : 'off'; }
++function dmDot(d) { return d.online && d.status !== 'invisible' ? (d.status || 'online') : 'off'; }
++// "me" inside a group is always online with my own status, exactly like the server member list shows me
++function dmSelfFix(members) { const me = dk(S.user?.name); (members || []).forEach(m => { if (dk(m.name) === me) { m.online = true; m.status = S.user.status || 'online'; } }); }
++function dmSelfStatus() { S.dms.forEach(d => { if (d.kind === 'group') dmSelfFix(d.members); }); try { renderDMs(); if (curDM) { renderDMHeader(); renderDMInfo(); } } catch (_) {} }
++const dmMemDot = m => m.online && m.status !== 'invisible' ? (m.status || 'online') : 'off';
+ function dmAv(d, cls = '') {
+   if (d.kind === 'group') { const gu = safeUrl(d.pfp || ''); return `<div class="mb-av dm-gav ${cls}" style="background:${gu ? 'transparent' : esc(d.color || '#6c63ff')}">${gu ? `<img src="${gu}" alt="">` : esc((d.name || '?')[0].toUpperCase())}</div>`; }
+   const url = safeUrl(d.pfp || profileCache[d.name]?.pfp || '');
+@@ -154,12 +159,12 @@ function openDMChat(key) {
+   key = isGroupKey(key) ? key : dk(key);
+   let d = dmEntry(key);
+   if (!d) {   // cache was cleared: stub it so the chat opens while history loads
+-    d = dmEnsure(key); wsSend({ type: 'fetch_dm_history', with: key });
++    if (isGroupKey(key)) { d = normDM({ kind: 'group', key, gid: key.slice(2), name: 'Group chat' }); S.dms.push(d); wsSend({ type: 'fetch_dm_contacts' }); }   // never a 1:1 called "g:<id>"
++    else { d = dmEnsure(key); wsSend({ type: 'fetch_dm_history', with: key }); }
+   }
+-  if (curDM && curDM !== key) dmLeave();
+-  curDM = key; d.unread = 0; DMX.search = ''; DMX.snapshot[key] = S.dmMyRead[key];   // unread line uses what I'd read BEFORE opening
++  hideAll();   // leaves the server / previous chat first (this also clears curDM), so it must come BEFORE curDM = key
++  curDM = key; try { renderSvs(); } catch (_) {} d.unread = 0; DMX.search = ''; DMX.snapshot[key] = S.dmMyRead[key];   // unread line uses what I'd read BEFORE opening
+   if (d.prefs.hidden) { d.prefs.hidden = false; wsSend({ type: 'dm_prefs_set', conv: d.kind === 'group' ? key : d.name, prefs: { hidden: false } }); }
+-  hideAll();
+   document.getElementById('dm-chat').classList.add('show');
+   document.getElementById('ch-hd').style.display = 'none';
+   document.getElementById('sidebar').style.display = 'none';
+@@ -188,7 +193,7 @@ function closeDMChat() {
+ 
+ // ── header, info panel, banner ──
+ function dmSubtitle(d) {
+-  if (d.kind === 'group') { const on = d.members.filter(m => m.online).length; return `${d.members.length} members · ${on} online`; }
++  if (d.kind === 'group') { const on = d.members.filter(m => m.online && m.status !== 'invisible').length; return `${d.members.length} members · ${on} online`; }
+   if (d.online) return ({ online: 'Online', idle: 'Idle', dnd: 'Do Not Disturb' }[d.status] || 'Online');
+   return d.lastSeen ? 'Offline · last seen ' + timeAgo(d.lastSeen) : 'Offline';
+ }
+@@ -259,7 +264,7 @@ function renderDMInfo() {
+       ${[...d.members].sort((a, b) => (dk(b.name) === dk(d.owner)) - (dk(a.name) === dk(d.owner)) || b.online - a.online || a.name.localeCompare(b.name)).map(m => {
+         const url = safeUrl(m.pfp || profileCache[m.name]?.pfp || ''); const you = dk(m.name) === me;
+         return `<div class="di-mem" data-name="${esc(m.name)}" onclick="openProfilePage(this.dataset.name)">
+-          <div class="mb-av" style="background:${url ? 'transparent' : esc(m.color || COLORS[hash(m.name) % COLORS.length])}">${url ? `<img src="${url}" alt="">` : esc(m.name[0].toUpperCase())}<span class="dm-dot ${m.online ? (m.status || 'online') : 'off'}"></span></div>
++          <div class="mb-av" style="background:${url ? 'transparent' : esc(m.color || COLORS[hash(m.name) % COLORS.length])}">${url ? `<img src="${url}" alt="">` : esc(m.name[0].toUpperCase())}<span class="dm-dot ${dmMemDot(m)}"></span></div>
+           <div class="di-mem-n">${esc(m.name)}${you ? ' <span class="di-tag">you</span>' : ''}${dk(m.name) === dk(d.owner) ? ' <span class="di-tag own">owner</span>' : ''}</div>
+           ${isOwner && !you ? `<button class="fv-act danger di-rm" title="Remove from group" onclick="event.stopPropagation();dmRemoveMember(this.closest('.di-mem').dataset.name)">${FV_ICON.x}</button>` : ''}</div>`; }).join('')}
+       ${toggles}
+@@ -326,6 +331,7 @@ function renderDMMessages(key) {
+   });
+   el.innerHTML = parts.join('');
+   if (nearBottom) el.scrollTop = el.scrollHeight;
++  try { nxfHydrate(); } catch (_) {}
+ }
+ function dmToggleSearch() {
+   const bar = document.getElementById('dm-search-bar'); if (!bar) return;
+@@ -501,6 +507,7 @@ function recvDMContacts(msg) {
+   _dmContactsLoading = false;
+   if (msg.settings) S.userSettings = { ...S.userSettings, ...msg.settings };
+   (msg.contacts || []).forEach(c => {
++    if (!c || !c.name || isGroupKey(dk(c.name))) return;
+     (profileCache[c.name] = profileCache[c.name] || { name: c.name }); if (c.pfp !== undefined) profileCache[c.name].pfp = c.pfp || null;
+     const d = dmEnsure(c.name, c.pfp, c.color);
+     d.last = c.last || d.last; d.lastTs = Math.max(d.lastTs || 0, c.lastTs || 0);
+@@ -514,7 +521,10 @@ function recvDMContacts(msg) {
+     Object.assign(d, { name: g.name, color: g.color, owner: g.owner, members: g.members, pfp: g.pfp || null, last: g.last || d.last, lastTs: Math.max(d.lastTs || 0, g.lastTs || 0), unread: g.unread || 0, prefs: { muted: g.prefs?.muted || false, pinned: !!g.prefs?.pinned, hidden: !!g.prefs?.hidden } });
+     g.members.forEach(m => { (profileCache[m.name] = profileCache[m.name] || { name: m.name }); if (m.pfp !== undefined) profileCache[m.name].pfp = m.pfp; if (m.color) profileCache[m.name].color = m.color; });
+   });
+-  S.dms = S.dms.filter(d => d.kind !== 'group' || serverGroups.has(d.key));   // groups I'm no longer in
++  // Only a message that actually CARRIES a groups list may prune groups. (A contacts message without one used to wipe every group
++  // the creator had: the creator got the group live, so nothing replayed it after the wipe.)
++  if (Array.isArray(msg.groups)) S.dms = S.dms.filter(d => d.kind !== 'group' || serverGroups.has(d.key));   // groups I'm no longer in
++  S.dms.forEach(d => { if (d.kind === 'group') dmSelfFix(d.members); });
+   persist(); renderDMs(); if (curDM) { renderDMHeader(); renderDMInfo(); }
+ }
+ // ── presence / profile updates reach conversations too ──
+@@ -534,7 +544,9 @@ function groupApply(g) {
+   const key = 'g:' + g.id;
+   let d = dmEntry(key);
+   if (!d) { d = normDM({ kind: 'group', key, gid: g.id, name: g.name }); S.dms.push(d); }
++  if (d.kind !== 'group') { d.kind = 'group'; d.gid = g.id; d.key = key; }   // repairs a stub that was created as a 1:1
+   Object.assign(d, { name: g.name, color: g.color, pfp: g.pfp || null, owner: g.owner, members: g.members });
++  dmSelfFix(d.members);
+   g.members.forEach(m => { (profileCache[m.name] = profileCache[m.name] || { name: m.name }); if (m.pfp !== undefined) profileCache[m.name].pfp = m.pfp; if (m.color) profileCache[m.name].color = m.color; });
+   return d;
+ }
+diff --git a/a/client/js/members.js b/b/client/js/members.js
+index 7184d59..cdfc4bf 100644
+--- a/a/client/js/members.js
++++ b/b/client/js/members.js
+@@ -63,10 +63,10 @@ function renderMbs() {
+       const canCtx=(myRole==='owner'||myRole==='mod')&&_nk(m.name)!==meKey;
+       const statusBg=isOffline?'var(--t3)':(m.status==='idle'?'var(--yellow)':m.status==='dnd'?'var(--red)':m.status==='invisible'?'var(--t3)':'var(--green)');
+       const offlineStyle=isOffline?'opacity:0.5;':'';
+-      const rn=roleNameAttrs(sv,m.name);
++      const rn=roleNameAttrs(sv,m.name); const px=pfInline(m.name);
+       html+=`<div class="mb-it" style="${offlineStyle}" onclick="openProfilePage('${esc(m.name)}')" oncontextmenu="${canCtx?`openMemberCtx('${esc(m.name)}',event)`:''}" onmouseenter="showUserHover('${esc(m.name)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" title="Click for profile${canCtx?' · Right-click for options':''}">
+-        <div class="mb-av" data-name="${esc(m.name)}" style="background:${avBg}">${avContent}<div class="mb-st" style="background:${statusBg}"></div></div>
+-        <div style="flex:1;min-width:0"><div class="mb-nm ${rn.cls}" data-name="${esc(m.name)}" style="${rn.style}">${esc(m.name)}</div></div>
++        <div class="mb-av ${px.fr}" data-name="${esc(m.name)}" style="background:${avBg};${px.frs}">${avContent}<div class="mb-st" style="background:${statusBg}"></div></div>
++        <div style="flex:1;min-width:0"><div class="mb-nm ${rn.cls} ${px.nf}" data-name="${esc(m.name)}" style="${rn.style};${px.nfs}">${esc(m.name)}</div></div>
+         <div class="mb-role">${badge}</div>
+       </div>`;
+     });
+diff --git a/a/client/js/messages.js b/b/client/js/messages.js
+index ba1b54d..1709de7 100644
+--- a/a/client/js/messages.js
++++ b/b/client/js/messages.js
+@@ -10,6 +10,7 @@ function renderMsgs(chId) {
+   msgs.forEach(m=>{ const d=fmtDate(m.ts); if(d!==ld){parts.push(`<div class="day-sep">${d}</div>`);ld=d;la='';lt=0;} const grp=m.author===la&&(m.ts-lt)<300000; parts.push(buildMsg(m,grp)); la=m.author;lt=m.ts; });
+   el.innerHTML=parts.join('');
+   scrollBot();
++  try { nxfHydrate(); } catch (_) {}
+ }
+ 
+ // ── message toolbar icons ──
+@@ -34,7 +35,9 @@ function buildMsg(m,grp) {
+   const avInner=livePfp?`<img src="${livePfp}" alt="">`:`<span>${init}</span>`;
+   let atts='';
+   (m.attachments||[]).forEach(a=>{
+-    a={...a,url:safeUrl(a.url)};
++    const _gone = !!a._stripped || !a.url; a={...a,url:safeUrl(a.url)};
++    if (_gone) { atts += nxfPlaceholder(m, a); return; }
++    nxfRemember(a, m.id);
+     if(a.type==='image') atts+=`<div class="m-img"><img src="${a.url}" alt="${esc(a.name)}" loading="lazy" onclick="openLB('${a.url}')"></div>`;
+     else if(a.type==='video') {
+       if(a._stripped || !a.url) {
+@@ -66,13 +69,14 @@ function buildMsg(m,grp) {
+   let reacts='';
+   if((m.reactions||[]).length){ reacts='<div class="m-reacts">'+m.reactions.map(r=>`<div class="react${r.users?.includes(S.user?.name)?' me':''}" onclick="toggleReact('${m.id}','${r.emoji}')">${r.emoji}<span>${r.count}</span></div>`).join('')+'</div>'; }
+   const rn = (!curDM && S.curSv) ? roleNameAttrs(S.curSv, m.author) : { cls: '', style: '' };
++  const px = pfInline(m.author);   // frame + name effect painted at render time
+   const lead = grp
+     ? `<div class="m-gutter"><span class="m-gtime">${fmtClock(m.ts)}</span></div>`
+-    : `<div class="m-av" data-author="${esc(m.author)}" style="background:${livePfp?'transparent':ac}" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${avInner}</div>`;
++    : `<div class="m-av ${px.fr}" data-author="${esc(m.author)}" style="background:${livePfp?'transparent':ac};${px.frs}" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${avInner}</div>`;
+   return `<div class="msg${grp?' grouped':''}" data-id="${m.id}">
+     ${lead}
+     <div class="m-body">
+-      ${!grp?`<div class="m-head"><span class="m-auth ${rn.cls}" data-author="${esc(m.author)}" style="${rn.style}" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${esc(m.author)}</span><span class="m-time">${fmtStamp(m.ts)}</span></div>`:''}
++      ${!grp?`<div class="m-head"><span class="m-auth ${rn.cls} ${px.nf}" data-author="${esc(m.author)}" style="${rn.style};${px.nfs}" onmouseenter="showUserHover('${esc(m.author)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" onclick="openProfilePage('${esc(m.author)}')">${esc(m.author)}</span><span class="m-time">${fmtStamp(m.ts)}</span></div>`:''}
+       ${m.voiceMsg ? buildVoiceMsg(m) : `<div class="m-txt">${fmtTxt(m.text)}${m.edited?'<span class="m-edited">(edited)</span>':''}</div>`}${atts?`<div class="m-atts">${atts}</div>`:''}${reacts}
+     </div>
+     <div class="m-acts">
+@@ -91,7 +95,7 @@ function sendMsg() {
+   if (editingMsgId) { if(text) commitEdit(text); else cancelEdit(); inp.value=''; inp.style.height='auto'; updSnd(); return; }
+   if(!S.curCh){toast('Pick a channel first');return;}
+   if(!canSendInChannel(S.curSv,S.curCh)){toast("🔒 You don't have permission to send messages in this channel");return;}
+-  const msg={id:uid(),channelId:S.curCh.id,serverId:S.curSv?.id,author:S.user.name,authorTag:S.user.tag,authorColor:S.user.color,text,attachments:S.files.map(f=>({name:f.name,url:f.url,type:f.mt,size:fmtB(f.size)})),ts:Date.now(),reactions:[]};
++  const msg={id:uid(),channelId:S.curCh.id,serverId:S.curSv?.id,author:S.user.name,authorTag:S.user.tag,authorColor:S.user.color,text,attachments:S.files.map(f=>({name:f.name,url:f.url,type:f.mt,size:fmtB(f.size),hash:f.hash||undefined})),ts:Date.now(),reactions:[]};
+   addMsg(msg);
+   // Fast path: append single message node instead of full re-render
+   appendMsgDOM(msg);
+diff --git a/b/client/js/p2p-files.js b/b/client/js/p2p-files.js
 new file mode 100644
-index 0000000..98917fc
+index 0000000..46e8ad2
 --- /dev/null
-+++ b/b/client/js/device.js
-@@ -0,0 +1,113 @@
++++ b/b/client/js/p2p-files.js
+@@ -0,0 +1,164 @@
 +// ══════════════════════════════════════════════
-+// DEVICE SIGNALS for alt-account detection. NEVER uses the IP address, so VPNs/proxies don't matter.
-+// 1) a random device id kept in 3 places (localStorage + cookie + IndexedDB; any survivor restores the others)
-+// 2) hashed hardware fingerprints (GPU, canvas, audio, screen, cores, fonts...). Survives incognito / cleared storage.
-+// Only hashes leave the browser. Skipped completely while an admin is "being" someone (assume.js).
++// P2P ATTACHMENTS
++// The server never keeps big files (they are stripped from history), so they live in the browsers that have seen them.
++// Problem this fixes: localStorage drops big attachments on every save, so after ONE refresh nobody could serve a file any more.
++// Now every attachment a browser sees is kept in IndexedDB (survives refreshes) and any online member who has it serves it.
++// Works for every attachment type (image, video, audio, file) in server channels, DMs and group chats.
 +// ══════════════════════════════════════════════
-+const NXDEV = { ids: [], fp: [], hw: [], ready: false, lastSent: 0 };
-+(function () {
-+  const h53 = (s, seed) => { let a = 0xdeadbeef ^ seed, b = 0x41c6ce57 ^ seed; for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); a = Math.imul(a ^ c, 2654435761); b = Math.imul(b ^ c, 1597334677); } a = Math.imul(a ^ (a >>> 16), 2246822507) ^ Math.imul(b ^ (b >>> 13), 3266489909); b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909); return (4294967296 * (2097151 & b) + (a >>> 0)).toString(16).padStart(14, '0'); };
-+  const hash = s => h53(s, 1) + h53(s, 7) + h53(s, 13); // 42 hex chars
-+  const rnd = () => { try { const u = new Uint8Array(16); crypto.getRandomValues(u); return [...u].map(x => x.toString(16).padStart(2, '0')).join(''); } catch (_) { return hash(Math.random() + ':' + Date.now()).slice(0, 32); } };
-+  const okId = v => typeof v === 'string' && /^[0-9a-f]{16,64}$/.test(v);
-+
-+  // ── persistent id in 3 stores ──
-+  const idb = (mode, val) => new Promise(res => {
-+    try {
-+      const r = indexedDB.open('nx-dev', 1);
-+      r.onupgradeneeded = () => r.result.createObjectStore('k');
-+      r.onerror = () => res(null);
-+      r.onsuccess = () => { try { const db = r.result, tx = db.transaction('k', mode === 'set' ? 'readwrite' : 'readonly'), st = tx.objectStore('k');
-+        if (mode === 'set') { st.put(val, 'did'); tx.oncomplete = () => { db.close(); res(true); }; tx.onerror = () => res(null); }
-+        else { const g = st.get('did'); g.onsuccess = () => { db.close(); res(g.result || null); }; g.onerror = () => res(null); } } catch (_) { res(null); } };
-+    } catch (_) { res(null); }
++const NXF = { p: null, seen: new Set(), asked: {}, puts: 0, MAX_FILES: 150, MAX_BYTES: 60e6 };
++const nxfKey = (msgId, name) => msgId + '|' + (name || '');
++function nxfDB() {
++  if (NXF.p) return NXF.p;
++  return NXF.p = new Promise(res => {
++    try { const r = indexedDB.open('nexus-files', 1); r.onupgradeneeded = () => r.result.createObjectStore('f'); r.onsuccess = () => res(r.result); r.onerror = r.onblocked = () => res(null); }
++    catch (_) { res(null); }
 +  });
-+  const getCookie = () => { try { const m = document.cookie.match(/(?:^|; )nx_did=([0-9a-f]+)/); return m ? m[1] : null; } catch (_) { return null; } };
-+  const setCookie = v => { try { document.cookie = 'nx_did=' + v + '; max-age=315360000; path=/; SameSite=Lax'; } catch (_) {} };
-+  async function deviceIds() {
-+    const found = [];
-+    try { found.push(localStorage.getItem('nx-did')); } catch (_) {}
-+    found.push(getCookie());
-+    found.push(await idb('get'));
-+    const ids = [...new Set(found.filter(okId))];
-+    const id = ids[0] || rnd();
-+    if (!ids.length) ids.push(id);
-+    try { localStorage.setItem('nx-did', id); } catch (_) {}
-+    setCookie(id); await idb('set', id);
-+    return ids.slice(0, 6);
-+  }
-+
-+  // ── hardware fingerprint ──
-+  function canvasSig() {
-+    try {
-+      const c = document.createElement('canvas'); c.width = 240; c.height = 60; const x = c.getContext('2d');
-+      x.textBaseline = 'alphabetic'; x.fillStyle = '#f60'; x.fillRect(100, 1, 62, 20);
-+      x.fillStyle = '#069'; x.font = '15px Arial'; x.fillText('Nexus \u{1F427} alt-check 123', 2, 15);
-+      x.fillStyle = 'rgba(102,204,0,0.7)'; x.font = '18px serif'; x.fillText('Nexus \u{1F427} alt-check 123', 4, 45);
-+      x.globalCompositeOperation = 'multiply'; x.fillStyle = 'rgb(255,0,255)'; x.beginPath(); x.arc(50, 30, 20, 0, 6.283); x.fill();
-+      return hash(c.toDataURL());
-+    } catch (_) { return 'nocanvas'; }
-+  }
-+  function glSig() {
-+    try {
-+      const c = document.createElement('canvas'), g = c.getContext('webgl') || c.getContext('experimental-webgl');
-+      if (!g) return { r: 'nogl', p: '' };
-+      const e = g.getExtension('WEBGL_debug_renderer_info');
-+      const r = e ? g.getParameter(e.UNMASKED_VENDOR_WEBGL) + '|' + g.getParameter(e.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.VENDOR) + '|' + g.getParameter(g.RENDERER);
-+      const p = [g.MAX_TEXTURE_SIZE, g.MAX_VERTEX_ATTRIBS, g.MAX_VERTEX_UNIFORM_VECTORS, g.MAX_FRAGMENT_UNIFORM_VECTORS, g.MAX_VARYING_VECTORS, g.MAX_RENDERBUFFER_SIZE, g.ALIASED_LINE_WIDTH_RANGE, g.ALIASED_POINT_SIZE_RANGE].map(k => { try { const v = g.getParameter(k); return v && v.length ? [...v].join(',') : v; } catch (_) { return '?'; } }).join(';') + ';' + (g.getSupportedExtensions() || []).length;
-+      return { r, p };
-+    } catch (_) { return { r: 'nogl', p: '' }; }
-+  }
-+  function audioSig() {
-+    return new Promise(res => {
-+      try {
-+        const O = window.OfflineAudioContext || window.webkitOfflineAudioContext; if (!O) return res('noaudio');
-+        const ctx = new O(1, 5000, 44100), o = ctx.createOscillator(), k = ctx.createDynamicsCompressor();
-+        o.type = 'triangle'; o.frequency.value = 10000;
-+        [['threshold', -50], ['knee', 40], ['ratio', 12], ['attack', 0], ['release', 0.25]].forEach(([n, v]) => { try { k[n].value = v; } catch (_) {} });
-+        o.connect(k); k.connect(ctx.destination); o.start(0);
-+        const t = setTimeout(() => res('audiotimeout'), 1500);
-+        ctx.oncomplete = ev => { clearTimeout(t); let s = 0; const d = ev.renderedBuffer.getChannelData(0); for (let i = 4500; i < 5000; i++) s += Math.abs(d[i]); res(String(s)); };
-+        ctx.startRendering();
-+      } catch (_) { res('audioerr'); }
-+    });
-+  }
-+  function fontSig() {
-+    try {
-+      const fonts = ['Arial', 'Verdana', 'Times New Roman', 'Courier New', 'Georgia', 'Comic Sans MS', 'Impact', 'Trebuchet MS', 'Segoe UI', 'Calibri', 'Cambria', 'Consolas', 'Helvetica', 'Helvetica Neue', 'Menlo', 'Monaco', 'Roboto', 'Noto Sans', 'Ubuntu', 'DejaVu Sans', 'Liberation Sans', 'Cantarell', 'Open Sans', 'Lucida Grande', 'Tahoma', 'Palatino', 'Gill Sans', 'Futura', 'Apple Color Emoji', 'Segoe UI Emoji'];
-+      const s = document.createElement('span'); s.style.cssText = 'position:absolute;left:-9999px;top:-9999px;font-size:72px;visibility:hidden'; s.textContent = 'mmmmmmmmmmlliWQ@#';
-+      document.body.appendChild(s);
-+      const base = ['monospace', 'sans-serif', 'serif'].map(b => { s.style.fontFamily = b; return s.offsetWidth + 'x' + s.offsetHeight; });
-+      const bits = fonts.map(f => ['monospace', 'sans-serif', 'serif'].some((b, i) => { s.style.fontFamily = `'${f}',${b}`; return s.offsetWidth + 'x' + s.offsetHeight !== base[i]; }) ? 1 : 0).join('');
-+      s.remove(); return bits;
-+    } catch (_) { return 'nofonts'; }
-+  }
-+  async function fingerprints() {
-+    const n = navigator, dpr = window.devicePixelRatio || 1, sc = window.screen || {};
-+    // physical pixels: width*dpr stays constant when the page is zoomed, so zoom/resizing can't change it
-+    const scr = Math.round((sc.width || 0) * dpr) + 'x' + Math.round((sc.height || 0) * dpr) + 'x' + (sc.colorDepth || 0);
-+    const gl = glSig(), fonts = fontSig(), au = await audioSig();
-+    const core = [n.hardwareConcurrency || 0, n.deviceMemory || 0, n.platform || '', n.maxTouchPoints || 0, scr].join('|');
-+    // fp = this browser on this machine (strong). hw = the machine itself, whichever browser (weaker).
-+    return { fp: hash(['fp1', canvasSig(), au, gl.r, gl.p, core, fonts].join('#')), hw: hash(['hw1', gl.r.split('|').pop(), core, fonts].join('#')) };
-+  }
-+
-+  const assuming = () => { try { return !!sessionStorage.getItem('nx-assume'); } catch (_) { return false; } };
-+  NXDEV.init = (async () => {
-+    if (assuming()) return;
-+    try {
-+      NXDEV.ids = await deviceIds();
-+      const f = await fingerprints(); NXDEV.fp = [f.fp]; NXDEV.hw = [f.hw];
-+    } catch (_) {}
-+    NXDEV.ready = true;
-+  })();
-+  NXDEV.get = () => (assuming() || !NXDEV.ids.length) ? null : { ids: NXDEV.ids, fp: NXDEV.fp, hw: NXDEV.hw };
-+})();
-+// called after `identified` (and by identify itself if the signals are already computed); at most every 30 min per page
-+async function nxDeviceReport() {
++}
++async function nxfPut(k, rec) {
 +  try {
-+    await NXDEV.init;
-+    const dev = NXDEV.get(); if (!dev || Date.now() - NXDEV.lastSent < 30 * 60 * 1000) return;
-+    if (wsSend({ type: 'device_report', dev })) NXDEV.lastSent = Date.now();
++    if (!rec || typeof rec.url !== 'string' || rec.url.length > NXF.MAX_BYTES) return;
++    const db = await nxfDB(); if (!db) return;
++    await new Promise(res => { const tx = db.transaction('f', 'readwrite'); tx.objectStore('f').put({ ...rec, at: Date.now() }, k); tx.oncomplete = tx.onerror = tx.onabort = () => res(); });
++    if (++NXF.puts % 20 === 0) nxfPrune();
 +  } catch (_) {}
 +}
-diff --git a/a/client/js/websocket.js b/b/client/js/websocket.js
-index 69a6b0b..8b628b1 100644
---- a/a/client/js/websocket.js
-+++ b/b/client/js/websocket.js
-@@ -41,7 +41,8 @@ function connectWS() {
-     dbg('✓ WS connected', 'ok');
-     wsSend({type:'identify',user:S.user.name,tag:S.user.tag,color:S.user.color,pfp:S.user.pfp||null,token:S.token,
-       // lets the server tell us which cached servers were deleted / we're no longer in
--      knownServerIds:(S.servers||[]).map(s=>s.id)});
-+      knownServerIds:(S.servers||[]).map(s=>s.id),
-+      dev:(typeof NXDEV!=='undefined'&&NXDEV.ready?NXDEV.get():null)});
-     dbg('→ identify sent', 'info');
-     // Identify timeout: if server doesn't send 'identified' within 10s, the
-     // connection is silently stuck (e.g. Deno cold-start not finishing). Force reconnect.
++async function nxfGet(k) {
++  try {
++    const db = await nxfDB(); if (!db) return null;
++    return await new Promise(res => { const rq = db.transaction('f').objectStore('f').get(k); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); });
++  } catch (_) { return null; }
++}
++async function nxfPrune() {   // keep the newest MAX_FILES
++  try {
++    const db = await nxfDB(); if (!db) return;
++    const rows = await new Promise(res => { const out = []; const rq = db.transaction('f').objectStore('f').openCursor(); rq.onsuccess = () => { const c = rq.result; if (c) { out.push({ k: c.key, at: c.value?.at || 0 }); c.continue(); } else res(out); }; rq.onerror = () => res([]); });
++    if (rows.length <= NXF.MAX_FILES) return;
++    rows.sort((a, b) => a.at - b.at);
++    const tx = db.transaction('f', 'readwrite'), st = tx.objectStore('f');
++    rows.slice(0, rows.length - NXF.MAX_FILES).forEach(r => st.delete(r.k));
++  } catch (_) {}
++}
++// called for every attachment that is drawn with real data: keep a copy so we can serve it to others later
++function nxfRemember(a, msgId) {
++  if (!a || !msgId || typeof a.url !== 'string' || !a.url.startsWith('data:')) return;
++  const k = nxfKey(msgId, a.name); if (NXF.seen.has(k)) return; NXF.seen.add(k);
++  nxfPut(k, { url: a.url, type: a.type, name: a.name, size: a.size });
++}
++function nxfPlaceholder(m, a) {
++  const ic = a.type === 'video' ? '🎬' : a.type === 'image' ? '🖼️' : a.type === 'audio' ? '🎵' : '📄';
++  return `<div class="vid-placeholder" data-msg-id="${esc(m.id)}" data-ch-id="${esc(m.channelId || '')}" data-name="${esc(a.name || '')}" onclick="requestVideo(this.dataset.msgId,this.dataset.chId,this.dataset.name,true)" style="display:flex;align-items:center;gap:10px;background:var(--s3);border:1px solid var(--border2);border-radius:8px;padding:12px 16px;cursor:pointer;max-width:280px"><span style="font-size:20px">${ic}</span><div><div style="font-size:12px;font-weight:700;color:var(--t2)">${esc(a.name || 'attachment')}</div><div style="font-size:10px;color:var(--t3);margin-top:2px">Loading from peers… (click to retry)</div></div></div>`;
++}
++function nxfFindMsg(msgId) {
++  for (const arr of Object.values(S.messages || {})) { const m = (arr || []).find(x => x && x.id === msgId); if (m) return m; }
++  for (const arr of Object.values(S.dmMessages || {})) { const m = (arr || []).find(x => x && x.id === msgId); if (m) return m; }
++  return null;
++}
++// a file arrived (from my own cache or from a peer): put it into the message and redraw just that attachment block
++function nxfApply(msgId, name, url) {
++  const m = nxfFindMsg(msgId); if (!m) return;
++  let hit = false;
++  m.attachments = (m.attachments || []).map(a => { if (a && (a._stripped || !a.url) && (a.name || '') === (name || '')) { hit = true; return { ...a, url, _stripped: false }; } return a; });
++  if (!hit) return;
++  document.querySelectorAll(`[data-id="${CSS.escape(String(msgId))}"]`).forEach(row => {
++    const box = row.querySelector('.m-atts'); if (!box) return;
++    try { const tmp = document.createElement('div'); tmp.innerHTML = buildMsg(m, false); const fresh = tmp.querySelector('.m-atts'); if (fresh) box.innerHTML = fresh.innerHTML; } catch (_) {}
++  });
++}
++// after a message list is drawn: fill every placeholder from the local file cache, else ask peers (once every 20 s at most)
++function nxfHydrate() {
++  setTimeout(() => {
++    document.querySelectorAll('.vid-placeholder[data-msg-id]').forEach(async el => {
++      if (el.dataset.nxf) return; el.dataset.nxf = '1';
++      const msgId = el.dataset.msgId, name = el.dataset.name || '';
++      const rec = await nxfGet(nxfKey(msgId, name));
++      if (rec && rec.url) { nxfApply(msgId, name, rec.url); return; }
++      requestVideo(msgId, el.dataset.chId, name);
++    });
++  }, 30);
++}
++// ── asking peers (the server picks ONE holder per request and tells us when nobody has it) ──
++const NXQ = { w: {}, fail: {}, running: false, timer: 0 };
++async function nxfHash(url) {   // SHA-256 of the data URL: the sender puts it in the message, receivers verify what a peer sends
++  try {
++    const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(url));
++    return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, '0')).join('');
++  } catch (_) { return ''; }
++}
++function nxfScopeFor(msgId) {   // where does this message live? (decides who may be asked)
++  for (const [chId, arr] of Object.entries(S.messages || {})) {
++    if ((arr || []).some(x => x && x.id === msgId)) { const sv = (S.servers || []).find(s => (s.channels || []).some(c => c.id === chId)); return sv ? { serverId: sv.id, channelId: chId } : null; }
++  }
++  for (const [key, arr] of Object.entries(S.dmMessages || {})) {
++    if ((arr || []).some(x => x && x.id === msgId)) { const d = dmEntry(key); if (!d) return null; return d.kind === 'group' ? { gid: d.gid } : { dm: true, with: d.name }; }
++  }
++  return null;
++}
++function nxfDone(k, ok) {
++  if (!_pendingVideoRequests.delete(k)) return;
++  (NXQ.w[k] || []).forEach(f => f(ok)); delete NXQ.w[k];
++}
++function nxfAsk(msgId, name) {   // resolves true when the file arrived (and passed its check), false when nobody had it
++  const k = nxfKey(msgId, name), sc = nxfScopeFor(msgId);
++  if (!sc || !S.user || !S.wsOk) return Promise.resolve(false);
++  return new Promise(res => {
++    if (_pendingVideoRequests.has(k)) { (NXQ.w[k] = NXQ.w[k] || []).push(res); return; }
++    _pendingVideoRequests.add(k); NXQ.w[k] = [res];
++    wsSend({ type: 'video_request', msgId, name, requester: S.user.name, ...sc });
++    setTimeout(() => nxfDone(k, false), 45000);
++  });
++}
++// a peer sent a file: verify it against the hash in the message (if there is one), keep it, show it
++async function nxfAccept(msgId, name, url, msg) {
++  const m = nxfFindMsg(msgId);
++  const a = m && (m.attachments || []).find(x => x && (x.name || '') === (name || ''));
++  if (a && a.hash && (await nxfHash(url)) !== a.hash) { console.warn('[nexus] a peer sent a file that failed its hash check:', name); return false; }
++  nxfPut(nxfKey(msgId, name), { url, type: msg.atype || (a && a.type), name, size: msg.size });
++  nxfApply(msgId, name, url);
++  try { shortsOnMedia(); } catch (_) {}
++  return true;
++}
++// someone asked for a file: answer from memory or from the file cache, or say we don't have it so the server tries the next person
++async function nxfServe(msg) {
++  const { msgId, name, requester, rid } = msg || {};
++  if (!msgId || typeof requester !== 'string' || !S.user || requester === S.user.name) return;
++  let url = null, type, size;
++  const m = nxfFindMsg(msgId);
++  const a = m && (m.attachments || []).find(x => x && typeof x.url === 'string' && x.url.startsWith('data:') && (!name || x.name === name));
++  if (a) { url = a.url; type = a.type; size = a.size; }
++  else { const rec = await nxfGet(nxfKey(msgId, name)); if (rec && rec.url) { url = rec.url; type = rec.type; size = rec.size; } }
++  if (!url) { if (rid) wsSend({ type: 'video_miss', rid }); return; }
++  wsSend({ type: 'video_serve', rid, msgId, channelId: msg.channelId, to: requester, url, name, size, atype: type });
++}
++// ── background catch-up: nobody has to click or scroll ──
++// Every attachment I should have but don't (stripped by the server) is fetched one at a time: from my own cache first,
++// then from whoever the server picks. Runs after login, when history arrives, and every 30 s while the tab is open.
++function nxfMissing() {
++  const out = [], seenK = new Set();
++  const add = arr => (arr || []).slice().reverse().forEach(m => {
++    if (!m || !m.id) return;
++    (m.attachments || []).forEach(a => { const k = nxfKey(m.id, a && a.name); if (a && (a._stripped || !a.url) && !seenK.has(k)) { seenK.add(k); out.push({ id: m.id, name: a.name || '' }); } });
++  });
++  if (typeof curDM !== 'undefined' && curDM) add(S.dmMessages[curDM]); else if (S.curCh) add(S.messages[S.curCh.id]);   // what I'm looking at first
++  Object.values(S.messages || {}).forEach(add); Object.values(S.dmMessages || {}).forEach(add);
++  return out;
++}
++async function nxfSync() {
++  if (NXQ.running || !S.user || !S.wsOk) return;
++  NXQ.running = true;
++  try {
++    let asked = 0;
++    for (const t of nxfMissing()) {
++      if (asked >= 25 || !S.wsOk) break;
++      const k = nxfKey(t.id, t.name);
++      if ((NXQ.fail[k] || 0) > Date.now()) continue;
++      const rec = await nxfGet(k);
++      if (rec && rec.url) { nxfApply(t.id, t.name, rec.url); continue; }
++      asked++;
++      if (!(await nxfAsk(t.id, t.name))) NXQ.fail[k] = Date.now() + 5 * 60e3;   // nobody online has it: try again in 5 min
++    }
++  } catch (e) { console.warn('[nexus] file sync', e); }
++  NXQ.running = false;
++}
++function nxfSyncSoon(ms) { clearTimeout(NXQ.timer); NXQ.timer = setTimeout(() => { try { nxfSync(); } catch (_) {} }, ms || 1500); }
++setInterval(() => { if (document.visibilityState === 'visible' && S.user && S.wsOk) nxfSync(); }, 30000);
++document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') nxfSyncSoon(2000); });
+diff --git a/a/client/js/profile-style.js b/b/client/js/profile-style.js
+index cc85293..ae65a05 100644
+--- a/a/client/js/profile-style.js
++++ b/b/client/js/profile-style.js
+@@ -129,27 +129,39 @@ function pfStyleFor(name) { // who is this, may they have a frame / name effect,
+ function pfSetVars(el, css) { String(css || '').split(';').forEach(kv => { const i = kv.indexOf(':'); if (i > 0) el.style.setProperty(kv.slice(0, i).trim(), kv.slice(i + 1).trim()); }); }
+ // Puts the frame on every avatar and the name effect on every name that is on screen (chat, member list).
+ // Idempotent, so it is simply re-run whenever those lists change (see the observer below) or profiles arrive.
++function pfApplyCls(el, prefix, cls, css, vars) {   // only touches the element when something really differs (no flicker)
++  const cur = [...el.classList].filter(c => c.indexOf(prefix) === 0);
++  const want = {}; String(css || '').split(';').forEach(kv => { const k = kv.indexOf(':'); if (k > 0) want[kv.slice(0, k).trim()] = kv.slice(k + 1).trim(); });
++  const same = cur.length === (cls ? 1 : 0) && (!cls || cur[0] === cls) && vars.every(v => (el.style.getPropertyValue(v) || '') === (want[v] || ''));
++  if (same) return;
++  cur.forEach(c => el.classList.remove(c)); vars.forEach(v => el.style.removeProperty(v));
++  if (cls) { el.classList.add(cls); pfSetVars(el, css); }
++}
++// the same look as inline markup, so buildMsg / renderMbs can paint it in the very first frame
++function pfInline(name) {
++  const none = { fr: '', frs: '', nf: '', nfs: '' };
++  try {
++    const s = pfStyleFor(name); if (!s.ok) return none;
++    const f = pfFrameAttrs(s.ext, s.color, true), n = pfNameAttrs(s.ext, true);
++    return { fr: f.cls, frs: f.style, nf: n.cls, nfs: n.style };
++  } catch (_) { return none; }
++}
+ function pfDecorate() {
+   document.querySelectorAll('.m-av[data-author], .mb-av[data-name]').forEach(el => {
+     const s = pfStyleFor(el.dataset.author || el.dataset.name);
+-    [...el.classList].filter(c => c.indexOf('fr-') === 0).forEach(c => el.classList.remove(c));
+-    ['--fr1', '--fr2', '--av-in'].forEach(v => el.style.removeProperty(v));
+-    if (!s.ok) return;
+-    const a = pfFrameAttrs(s.ext, s.color, true); if (!a.cls) return;
+-    el.classList.add(a.cls); pfSetVars(el, a.style);
++    const a = s.ok ? pfFrameAttrs(s.ext, s.color, true) : { cls: '', style: '' };
++    pfApplyCls(el, 'fr-', a.cls, a.style, ['--fr1', '--fr2', '--av-in']);
+   });
+   document.querySelectorAll('.m-auth[data-author], .mb-nm[data-name]').forEach(el => {
+     const s = pfStyleFor(el.dataset.author || el.dataset.name);
+-    [...el.classList].filter(c => c.indexOf('nf-') === 0).forEach(c => el.classList.remove(c));
+-    ['--nf1', '--nf2'].forEach(v => el.style.removeProperty(v));
+-    if (!s.ok) return;
+-    const a = pfNameAttrs(s.ext, true); if (!a.cls) return; // no personal effect: the role's own look (if any) stays
+-    el.classList.add(a.cls); pfSetVars(el, a.style);
++    const a = s.ok ? pfNameAttrs(s.ext, true) : { cls: '', style: '' };   // no personal effect: the role's own look (if any) stays
++    pfApplyCls(el, 'nf-', a.cls, a.style, ['--nf1', '--nf2']);
+   });
+ }
+ (function () {
+-  let t = 0; const run = () => { t = 0; try { pfDecorate(); } catch (e) { console.error(e); } };
+-  const arm = () => { if (typeof MutationObserver === 'undefined') return; const mo = new MutationObserver(() => { if (!t) t = (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : setTimeout)(run); });
+-    ['msgs', 'members'].forEach(id => { const el = document.getElementById(id); if (el) mo.observe(el, { childList: true, subtree: true }); }); };
++  let t = false; const run = () => { t = false; try { pfDecorate(); } catch (e) { console.error(e); } };
++  // a MutationObserver callback runs as a microtask, BEFORE the browser paints: decorate right there (no requestAnimationFrame gap)
++  const arm = () => { if (typeof MutationObserver === 'undefined') return; const mo = new MutationObserver(() => { if (!t) { t = true; (typeof queueMicrotask === 'function' ? queueMicrotask : (f => Promise.resolve().then(f)))(run); } });
++    ['msgs', 'dm-msgs', 'members'].forEach(id => { const el = document.getElementById(id); if (el) mo.observe(el, { childList: true, subtree: true }); }); };
+   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
+ })();
+diff --git a/a/client/js/servers.js b/b/client/js/servers.js
+index 1d65b5a..0642956 100644
+--- a/a/client/js/servers.js
++++ b/b/client/js/servers.js
+@@ -5,7 +5,7 @@ function renderSvs() {
+   const el=document.getElementById('sv-list'); el.innerHTML='';
+   S.servers.forEach(sv=>{
+     const d=document.createElement('div');
+-    d.className='sv-ic'+(S.curSv?.id===sv.id?' act':'');
++    d.className='sv-ic'+(!curDM&&S.curSv?.id===sv.id?' act':'');
+     d.title=sv.name;
+     if(sv.icon){ d.innerHTML=`<div class="sv-pip"></div><img src="${sv.icon}" alt="">`; }
+     else { d.innerHTML=`<div class="sv-pip"></div>${svInit(sv.name)}`; }
+@@ -17,6 +17,7 @@ function renderSvs() {
+ 
+ function selectSv(id) {
+   S.curSv=S.servers.find(s=>s.id===id); if(!S.curSv) return;
++  document.getElementById('sidebar').style.display=''; if (S.mbOpen) document.getElementById('members').style.display='';   // a DM hides both
+   document.getElementById('sv-nm').textContent=S.curSv.name;
+   document.getElementById('rail-discover').classList.remove('act');
+   renderSvs(); renderChs(); renderMbs();
+diff --git a/a/client/js/status-pins.js b/b/client/js/status-pins.js
+index beb2351..a805542 100644
+--- a/a/client/js/status-pins.js
++++ b/b/client/js/status-pins.js
+@@ -8,7 +8,7 @@ function toggleStatusMenu(e) {
+ // Show a status on my own avatar dot (no message sent). The server remembers it, so it survives a refresh.
+ function applyOwnStatus(s) {
+   if (!s) return;
+-  S.user.status = s;
++  S.user.status = s; if (typeof dmSelfStatus === 'function') dmSelfStatus();
+   const dot = document.getElementById('u-dot');
+   if (dot) dot.className = 'u-dot' + (s === 'online' ? '' : ' ' + s);
+ }
+diff --git a/a/client/js/ui-helpers.js b/b/client/js/ui-helpers.js
+index eaa1b29..a04e153 100644
+--- a/a/client/js/ui-helpers.js
++++ b/b/client/js/ui-helpers.js
+@@ -1,5 +1,12 @@
+ // ── UI ──
+ function hideAll(){
++  // Leaving a DM/group by any route (server, friends, home, discover...) must also leave it in the STATE, not just hide it.
++  // Otherwise curDM stays set and reply/edit/delete/react in a server act on the old DM.
++  if (typeof curDM !== 'undefined' && curDM) {
++    try { dmLeave(); } catch (_) {}
++    curDM = null; document.body.classList.remove('in-dm');
++    try { renderDMs(); renderSvs(); } catch (_) {}
++  }
+   document.getElementById('welcome').style.display='none';
+   document.getElementById('home-screen').style.display='none';
+   document.getElementById('discover').classList.remove('show');
+@@ -106,6 +113,7 @@ function _slimMsgs(map, level){
+     out[k] = (arr || []).slice(-keep).map(m => {
+       if (!m) return m;
+       const bigAtt = (m.attachments || []).some(a => a && typeof a.url === 'string' && a.url.startsWith('data:'));
++      if (bigAtt && typeof nxfRemember === 'function') (m.attachments || []).forEach(a => nxfRemember(a, m.id));   // keep a copy in IndexedDB before the slim copy drops it
+       if (!m.authorPfp && !bigAtt) return m;
+       const c = { ...m }; delete c.authorPfp;
+       if (c.attachments) c.attachments = c.attachments.map(a =>
+diff --git a/a/client/js/voice-calls.js b/b/client/js/voice-calls.js
+index 1318f1d..e485712 100644
+--- a/a/client/js/voice-calls.js
++++ b/b/client/js/voice-calls.js
+@@ -574,20 +574,18 @@ function autoRequestStrippedVideos(chId) {
+   }, 600); // slight delay so DOM is settled
+ }
+ 
+-function requestVideo(msgId, channelId, name) {
+-  const el = document.querySelector(`[data-msg-id="${msgId}"].vid-placeholder`);
+-  if (el) {
+-    el.innerHTML = `<span style="font-size:20px;animation:blink 1s infinite">⏳</span><div style="font-size:12px;color:var(--t3);margin-left:8px">Requesting from peers…</div>`;
+-  }
+-  // Track this as pending so we ignore duplicate serves
+-  _pendingVideoRequests.add(msgId);
+-  wsSend({ type: 'video_request', msgId, channelId, requester: S.user.name, serverId: S.curSv?.id });
+-  // If nobody responds in 8s, show error
+-  setTimeout(() => {
+-    _pendingVideoRequests.delete(msgId);
+-    const still = document.querySelector(`[data-msg-id="${msgId}"].vid-placeholder`);
+-    if (still) still.innerHTML = `<span style="font-size:20px">🎬</span><div style="margin-left:10px"><div style="font-size:12px;font-weight:700;color:var(--t2)">${esc(name)}</div><div style="font-size:10px;color:var(--red);margin-top:2px">No one online has this video cached</div></div>`;
+-  }, 8000);
++function requestVideo(msgId, channelId, name, force) {   // click / render path: same machinery as the background sync
++  const k = nxfKey(msgId, name), now = Date.now();
++  if (!force && NXF.asked[k] && now - NXF.asked[k] < 20000) return;
++  NXF.asked[k] = now;
++  const find = () => [...document.querySelectorAll(`[data-msg-id="${msgId}"].vid-placeholder`)].find(e => (e.dataset.name || '') === (name || ''));
++  const el = find();
++  if (el) el.innerHTML = `<span style="font-size:20px;animation:blink 1s infinite">⏳</span><div style="font-size:12px;color:var(--t3);margin-left:8px">Requesting from peers…</div>`;
++  nxfAsk(msgId, name).then(ok => {
++    if (ok) return;   // nxfApply already swapped the placeholder
++    const still = find();
++    if (still) { still.dataset.nxf = ''; still.innerHTML = `<span style="font-size:20px">📎</span><div style="margin-left:10px"><div style="font-size:12px;font-weight:700;color:var(--t2)">${esc(name)}</div><div style="font-size:10px;color:var(--red);margin-top:2px">No one online has this file yet. It will keep trying. Click to retry</div></div>`; }
++  });
+ }
+ function migrateServers() {
+   S.servers.forEach(sv => {
 diff --git a/a/client/js/ws-handler.js b/b/client/js/ws-handler.js
-index c136df6..414d79a 100644
+index 414d79a..3a69316 100644
 --- a/a/client/js/ws-handler.js
 +++ b/b/client/js/ws-handler.js
-@@ -56,6 +56,7 @@ function handleIn(msg) {
-       dbg('← identified: backend sent ' + (msg.servers?.length||0) + ' server(s)', (msg.servers?.length ? 'ok' : 'warn'));
-       // FIX #9: Flush any messages that were queued while we were offline
-       checkServerProtocol(msg.protocol);
-+      try { nxDeviceReport(); } catch (_) {}
-       if (msg.user?.status) applyOwnStatus(msg.user.status);       // my status survives refreshes (server remembers it)
-       _lastPong = Date.now();
-       setTimeout(() => { if (S.curSv) requestMembers(S.curSv.id); }, 300); // events missed while disconnected
-@@ -214,6 +215,8 @@ function handleIn(msg) {
-       console.log('[nexus] server_create confirmed by relay:', msg.serverId);
-       dbg('✓ server saved to backend: ' + msg.serverId.slice(0,8), 'ok');
+@@ -151,6 +151,7 @@ function handleIn(msg) {
+       S.callStates = {}; if (typeof renderDMCallBanner === 'function') renderDMCallBanner();
+       _dmContactsLoading = true; renderDMs();
+       wsSend({ type: 'fetch_dm_contacts' });
++      nxfSyncSoon(4000);   // catch up on files I missed while offline
+       // Re-register owned servers the backend doesn't know about
+       // (only owners do this — members don't need to re-register joined servers)
+       {
+@@ -730,44 +731,17 @@ function handleIn(msg) {
+         S.messages[msg.channelId].sort((a,b) => a.ts - b.ts);
+         persist();
+         if (S.curCh?.id === msg.channelId) renderMsgs(msg.channelId);
+-        shortsOnMedia();
++        shortsOnMedia(); nxfSyncSoon(1500);
+       }
        break;
-+    case 'admin_alt_report': try { admAltData(msg); } catch (e) { console.warn(e); } break;
-+    case 'admin_alt_alert': try { admAltAlert(msg); } catch (e) { console.warn(e); } break;
-     case 'admin_accounts_list':
-       if (isSystemAdmin()) {
-         _adminAccounts = msg.accounts || [];
+     }
+-    case 'video_request': {
+-      // Someone wants a video we might have cached
+-      const { msgId, channelId: vrChId, requester } = msg;
+-      const ch = S.messages[vrChId];
+-      if (!ch) break;
+-      const srcMsg = ch.find(m => m.id === msgId);
+-      if (!srcMsg) break;
+-      const att = (srcMsg.attachments||[]).find(a => a.type === 'video' && a.url && a.url.startsWith('data:'));
+-      if (!att) break; // we don't have it either
+-      // Send it directly to the requester
+-      wsSend({ type: 'video_serve', msgId, channelId: vrChId, to: requester, url: att.url, name: att.name, size: att.size });
+-      break;
+-    }
++    case 'video_request': { nxfServe(msg); break; }   // the server picked me as the holder to ask
++    case 'video_none': { nxfDone(nxfKey(msg.msgId, msg.name), false); break; }   // nobody online has it
+     case 'video_serve': {
+-      // We got a video from a peer — inject it into the cached message
+-      const { msgId, channelId: vsChId, url, name, size: vsSize } = msg;
+-      // Ignore if we already received this video from another peer (duplicate serve)
+-      if (!_pendingVideoRequests.has(msgId)) break;
+-      _pendingVideoRequests.delete(msgId); // mark as fulfilled — ignore any more serves
+-      if (!S.messages[vsChId]) break;
+-      const tgtMsg = S.messages[vsChId].find(m => m.id === msgId);
+-      if (!tgtMsg) break;
+-      tgtMsg.attachments = (tgtMsg.attachments||[]).map(a =>
+-        (a._stripped && a.name === name) ? { ...a, url, _stripped: false } : a
+-      );
+-      // Don't persist() base64 video — localStorage quota killer
+-      // Update the DOM in-place for the video placeholder
+-      const vidEl = document.querySelector(`[data-id="${msgId}"] .vid-placeholder[data-name="${CSS.escape(name)}"]`);
+-      if (vidEl) {
+-        vidEl.outerHTML = `<div class="m-vid"><video controls><source src="${url}"></video></div>`;
+-      } else if (S.curCh?.id === vsChId) {
+-        renderMsgs(vsChId);
+-      }
+-      shortsOnMedia();
++      const { msgId, url, name } = msg, k = nxfKey(msgId, name);
++      if (!_pendingVideoRequests.has(k)) break;   // not asked for, or already fulfilled
++      if (typeof url !== 'string' || !url.startsWith('data:')) break;
++      nxfAccept(msgId, name, url, msg).then(ok => nxfDone(k, ok));
+       break;
+     }
+     case 'server_info': {

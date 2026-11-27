@@ -63,10 +63,10 @@ function renderMbs() {
       const canCtx=(myRole==='owner'||myRole==='mod')&&_nk(m.name)!==meKey;
       const statusBg=isOffline?'var(--t3)':(m.status==='idle'?'var(--yellow)':m.status==='dnd'?'var(--red)':m.status==='invisible'?'var(--t3)':'var(--green)');
       const offlineStyle=isOffline?'opacity:0.5;':'';
-      const rn=roleNameAttrs(sv,m.name);
+      const rn=roleNameAttrs(sv,m.name); const px=pfInline(m.name);
       html+=`<div class="mb-it" style="${offlineStyle}" onclick="openProfilePage('${esc(m.name)}')" oncontextmenu="${canCtx?`openMemberCtx('${esc(m.name)}',event)`:''}" onmouseenter="showUserHover('${esc(m.name)}',this)" onmouseleave="if(!event.relatedTarget?.closest('.user-hover-popup'))hideUserHover()" title="Click for profile${canCtx?' · Right-click for options':''}">
-        <div class="mb-av" data-name="${esc(m.name)}" style="background:${avBg}">${avContent}<div class="mb-st" style="background:${statusBg}"></div></div>
-        <div style="flex:1;min-width:0"><div class="mb-nm ${rn.cls}" data-name="${esc(m.name)}" style="${rn.style}">${esc(m.name)}</div></div>
+        <div class="mb-av ${px.fr}" data-name="${esc(m.name)}" style="background:${avBg};${px.frs}">${avContent}<div class="mb-st" style="background:${statusBg}"></div></div>
+        <div style="flex:1;min-width:0"><div class="mb-nm ${rn.cls} ${px.nf}" data-name="${esc(m.name)}" style="${rn.style};${px.nfs}">${esc(m.name)}</div></div>
         <div class="mb-role">${badge}</div>
       </div>`;
     });

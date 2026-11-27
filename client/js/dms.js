@@ -34,7 +34,7 @@ function normDM(d) {
 }
 // after loading cached data: old versions keyed things by display name
 function dmNormalizeState() {
-  S.dms = (S.dms || []).map(normDM);
+  S.dms = (S.dms || []).filter(d => !(d.kind === 'dm' && String(d.key || '').startsWith('g:'))).map(normDM);   // drop 1:1 ghosts named g:<id> cached by older builds
   const msgs = {};
   Object.entries(S.dmMessages || {}).forEach(([k, arr]) => { const nk = isGroupKey(k) ? k : dk(k); msgs[nk] = (msgs[nk] || []).concat(arr || []); });
   S.dmMessages = msgs;
@@ -46,6 +46,7 @@ function dmReset() {
 function dmWire(key) { return isGroupKey(key) ? { gid: key.slice(2) } : { to: dmEntry(key)?.name || key }; }
 function dmEnsure(name, pfp, color) {
   const key = dk(name); let d = dmEntry(key);
+  if (!d && isGroupKey(key)) { d = normDM({ kind: 'group', key, gid: key.slice(2), name: 'Group chat' }); S.dms.push(d); return d; }
   if (!d) { d = normDM({ kind: 'dm', key, name, pfp: pfp || null, color: color || null }); S.dms.push(d); }
   else { if (pfp) d.pfp = pfp; if (color) d.color = color; if (name && name !== d.name) d.name = name; }
   return d;
@@ -58,7 +59,11 @@ function dmShortTime(ts) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 const dmClock = ts => ts ? new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
-function dmDot(d) { return d.online ? (d.status || 'online') : 'off'; }
+function dmDot(d) { return d.online && d.status !== 'invisible' ? (d.status || 'online') : 'off'; }
+// "me" inside a group is always online with my own status, exactly like the server member list shows me
+function dmSelfFix(members) { const me = dk(S.user?.name); (members || []).forEach(m => { if (dk(m.name) === me) { m.online = true; m.status = S.user.status || 'online'; } }); }
+function dmSelfStatus() { S.dms.forEach(d => { if (d.kind === 'group') dmSelfFix(d.members); }); try { renderDMs(); if (curDM) { renderDMHeader(); renderDMInfo(); } } catch (_) {} }
+const dmMemDot = m => m.online && m.status !== 'invisible' ? (m.status || 'online') : 'off';
 function dmAv(d, cls = '') {
   if (d.kind === 'group') { const gu = safeUrl(d.pfp || ''); return `<div class="mb-av dm-gav ${cls}" style="background:${gu ? 'transparent' : esc(d.color || '#6c63ff')}">${gu ? `<img src="${gu}" alt="">` : esc((d.name || '?')[0].toUpperCase())}</div>`; }
   const url = safeUrl(d.pfp || profileCache[d.name]?.pfp || '');
@@ -154,12 +159,12 @@ function openDMChat(key) {
   key = isGroupKey(key) ? key : dk(key);
   let d = dmEntry(key);
   if (!d) {   // cache was cleared: stub it so the chat opens while history loads
-    d = dmEnsure(key); wsSend({ type: 'fetch_dm_history', with: key });
+    if (isGroupKey(key)) { d = normDM({ kind: 'group', key, gid: key.slice(2), name: 'Group chat' }); S.dms.push(d); wsSend({ type: 'fetch_dm_contacts' }); }   // never a 1:1 called "g:<id>"
+    else { d = dmEnsure(key); wsSend({ type: 'fetch_dm_history', with: key }); }
   }
-  if (curDM && curDM !== key) dmLeave();
-  curDM = key; d.unread = 0; DMX.search = ''; DMX.snapshot[key] = S.dmMyRead[key];   // unread line uses what I'd read BEFORE opening
+  hideAll();   // leaves the server / previous chat first (this also clears curDM), so it must come BEFORE curDM = key
+  curDM = key; try { renderSvs(); } catch (_) {} d.unread = 0; DMX.search = ''; DMX.snapshot[key] = S.dmMyRead[key];   // unread line uses what I'd read BEFORE opening
   if (d.prefs.hidden) { d.prefs.hidden = false; wsSend({ type: 'dm_prefs_set', conv: d.kind === 'group' ? key : d.name, prefs: { hidden: false } }); }
-  hideAll();
   document.getElementById('dm-chat').classList.add('show');
   document.getElementById('ch-hd').style.display = 'none';
   document.getElementById('sidebar').style.display = 'none';
@@ -188,7 +193,7 @@ function closeDMChat() {
 
 // ── header, info panel, banner ──
 function dmSubtitle(d) {
-  if (d.kind === 'group') { const on = d.members.filter(m => m.online).length; return `${d.members.length} members · ${on} online`; }
+  if (d.kind === 'group') { const on = d.members.filter(m => m.online && m.status !== 'invisible').length; return `${d.members.length} members · ${on} online`; }
   if (d.online) return ({ online: 'Online', idle: 'Idle', dnd: 'Do Not Disturb' }[d.status] || 'Online');
   return d.lastSeen ? 'Offline · last seen ' + timeAgo(d.lastSeen) : 'Offline';
 }
@@ -259,7 +264,7 @@ function renderDMInfo() {
       ${[...d.members].sort((a, b) => (dk(b.name) === dk(d.owner)) - (dk(a.name) === dk(d.owner)) || b.online - a.online || a.name.localeCompare(b.name)).map(m => {
         const url = safeUrl(m.pfp || profileCache[m.name]?.pfp || ''); const you = dk(m.name) === me;
         return `<div class="di-mem" data-name="${esc(m.name)}" onclick="openProfilePage(this.dataset.name)">
-          <div class="mb-av" style="background:${url ? 'transparent' : esc(m.color || COLORS[hash(m.name) % COLORS.length])}">${url ? `<img src="${url}" alt="">` : esc(m.name[0].toUpperCase())}<span class="dm-dot ${m.online ? (m.status || 'online') : 'off'}"></span></div>
+          <div class="mb-av" style="background:${url ? 'transparent' : esc(m.color || COLORS[hash(m.name) % COLORS.length])}">${url ? `<img src="${url}" alt="">` : esc(m.name[0].toUpperCase())}<span class="dm-dot ${dmMemDot(m)}"></span></div>
           <div class="di-mem-n">${esc(m.name)}${you ? ' <span class="di-tag">you</span>' : ''}${dk(m.name) === dk(d.owner) ? ' <span class="di-tag own">owner</span>' : ''}</div>
           ${isOwner && !you ? `<button class="fv-act danger di-rm" title="Remove from group" onclick="event.stopPropagation();dmRemoveMember(this.closest('.di-mem').dataset.name)">${FV_ICON.x}</button>` : ''}</div>`; }).join('')}
       ${toggles}
@@ -326,6 +331,7 @@ function renderDMMessages(key) {
   });
   el.innerHTML = parts.join('');
   if (nearBottom) el.scrollTop = el.scrollHeight;
+  try { nxfHydrate(); } catch (_) {}
 }
 function dmToggleSearch() {
   const bar = document.getElementById('dm-search-bar'); if (!bar) return;
@@ -501,6 +507,7 @@ function recvDMContacts(msg) {
   _dmContactsLoading = false;
   if (msg.settings) S.userSettings = { ...S.userSettings, ...msg.settings };
   (msg.contacts || []).forEach(c => {
+    if (!c || !c.name || isGroupKey(dk(c.name))) return;
     (profileCache[c.name] = profileCache[c.name] || { name: c.name }); if (c.pfp !== undefined) profileCache[c.name].pfp = c.pfp || null;
     const d = dmEnsure(c.name, c.pfp, c.color);
     d.last = c.last || d.last; d.lastTs = Math.max(d.lastTs || 0, c.lastTs || 0);
@@ -514,7 +521,10 @@ function recvDMContacts(msg) {
     Object.assign(d, { name: g.name, color: g.color, owner: g.owner, members: g.members, pfp: g.pfp || null, last: g.last || d.last, lastTs: Math.max(d.lastTs || 0, g.lastTs || 0), unread: g.unread || 0, prefs: { muted: g.prefs?.muted || false, pinned: !!g.prefs?.pinned, hidden: !!g.prefs?.hidden } });
     g.members.forEach(m => { (profileCache[m.name] = profileCache[m.name] || { name: m.name }); if (m.pfp !== undefined) profileCache[m.name].pfp = m.pfp; if (m.color) profileCache[m.name].color = m.color; });
   });
-  S.dms = S.dms.filter(d => d.kind !== 'group' || serverGroups.has(d.key));   // groups I'm no longer in
+  // Only a message that actually CARRIES a groups list may prune groups. (A contacts message without one used to wipe every group
+  // the creator had: the creator got the group live, so nothing replayed it after the wipe.)
+  if (Array.isArray(msg.groups)) S.dms = S.dms.filter(d => d.kind !== 'group' || serverGroups.has(d.key));   // groups I'm no longer in
+  S.dms.forEach(d => { if (d.kind === 'group') dmSelfFix(d.members); });
   persist(); renderDMs(); if (curDM) { renderDMHeader(); renderDMInfo(); }
 }
 // ── presence / profile updates reach conversations too ──
@@ -534,7 +544,9 @@ function groupApply(g) {
   const key = 'g:' + g.id;
   let d = dmEntry(key);
   if (!d) { d = normDM({ kind: 'group', key, gid: g.id, name: g.name }); S.dms.push(d); }
+  if (d.kind !== 'group') { d.kind = 'group'; d.gid = g.id; d.key = key; }   // repairs a stub that was created as a 1:1
   Object.assign(d, { name: g.name, color: g.color, pfp: g.pfp || null, owner: g.owner, members: g.members });
+  dmSelfFix(d.members);
   g.members.forEach(m => { (profileCache[m.name] = profileCache[m.name] || { name: m.name }); if (m.pfp !== undefined) profileCache[m.name].pfp = m.pfp; if (m.color) profileCache[m.name].color = m.color; });
   return d;
 }

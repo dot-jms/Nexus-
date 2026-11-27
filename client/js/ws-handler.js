@@ -151,6 +151,7 @@ function handleIn(msg) {
       S.callStates = {}; if (typeof renderDMCallBanner === 'function') renderDMCallBanner();
       _dmContactsLoading = true; renderDMs();
       wsSend({ type: 'fetch_dm_contacts' });
+      nxfSyncSoon(4000);   // catch up on files I missed while offline
       // Re-register owned servers the backend doesn't know about
       // (only owners do this — members don't need to re-register joined servers)
       {
@@ -730,44 +731,17 @@ function handleIn(msg) {
         S.messages[msg.channelId].sort((a,b) => a.ts - b.ts);
         persist();
         if (S.curCh?.id === msg.channelId) renderMsgs(msg.channelId);
-        shortsOnMedia();
+        shortsOnMedia(); nxfSyncSoon(1500);
       }
       break;
     }
-    case 'video_request': {
-      // Someone wants a video we might have cached
-      const { msgId, channelId: vrChId, requester } = msg;
-      const ch = S.messages[vrChId];
-      if (!ch) break;
-      const srcMsg = ch.find(m => m.id === msgId);
-      if (!srcMsg) break;
-      const att = (srcMsg.attachments||[]).find(a => a.type === 'video' && a.url && a.url.startsWith('data:'));
-      if (!att) break; // we don't have it either
-      // Send it directly to the requester
-      wsSend({ type: 'video_serve', msgId, channelId: vrChId, to: requester, url: att.url, name: att.name, size: att.size });
-      break;
-    }
+    case 'video_request': { nxfServe(msg); break; }   // the server picked me as the holder to ask
+    case 'video_none': { nxfDone(nxfKey(msg.msgId, msg.name), false); break; }   // nobody online has it
     case 'video_serve': {
-      // We got a video from a peer — inject it into the cached message
-      const { msgId, channelId: vsChId, url, name, size: vsSize } = msg;
-      // Ignore if we already received this video from another peer (duplicate serve)
-      if (!_pendingVideoRequests.has(msgId)) break;
-      _pendingVideoRequests.delete(msgId); // mark as fulfilled — ignore any more serves
-      if (!S.messages[vsChId]) break;
-      const tgtMsg = S.messages[vsChId].find(m => m.id === msgId);
-      if (!tgtMsg) break;
-      tgtMsg.attachments = (tgtMsg.attachments||[]).map(a =>
-        (a._stripped && a.name === name) ? { ...a, url, _stripped: false } : a
-      );
-      // Don't persist() base64 video — localStorage quota killer
-      // Update the DOM in-place for the video placeholder
-      const vidEl = document.querySelector(`[data-id="${msgId}"] .vid-placeholder[data-name="${CSS.escape(name)}"]`);
-      if (vidEl) {
-        vidEl.outerHTML = `<div class="m-vid"><video controls><source src="${url}"></video></div>`;
-      } else if (S.curCh?.id === vsChId) {
-        renderMsgs(vsChId);
-      }
-      shortsOnMedia();
+      const { msgId, url, name } = msg, k = nxfKey(msgId, name);
+      if (!_pendingVideoRequests.has(k)) break;   // not asked for, or already fulfilled
+      if (typeof url !== 'string' || !url.startsWith('data:')) break;
+      nxfAccept(msgId, name, url, msg).then(ok => nxfDone(k, ok));
       break;
     }
     case 'server_info': {

@@ -75,7 +75,8 @@ async function onFiles(e) {
     }
 
     loadEl.remove();
-    S.files.push({ name: f.name, size: f.size, url, mt });
+    const _fo = { name: f.name, size: f.size, url, mt }; S.files.push(_fo);
+    nxfHash(url).then(h => { if (h) _fo.hash = h; });   // peers verify what they receive against this
     renderPrev(); updSnd();
   }
 }

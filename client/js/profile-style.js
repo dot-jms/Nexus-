@@ -129,27 +129,39 @@ function pfStyleFor(name) { // who is this, may they have a frame / name effect,
 function pfSetVars(el, css) { String(css || '').split(';').forEach(kv => { const i = kv.indexOf(':'); if (i > 0) el.style.setProperty(kv.slice(0, i).trim(), kv.slice(i + 1).trim()); }); }
 // Puts the frame on every avatar and the name effect on every name that is on screen (chat, member list).
 // Idempotent, so it is simply re-run whenever those lists change (see the observer below) or profiles arrive.
+function pfApplyCls(el, prefix, cls, css, vars) {   // only touches the element when something really differs (no flicker)
+  const cur = [...el.classList].filter(c => c.indexOf(prefix) === 0);
+  const want = {}; String(css || '').split(';').forEach(kv => { const k = kv.indexOf(':'); if (k > 0) want[kv.slice(0, k).trim()] = kv.slice(k + 1).trim(); });
+  const same = cur.length === (cls ? 1 : 0) && (!cls || cur[0] === cls) && vars.every(v => (el.style.getPropertyValue(v) || '') === (want[v] || ''));
+  if (same) return;
+  cur.forEach(c => el.classList.remove(c)); vars.forEach(v => el.style.removeProperty(v));
+  if (cls) { el.classList.add(cls); pfSetVars(el, css); }
+}
+// the same look as inline markup, so buildMsg / renderMbs can paint it in the very first frame
+function pfInline(name) {
+  const none = { fr: '', frs: '', nf: '', nfs: '' };
+  try {
+    const s = pfStyleFor(name); if (!s.ok) return none;
+    const f = pfFrameAttrs(s.ext, s.color, true), n = pfNameAttrs(s.ext, true);
+    return { fr: f.cls, frs: f.style, nf: n.cls, nfs: n.style };
+  } catch (_) { return none; }
+}
 function pfDecorate() {
   document.querySelectorAll('.m-av[data-author], .mb-av[data-name]').forEach(el => {
     const s = pfStyleFor(el.dataset.author || el.dataset.name);
-    [...el.classList].filter(c => c.indexOf('fr-') === 0).forEach(c => el.classList.remove(c));
-    ['--fr1', '--fr2', '--av-in'].forEach(v => el.style.removeProperty(v));
-    if (!s.ok) return;
-    const a = pfFrameAttrs(s.ext, s.color, true); if (!a.cls) return;
-    el.classList.add(a.cls); pfSetVars(el, a.style);
+    const a = s.ok ? pfFrameAttrs(s.ext, s.color, true) : { cls: '', style: '' };
+    pfApplyCls(el, 'fr-', a.cls, a.style, ['--fr1', '--fr2', '--av-in']);
   });
   document.querySelectorAll('.m-auth[data-author], .mb-nm[data-name]').forEach(el => {
     const s = pfStyleFor(el.dataset.author || el.dataset.name);
-    [...el.classList].filter(c => c.indexOf('nf-') === 0).forEach(c => el.classList.remove(c));
-    ['--nf1', '--nf2'].forEach(v => el.style.removeProperty(v));
-    if (!s.ok) return;
-    const a = pfNameAttrs(s.ext, true); if (!a.cls) return; // no personal effect: the role's own look (if any) stays
-    el.classList.add(a.cls); pfSetVars(el, a.style);
+    const a = s.ok ? pfNameAttrs(s.ext, true) : { cls: '', style: '' };   // no personal effect: the role's own look (if any) stays
+    pfApplyCls(el, 'nf-', a.cls, a.style, ['--nf1', '--nf2']);
   });
 }
 (function () {
-  let t = 0; const run = () => { t = 0; try { pfDecorate(); } catch (e) { console.error(e); } };
-  const arm = () => { if (typeof MutationObserver === 'undefined') return; const mo = new MutationObserver(() => { if (!t) t = (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : setTimeout)(run); });
-    ['msgs', 'members'].forEach(id => { const el = document.getElementById(id); if (el) mo.observe(el, { childList: true, subtree: true }); }); };
+  let t = false; const run = () => { t = false; try { pfDecorate(); } catch (e) { console.error(e); } };
+  // a MutationObserver callback runs as a microtask, BEFORE the browser paints: decorate right there (no requestAnimationFrame gap)
+  const arm = () => { if (typeof MutationObserver === 'undefined') return; const mo = new MutationObserver(() => { if (!t) { t = true; (typeof queueMicrotask === 'function' ? queueMicrotask : (f => Promise.resolve().then(f)))(run); } });
+    ['msgs', 'dm-msgs', 'members'].forEach(id => { const el = document.getElementById(id); if (el) mo.observe(el, { childList: true, subtree: true }); }); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm); else arm();
 })();

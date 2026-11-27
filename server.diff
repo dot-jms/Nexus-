@@ -1,158 +1,139 @@
-diff --git a/a/server/deno.json b/a/server/deno.json
-deleted file mode 100644
-index c0401f7..0000000
---- a/a/server/deno.json
-+++ /dev/null
-@@ -1,3 +0,0 @@
--{
--  "unstable": ["kv"]
--}
 diff --git a/a/server/main.ts b/b/server/main.ts
-index b00592c..0990832 100644
+index 0990832..5d43d77 100644
 --- a/a/server/main.ts
 +++ b/b/server/main.ts
-@@ -131,6 +131,97 @@ function withLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
-   next.finally(() => { if (_locks.get(key) === next) _locks.delete(key); }).catch(() => {});
-   return next;
+@@ -257,6 +257,37 @@ function broadcastToServer(serverId: string, data: unknown, exclude: WebSocket |
+   }
  }
-+// ══ ALT / SAME-DEVICE DETECTION ═══════════════════════════════════════════
-+// Never uses IPs (VPN-proof). The client sends: random device ids (kept in localStorage + cookie + IndexedDB) and two
-+// hashed hardware fingerprints (fp = this browser on this machine, hw = the machine whichever browser). One KV record
-+// per account: ["devices", lowername]. Every connect re-reports, so accounts made BEFORE this feature get scanned the next
-+// time they log in. Matching is computed on demand (cached 20 s) from those records; nothing else is written.
-+type DevRec = { ids: string[]; fp: string[]; hw: string[]; first: number; last: number };
-+const DEV_HEX = /^[0-9a-f]{16,64}$/;
-+const altAlerted = new Set<string>();
-+let altCache: { at: number; rep: Record<string, unknown> } | null = null;
-+function cleanDev(raw: unknown): { ids: string[]; fp: string[]; hw: string[] } {
-+  const d = (raw && typeof raw === "object") ? raw as Record<string, unknown> : {};
-+  const L = (v: unknown, max: number) => (Array.isArray(v) ? v : []).filter((x): x is string => typeof x === "string" && DEV_HEX.test(x)).slice(0, max);
-+  return { ids: L(d.ids, 6), fp: L(d.fp, 3), hw: L(d.hw, 3) };
+ 
++// ─── P2P file relay ─────────────────────────────────────────────────────────
++// The server never stores big attachments. Someone who is missing one asks; the server picks ONE online holder candidate
++// (the least busy, random among equals), asks only that person, and moves to the next candidate if they miss or stay silent.
++type FileReq = { rid: string; requester: string; base: Record<string, unknown>; cands: string[]; tried: number; holder: string; timer: ReturnType<typeof setTimeout> | 0 };
++const fileReqs = new Map<string, FileReq>();
++const fileBusy = new Map<string, number>();   // holder (lowercase) -> transfers in flight
++function fileReqFree(fr: FileReq) {
++  if (fr.timer) clearTimeout(fr.timer);
++  if (fr.holder) { fileBusy.set(fr.holder, Math.max(0, (fileBusy.get(fr.holder) || 0) - 1)); fr.holder = ""; }
 +}
-+async function recordDevice(userLower: string, raw: unknown): Promise<boolean> {
-+  const d = cleanDev(raw);
-+  if (!userLower || (!d.ids.length && !d.fp.length && !d.hw.length)) return false;
-+  const key = ["devices", userLower];
-+  const now = Date.now();
-+  const cur: DevRec = (await kv.get<DevRec>(key)).value || { ids: [], fp: [], hw: [], first: now, last: 0 };
-+  let changed = false;
-+  const merge = (a: string[], b: string[], max: number) => {
-+    for (const x of b) if (!a.includes(x)) { a.push(x); changed = true; }
-+    while (a.length > max) a.shift();
-+  };
-+  merge(cur.ids, d.ids, 8); merge(cur.fp, d.fp, 6); merge(cur.hw, d.hw, 6);
-+  if (!changed && now - cur.last < 6 * 3600_000) return false; // nothing new: no write (saves KV usage)
-+  cur.last = now;
-+  await safeKvSet(key, cur);
-+  if (changed) { altCache = null; void altNotify(userLower).catch(() => {}); }
-+  return changed;
-+}
-+const ALT_RANK: Record<string, number> = { certain: 3, likely: 2, possible: 1 };
-+async function buildAltReport(): Promise<Record<string, unknown>> {
-+  if (altCache && Date.now() - altCache.at < 20_000) return altCache.rep;
-+  const recs = new Map<string, DevRec>();
-+  for await (const it of kv.list<DevRec>({ prefix: ["devices"] })) if (it.value) recs.set(String(it.key[1]), it.value);
-+  const names = new Map<string, string>(); // lower -> display
-+  for await (const it of kv.list<Record<string, unknown>>({ prefix: ["accounts"] })) if (it.value?.name) names.set(String(it.key[1]), String(it.value.name));
-+  const idx = (field: "ids" | "fp" | "hw") => {
-+    const m = new Map<string, Set<string>>();
-+    for (const [u, r] of recs) for (const v of r[field]) { if (!m.has(v)) m.set(v, new Set()); m.get(v)!.add(u); }
-+    return m;
-+  };
-+  const byId = idx("ids"), byFp = idx("fp"), byHw = idx("hw");
-+  const pairs = new Map<string, { a: string; b: string; level: string; why: Set<string> }>();
-+  const bump = (a: string, b: string, level: string, why: string) => {
-+    const k = a < b ? a + "\u0000" + b : b + "\u0000" + a;
-+    const p = pairs.get(k) || { a: a < b ? a : b, b: a < b ? b : a, level: "possible", why: new Set<string>() };
-+    if (ALT_RANK[level] > ALT_RANK[p.level] || !pairs.has(k)) p.level = ALT_RANK[level] > ALT_RANK[p.level] ? level : p.level;
-+    p.why.add(why); pairs.set(k, p);
-+  };
-+  const each = (m: Map<string, Set<string>>, f: (us: string[], size: number) => void) => { for (const s of m.values()) if (s.size > 1) f([...s], s.size); };
-+  const mesh = (us: string[], level: string, why: string) => { for (let i = 0; i < us.length; i++) for (let j = i + 1; j < us.length; j++) bump(us[i], us[j], level, why); };
-+  each(byId, (us) => mesh(us, "certain", "Same device id (same browser profile / device storage)"));
-+  // identical hardware models (school Chromebooks, same phone model) share fingerprints: big groups are downgraded, huge ones ignored
-+  each(byFp, (us, n) => { if (n <= 12) mesh(us, n <= 3 ? "likely" : "possible", n <= 3 ? "Same browser fingerprint (GPU, canvas, audio, screen, fonts)" : `Same browser fingerprint, but ${n} accounts share it (common hardware)`); });
-+  each(byHw, (us, n) => { if (n <= 3) mesh(us, "possible", "Same hardware profile (maybe a different browser on one machine)"); });
-+  const disp = (u: string) => names.get(u) || u;
-+  const links = [...pairs.values()].map((p) => ({ a: disp(p.a), b: disp(p.b), level: p.level, why: [...p.why] }));
-+  // clusters (union-find over all links)
-+  const par = new Map<string, string>(); const find = (x: string): string => { while ((par.get(x) ?? x) !== x) x = par.get(x)!; return x; };
-+  for (const p of pairs.values()) { par.set(find(p.a), find(p.b)); }
-+  const groups = new Map<string, Set<string>>();
-+  for (const p of pairs.values()) for (const u of [p.a, p.b]) { const r = find(u); if (!groups.has(r)) groups.set(r, new Set()); groups.get(r)!.add(u); }
-+  const clusters = [...groups.values()].map((s) => {
-+    const mem = [...s]; let best = "possible";
-+    for (const p of pairs.values()) if (s.has(p.a) && s.has(p.b) && ALT_RANK[p.level] > ALT_RANK[best]) best = p.level;
-+    return { level: best, members: mem.map((u) => ({ name: disp(u), last: recs.get(u)?.last || 0 })) };
-+  }).sort((x, y) => ALT_RANK[y.level] - ALT_RANK[x.level] || y.members.length - x.members.length);
-+  const unscanned = [...names.keys()].filter((u) => !recs.has(u)).map(disp).slice(0, 300);
-+  const rep = { clusters, links, unscanned, scanned: recs.size, total: names.size, at: Date.now() };
-+  altCache = { at: Date.now(), rep };
-+  return rep;
-+}
-+// new link found -> tell online admins + audit log (once per pair per server instance)
-+async function altNotify(userLower: string) {
-+  const rep = await buildAltReport() as { links: { a: string; b: string; level: string }[] };
-+  const mine = rep.links.filter((l) => l.a.toLowerCase() === userLower || l.b.toLowerCase() === userLower);
-+  for (const l of mine) {
-+    const k = [l.a, l.b].map((x) => x.toLowerCase()).sort().join("|") + "|" + l.level;
-+    if (altAlerted.has(k)) continue; altAlerted.add(k);
-+    const other = l.a.toLowerCase() === userLower ? l.b : l.a;
-+    const me = l.a.toLowerCase() === userLower ? l.a : l.b;
-+    await auditLog("alt_detected", "system", { account: me, linkedTo: other, level: l.level });
-+    for (const [sock, ci] of clients) {
-+      if ((ci.systemRole === "admin" || ci.coAdmin === true) && sock.readyState === WebSocket.OPEN) sock.send(JSON.stringify({ type: "admin_alt_alert", name: me, other, level: l.level }));
-+    }
++function fileReqNext(fr: FileReq) {
++  fileReqFree(fr);
++  while (fr.cands.length && fr.tried < 4) {
++    const next = fr.cands.shift()!; fr.tried++;
++    if (!sendToUser(next, { ...fr.base, rid: fr.rid }, false)) continue;   // not reachable right now
++    fr.holder = next; fileBusy.set(next, (fileBusy.get(next) || 0) + 1);
++    fr.timer = setTimeout(() => fileReqNext(fr), 15000);
++    return;
 +  }
++  fileReqs.delete(fr.rid);
++  sendToUser(fr.requester, { type: "video_none", msgId: fr.base.msgId, name: fr.base.name }, false);
++}
++function fileReqStart(requesterLower: string, requesterName: string, base: Record<string, unknown>, cands: string[]) {
++  for (const f of fileReqs.values()) if (f.requester.toLowerCase() === requesterLower && f.base.msgId === base.msgId && f.base.name === base.name) return;   // already being fetched
++  if (fileReqs.size > 400) { const first = fileReqs.values().next().value; if (first) { fileReqFree(first); fileReqs.delete(first.rid); } }
++  const list = [...new Set(cands)].filter((c) => c !== requesterLower).sort(() => Math.random() - 0.5);
++  list.sort((a, b) => (fileBusy.get(a) || 0) - (fileBusy.get(b) || 0));
++  const fr: FileReq = { rid: newId(), requester: requesterName, base, cands: list, tried: 0, holder: "", timer: 0 };
++  fileReqs.set(fr.rid, fr); fileReqNext(fr);
 +}
 +
- const SERVER_RECORD_WRITERS = new Set([
-   "channel_add", "channel_update", "channel_remove", "roles_update", "role_assign", "server_update",
-   "server_create", "server_delete", "join_server", "leave_server", "kick_member",
-@@ -1300,6 +1391,8 @@ Deno.serve((req) => {
-     // ── identify ──────────────────────────────────────────────────────────
-     if (msg.type === "identify") {
-       const key = ["accounts", tokenUser];
-+      // alt detection: record device signals (fire-and-forget; skipped for admin "be someone" sessions)
-+      if (msg.dev && !assumeTokens.has(msg.token as string)) recordDevice(tokenUser, msg.dev).catch(() => {});
- 
-       // Banned users with a still-valid token must not slip back in
-       if (isBanned(tokenUser)) {
-@@ -3549,6 +3642,11 @@ Deno.serve((req) => {
-           }
-           console.log(`[rename] migrated friends + friend requests ${targetLower} → ${newNameLower}`);
+ function sendToUser(name: string, data: unknown, queue = true): boolean {
+   // BUG 4 FIX: offline queue used mixed-case names as keys, causing misses on flush.
+   // Normalize to lowercase so sendToUser("Alice") and offline.get("alice") always match.
+@@ -1632,33 +1663,8 @@ Deno.serve((req) => {
+           ws.send(JSON.stringify({ type: "account_frozen", reason: fz.reason, by: fz.by }));
          }
-+        // 6e. alt-detection device record is keyed by name too
-+        {
-+          const dv = (await kv.get<DevRec>(["devices", targetLower])).value;
-+          if (dv) { await safeKvSet(["devices", newNameLower], dv); await kv.delete(["devices", targetLower]); altCache = null; }
+ 
+-        // Send DM contacts so the client can restore its DM sidebar even after a cache clear.
+-        // Scan all dm_history keys that include this user and return the other party's info.
+-        {
+-          const dmContactsMap = new Map<string, { name: string; lastTs: number; last: string; pfp: string | null }>();
+-          const dmScanIter = kv.list<unknown[]>({ prefix: ["dm_history"] });
+-          for await (const item of dmScanIter) {
+-            const keyStr = item.key[1] as string;
+-            const parts = keyStr.split(":");
+-            if (!parts.some(p => p === tokenUser)) continue;
+-            const otherLower = parts.find(p => p !== tokenUser) || "";
+-            if (!otherLower || dmContactsMap.has(otherLower)) continue;
+-            const msgs = item.value || [];
+-            const last = msgs[msgs.length - 1] as Record<string, unknown> | undefined;
+-            const otherAcct = await kv.get<Record<string, unknown>>(["accounts", otherLower]);
+-            const displayName = (otherAcct.value?.name as string) || otherLower;
+-            dmContactsMap.set(otherLower, {
+-              name: displayName,
+-              lastTs: (last?._stored as number || last?.ts as number || 0),
+-              last: (last?.text as string || (Array.isArray((last as Record<string,unknown>)?.attachments) ? "[attachment]" : "")),
+-              pfp: safePfp(otherAcct.value?.pfp),
+-            });
+-          }
+-          if (dmContactsMap.size > 0) {
+-            const contacts = [...dmContactsMap.values()].sort((a, b) => b.lastTs - a.lastTs);
+-            ws.send(JSON.stringify({ type: "dm_contacts", contacts }));
+-          }
+-        }
++        // (The old login-time scan of every dm_history key was removed: the client asks with fetch_dm_contacts, which sends DMs AND
++        //  groups. The old message had no groups list and made clients forget the groups they created, and it cost a full KV scan per login.)
+       }
+ 
+       // Flush queued offline messages
+@@ -2193,26 +2199,46 @@ Deno.serve((req) => {
+       }
+ 
+       case "video_request": {
+-        // Broadcast only to server members — anyone who has this video cached will respond
+-        const vrServerId = msg.serverId as string;
+-        if (vrServerId) {
+-          broadcastToServer(vrServerId, msg, ws);
+-        } else {
+-          broadcast(msg, ws); // fallback for old messages without serverId
++        const vrMe = senderName.toLowerCase();
++        const vrId = String(msg.msgId || "").slice(0, 80), vrName = String(msg.name || "").slice(0, 200);
++        if (!vrId) break;
++        const base: Record<string, unknown> = { type: "video_request", msgId: vrId, name: vrName, requester: senderName, channelId: typeof msg.channelId === "string" ? msg.channelId.slice(0, 80) : undefined };
++        let cands: string[] = [];
++        if (typeof msg.gid === "string") {             // group chat: members only
++          const g = await getGroup(msg.gid);
++          if (g && (g.members as string[]).includes(vrMe)) cands = (g.members as string[]).filter((l) => l !== vrMe && socketsOf(l).length > 0);
++        } else if (msg.dm === true && typeof msg.with === "string" && msg.with.length <= 64) {   // 1:1 DM: the other person only
++          const o = msg.with.toLowerCase(); if (socketsOf(o).length > 0) cands = [o];
++        } else if (typeof msg.serverId === "string" && msg.serverId) {   // server: members of that server who are online
++          const sid = msg.serverId;
++          if ((info.serverIds as Set<string> | undefined)?.has(sid) || isPowerUser) {
++            for (const [w, ci] of clients) if (w.readyState === WebSocket.OPEN && (ci.serverIds as Set<string> | undefined)?.has(sid)) cands.push(String(ci.name || "").toLowerCase());
++          }
+         }
++        if (cands.length) fileReqStart(vrMe, senderName, base, cands);
++        else sendToUser(senderName, { type: "video_none", msgId: vrId, name: vrName }, false);
++        break;
++      }
++      case "video_miss": {   // the asked holder does not have the file: try the next candidate
++        const fr = fileReqs.get(String(msg.rid || ""));
++        if (fr && fr.holder === senderName.toLowerCase()) fileReqNext(fr);
+         break;
+       }
+       case "video_serve": {
+-        // BUG 3 FIX: msg.to is user-controlled. A malicious client could target any
+-        // username and flood their offline queue with large video payloads (DoS).
+-        // Validate: sender must have the video in their own message history context,
+-        // and the payload must be a plausible video URL (data: or https:).
++        const rid = typeof msg.rid === "string" ? msg.rid : "";
++        const fr = rid ? fileReqs.get(rid) : undefined;
++        const out: Record<string, unknown> = { ...(msg as Record<string, unknown>) };
++        delete out.token; delete out.rid;
++        if (fr) {   // answer to a request the server routed: only the chosen holder may answer, and it goes to the requester only
++          if (fr.holder !== senderName.toLowerCase()) break;
++          fileReqFree(fr); fileReqs.delete(rid);
++          sendToUser(fr.requester, out, false);
++          break;
 +        }
-         // 6d. profile style + banner (protocol 7) is keyed by name too
-         {
-           const pe = (await kv.get<Record<string, unknown>>(["profile_ext", targetLower])).value;
-@@ -3594,6 +3692,17 @@ Deno.serve((req) => {
++        // older clients answer without a rid
+         const serveTarget = msg.to as string;
+-        const serveUrl = msg.url as string || "";
+         if (!serveTarget || typeof serveTarget !== "string" || serveTarget.length > 64) break;
+-        // Strip the actual video data from what we re-broadcast — only metadata needed to route.
+-        // The actual data URL stays in the direct send only, not in any queue.
+-        sendToUser(serveTarget, msg, false); // false = don't queue large video payloads
++        sendToUser(serveTarget, out, false); // false = don't queue large payloads
          break;
        }
  
-+      case "device_report": {
-+        if (!assumeTokens.has(info.token as string)) await recordDevice(senderName.toLowerCase(), msg.dev);
-+        break;
-+      }
-+
-+      case "admin_alt_report": {
-+        if (!isPowerUser) { ws.send(JSON.stringify({ type: "error", message: "No permission." })); break; }
-+        ws.send(JSON.stringify({ type: "admin_alt_report", ...(await buildAltReport()) }));
-+        break;
-+      }
-+
-       case "admin_list_accounts": {
-         if (!isPowerUser) { ws.send(JSON.stringify({ type: "error", message: "No permission." })); break; }
-         const acctIter2 = kv.list<Record<string, unknown>>({ prefix: ["accounts"] });
-@@ -4173,6 +4282,7 @@ Deno.serve((req) => {
-         // 1. Delete account
-         await kv.delete(["accounts", nukeTarget]);
-         await kv.delete(["profile_ext", nukeTarget]);
-+        await kv.delete(["devices", nukeTarget]); altCache = null;
- 
-         // 2. Delete all sessions
-         const nukeSessIter = kv.list<string>({ prefix: ["sessions"] });

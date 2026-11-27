@@ -574,20 +574,18 @@ function autoRequestStrippedVideos(chId) {
   }, 600); // slight delay so DOM is settled
 }
 
-function requestVideo(msgId, channelId, name) {
-  const el = document.querySelector(`[data-msg-id="${msgId}"].vid-placeholder`);
-  if (el) {
-    el.innerHTML = `<span style="font-size:20px;animation:blink 1s infinite">⏳</span><div style="font-size:12px;color:var(--t3);margin-left:8px">Requesting from peers…</div>`;
-  }
-  // Track this as pending so we ignore duplicate serves
-  _pendingVideoRequests.add(msgId);
-  wsSend({ type: 'video_request', msgId, channelId, requester: S.user.name, serverId: S.curSv?.id });
-  // If nobody responds in 8s, show error
-  setTimeout(() => {
-    _pendingVideoRequests.delete(msgId);
-    const still = document.querySelector(`[data-msg-id="${msgId}"].vid-placeholder`);
-    if (still) still.innerHTML = `<span style="font-size:20px">🎬</span><div style="margin-left:10px"><div style="font-size:12px;font-weight:700;color:var(--t2)">${esc(name)}</div><div style="font-size:10px;color:var(--red);margin-top:2px">No one online has this video cached</div></div>`;
-  }, 8000);
+function requestVideo(msgId, channelId, name, force) {   // click / render path: same machinery as the background sync
+  const k = nxfKey(msgId, name), now = Date.now();
+  if (!force && NXF.asked[k] && now - NXF.asked[k] < 20000) return;
+  NXF.asked[k] = now;
+  const find = () => [...document.querySelectorAll(`[data-msg-id="${msgId}"].vid-placeholder`)].find(e => (e.dataset.name || '') === (name || ''));
+  const el = find();
+  if (el) el.innerHTML = `<span style="font-size:20px;animation:blink 1s infinite">⏳</span><div style="font-size:12px;color:var(--t3);margin-left:8px">Requesting from peers…</div>`;
+  nxfAsk(msgId, name).then(ok => {
+    if (ok) return;   // nxfApply already swapped the placeholder
+    const still = find();
+    if (still) { still.dataset.nxf = ''; still.innerHTML = `<span style="font-size:20px">📎</span><div style="margin-left:10px"><div style="font-size:12px;font-weight:700;color:var(--t2)">${esc(name)}</div><div style="font-size:10px;color:var(--red);margin-top:2px">No one online has this file yet. It will keep trying. Click to retry</div></div>`; }
+  });
 }
 function migrateServers() {
   S.servers.forEach(sv => {

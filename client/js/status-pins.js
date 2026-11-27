@@ -8,7 +8,7 @@ function toggleStatusMenu(e) {
 // Show a status on my own avatar dot (no message sent). The server remembers it, so it survives a refresh.
 function applyOwnStatus(s) {
   if (!s) return;
-  S.user.status = s;
+  S.user.status = s; if (typeof dmSelfStatus === 'function') dmSelfStatus();
   const dot = document.getElementById('u-dot');
   if (dot) dot.className = 'u-dot' + (s === 'online' ? '' : ' ' + s);
 }
